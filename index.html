@@ -492,6 +492,21 @@ body::before {
 .empty h3 { font-family: 'DM Serif Display', serif; font-size: 1.1rem; margin-bottom: 0.3rem; }
 .empty p { color: var(--text-muted); font-size: 0.88rem; }
 
+/* ═══ SEARCH & BULK ═══ */
+.search-bar { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.search-bar input { flex: 1; min-width: 160px; padding: 0.5rem 0.75rem; border: 1px solid var(--border); border-radius: 8px; font-size: 0.84rem; font-family: inherit; background: var(--surface); }
+.search-bar input:focus { outline: none; border-color: var(--teal); }
+.bulk-actions { display: flex; align-items: center; gap: 0.5rem; }
+.bulk-actions #bulkCount { font-size: 0.78rem; font-weight: 700; color: var(--navy); }
+.card-select { position: absolute; top: 0.5rem; left: 0.5rem; z-index: 2; }
+.card-select input { width: 16px; height: 16px; cursor: pointer; accent-color: var(--navy); }
+.card { position: relative; }
+.card.selected { border-color: var(--teal); box-shadow: 0 0 0 2px rgba(20,93,122,0.2); }
+.card-expired-badge { display: inline-block; font-size: 0.68rem; font-weight: 700; background: var(--crimson); color: #fff; padding: 0.1rem 0.4rem; border-radius: 4px; margin-left: 0.4rem; }
+.card-expiry { font-size: 0.73rem; color: var(--text-muted); }
+.card-expiry.expiring-soon { color: var(--orange); font-weight: 600; }
+.card-expiry.expired { color: var(--crimson); font-weight: 600; }
+
 /* ═══ ANALYTICS ═══ */
 .modal-wide { max-width: 560px; }
 .analytics-period { display: flex; gap: 0.4rem; margin-bottom: 1rem; }
@@ -615,6 +630,14 @@ body::before {
         <h2>Your Links</h2>
         <button class="btn btn-gold" onclick="openCreate()">+ New Link</button>
       </div>
+      <div class="search-bar" id="searchBar" style="display:none">
+        <input type="text" id="searchInput" placeholder="Search links..." oninput="render()">
+        <div class="bulk-actions" id="bulkActions" style="display:none">
+          <span id="bulkCount">0 selected</span>
+          <button class="btn btn-danger-ghost btn-xs" onclick="bulkDelete()">Delete Selected</button>
+          <button class="btn btn-soft btn-xs" onclick="clearSelection()">Cancel</button>
+        </div>
+      </div>
       <div class="empty" id="emptyMsg">
         <div class="empty-icon">&#9901;</div>
         <h3>No links yet</h3>
@@ -635,6 +658,10 @@ body::before {
       <div class="field">
         <label>Default Destination URL</label>
         <input type="url" id="fUrl" placeholder="https://youtube.com/watch?v=...">
+      </div>
+      <div class="field">
+        <label>Expires <span style="font-weight:400;font-size:0.76rem;color:var(--text-muted)">(optional — leave blank for no expiry)</span></label>
+        <input type="datetime-local" id="fExpiry">
       </div>
       <div class="rules-section">
         <h4>
@@ -817,6 +844,7 @@ function openCreate() {
   document.getElementById('editSaveBtn').textContent = 'Create';
   document.getElementById('fLabel').value = '';
   document.getElementById('fUrl').value = '';
+  document.getElementById('fExpiry').value = '';
   renderRuleEditors();
   openModal('editOverlay');
 }
@@ -830,6 +858,7 @@ function openEdit(id) {
   document.getElementById('editSaveBtn').textContent = 'Save';
   document.getElementById('fLabel').value = c.label;
   document.getElementById('fUrl').value = c.url;
+  document.getElementById('fExpiry').value = c.expires_at ? new Date(c.expires_at).toISOString().slice(0, 16) : '';
   renderRuleEditors();
   openModal('editOverlay');
 }
@@ -840,6 +869,8 @@ async function saveLink() {
   try { new URL(url); } catch(e) { return toast('Please enter a valid URL'); }
   collectRulesFromDOM();
   const rules = tempRules.filter(r => r.url && (r.days.length > 0 || r.startTime || r.endTime));
+  const expiryVal = document.getElementById('fExpiry').value;
+  const expires_at = expiryVal ? new Date(expiryVal).toISOString() : null;
 
   try {
     if (editId) {
@@ -852,13 +883,13 @@ async function saveLink() {
       const updRes = await fetch(SUPABASE_URL + '/rest/v1/links?id=eq.' + editId, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + token },
-        body: JSON.stringify({ label, url, rules, history, updated_at: new Date().toISOString() })
+        body: JSON.stringify({ label, url, rules, history, expires_at, updated_at: new Date().toISOString() })
       });
       if (!updRes.ok) { console.error('Update error:', await updRes.text()); return toast('Update failed'); }
       toast('Link updated!', true);
     } else {
       if (!currentUser) return toast('Not signed in — please refresh');
-      const payload = { user_id: currentUser.id, slug: genSlug(), label, url, rules, history: [] };
+      const payload = { user_id: currentUser.id, slug: genSlug(), label, url, rules, history: [], expires_at };
       const token = currentSession?.access_token || SUPABASE_ANON;
       const fetchRes = await fetch(SUPABASE_URL + '/rest/v1/links', {
         method: 'POST',
@@ -937,26 +968,89 @@ function renderRuleEditors() {
   `).join('');
 }
 
+// ─── Selection ───
+let selectedIds = new Set();
+
+function toggleSelect(id) {
+  if (selectedIds.has(id)) selectedIds.delete(id); else selectedIds.add(id);
+  updateBulkUI();
+  document.querySelector(`.card[data-id="${id}"]`)?.classList.toggle('selected', selectedIds.has(id));
+}
+
+function clearSelection() {
+  selectedIds.clear();
+  updateBulkUI();
+  document.querySelectorAll('.card.selected').forEach(el => el.classList.remove('selected'));
+  document.querySelectorAll('.card-select input').forEach(cb => cb.checked = false);
+}
+
+function updateBulkUI() {
+  const bar = document.getElementById('bulkActions');
+  bar.style.display = selectedIds.size > 0 ? 'flex' : 'none';
+  document.getElementById('bulkCount').textContent = selectedIds.size + ' selected';
+}
+
+async function bulkDelete() {
+  if (!selectedIds.size) return;
+  if (!confirm(`Delete ${selectedIds.size} link${selectedIds.size > 1 ? 's' : ''}? Printed QR codes will stop working.`)) return;
+  const token = currentSession?.access_token || SUPABASE_ANON;
+  const ids = [...selectedIds];
+  const res = await fetch(SUPABASE_URL + '/rest/v1/links?id=in.(' + ids.join(',') + ')', {
+    method: 'DELETE',
+    headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + token }
+  });
+  if (!res.ok) return toast('Bulk delete failed');
+  selectedIds.clear();
+  await loadLinks();
+  render();
+  toast(ids.length + ' link' + (ids.length > 1 ? 's' : '') + ' deleted');
+}
+
+function getExpiryStatus(c) {
+  if (!c.expires_at) return null;
+  const exp = new Date(c.expires_at);
+  const now = new Date();
+  if (exp <= now) return 'expired';
+  const hoursLeft = (exp - now) / 3600000;
+  if (hoursLeft <= 24) return 'expiring-soon';
+  return 'active';
+}
+
 // ─── Rendering ───
 function render() {
   const list = document.getElementById('cardList'), empty = document.getElementById('emptyMsg');
-  if (!list || !empty) return;            // DOM not ready yet
+  if (!list || !empty) return;
   document.getElementById('sTotal').textContent = myLinks.length;
   document.getElementById('sScans').textContent = myLinks.reduce((s, c) => s + (c.scans || 0), 0);
   document.getElementById('sRules').textContent = myLinks.filter(c => c.rules?.length > 0).length;
-  if (!myLinks.length) { empty.style.display = 'block'; list.querySelectorAll('.card').forEach(e => e.remove()); return; }
+
+  // Show/hide search bar
+  document.getElementById('searchBar').style.display = myLinks.length > 0 ? 'flex' : 'none';
+
+  if (!myLinks.length) { empty.style.display = 'block'; list.innerHTML = ''; return; }
   empty.style.display = 'none';
-  const sorted = [...myLinks].sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+
+  // Filter by search
+  const query = (document.getElementById('searchInput')?.value || '').toLowerCase();
+  let filtered = myLinks;
+  if (query) {
+    filtered = myLinks.filter(c => c.label.toLowerCase().includes(query) || c.url.toLowerCase().includes(query) || c.slug.toLowerCase().includes(query));
+  }
+
+  const sorted = [...filtered].sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
   list.innerHTML = sorted.map(c => {
     const link = BASE + '#/q/' + c.slug;
     const hasRules = c.rules?.length > 0;
     const active = hasRules ? getActiveRule(c) : null;
     const dest = active ? active.url : c.url;
+    const expStatus = getExpiryStatus(c);
+    const isExpired = expStatus === 'expired';
     return `
-    <div class="card">
+    <div class="card${selectedIds.has(c.id) ? ' selected' : ''}" data-id="${c.id}">
+      <div class="card-select"><input type="checkbox" ${selectedIds.has(c.id) ? 'checked' : ''} onclick="toggleSelect('${c.id}')"></div>
       <div class="card-qr" id="qr-${c.id}"></div>
       <div class="card-body">
-        <div class="card-label">${esc(c.label)}</div>
+        <div class="card-label">${esc(c.label)}${isExpired ? '<span class="card-expired-badge">EXPIRED</span>' : ''}</div>
         <div class="card-url">&#8594; ${esc(dest)}${active ? ' <span style="color:var(--teal);font-weight:600">(rule active)</span>' : ''}</div>
         <div class="card-link-row">
           <span class="card-link-url"><a href="${link}" target="_blank">${link}</a></span>
@@ -966,6 +1060,7 @@ function render() {
         <div class="card-meta">
           <span class="scans" style="cursor:pointer" onclick="openAnalytics('${c.id}')">${c.scans || 0} scans</span>
           ${hasRules ? `<span class="card-rules-badge">&#9881; ${c.rules.length} rule${c.rules.length > 1 ? 's' : ''}</span>` : ''}
+          ${c.expires_at ? `<span class="card-expiry ${expStatus}">${isExpired ? 'Expired' : 'Expires'} ${timeAgo(c.expires_at)}</span>` : ''}
           <span>Updated ${timeAgo(c.updated_at)}</span>
         </div>
         <div class="card-actions">
@@ -1375,6 +1470,12 @@ async function handleRedirect() {
     return true;
   }
 
+  // Check expiration
+  if (data.expires_at && new Date(data.expires_at) <= new Date()) {
+    document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:'Nunito Sans',sans-serif;color:#093554;background:#F7F6F3;text-align:center;padding:2rem"><div><h1 style="font-family:'DM Serif Display',serif;font-size:1.5rem;margin-bottom:0.5rem;color:#a42547">Link Expired</h1><p style="color:#5A7080">This QR code is no longer active.</p></div></div>`;
+    return true;
+  }
+
   // Evaluate routing rules client-side
   const rules = data.rules || [];
   const activeRule = getActiveRule({ rules });
@@ -1388,7 +1489,7 @@ function genSlug() { return Math.random().toString(36).slice(2,8); }
 function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-function timeAgo(d) { const s=Math.floor((Date.now()-new Date(d))/1000); if(s<60)return'just now'; if(s<3600)return Math.floor(s/60)+'m ago'; if(s<86400)return Math.floor(s/3600)+'h ago'; if(s<2592e6)return Math.floor(s/86400)+'d ago'; return new Date(d).toLocaleDateString(); }
+function timeAgo(d) { const diff=Date.now()-new Date(d); const s=Math.floor(Math.abs(diff)/1000); const suffix=diff<0?'':'ago'; const prefix=diff<0?'in ':''; if(s<60)return diff<0?'in a moment':'just now'; if(s<3600)return prefix+Math.floor(s/60)+'m '+suffix; if(s<86400)return prefix+Math.floor(s/3600)+'h '+suffix; if(s<2592e6)return prefix+Math.floor(s/86400)+'d '+suffix; return new Date(d).toLocaleDateString(); }
 function toast(msg,ok) { const el=document.getElementById('toast'); el.textContent=msg; el.className='toast show'+(ok?' ok':''); setTimeout(()=>el.className='toast',2400); }
 
 document.querySelectorAll('.overlay').forEach(o => { o.addEventListener('click', e => { if(e.target===o) o.classList.remove('open'); }); });
