@@ -776,31 +776,39 @@ function openEdit(id) {
 async function saveLink() {
   const label = val('fLabel'), url = val('fUrl');
   if (!label || !url) return toast('Please fill in label and URL');
-  try { new URL(url); } catch { return toast('Please enter a valid URL'); }
+  try { new URL(url); } catch(e) { return toast('Please enter a valid URL'); }
   collectRulesFromDOM();
   const rules = tempRules.filter(r => r.url && (r.days.length > 0 || r.startTime || r.endTime));
 
-  if (editId) {
-    const existing = myLinks.find(c => c.id === editId);
-    const history = existing?.history || [];
-    if (existing && existing.url !== url) {
-      history.push({ url: existing.url, at: new Date().toISOString() });
+  try {
+    if (editId) {
+      const existing = myLinks.find(c => c.id === editId);
+      const history = existing?.history || [];
+      if (existing && existing.url !== url) {
+        history.push({ url: existing.url, at: new Date().toISOString() });
+      }
+      const { error } = await sb.from('links')
+        .update({ label, url, rules, history, updated_at: new Date().toISOString() })
+        .eq('id', editId);
+      if (error) { console.error('Update error:', error); return toast('Update failed: ' + error.message); }
+      toast('Link updated!', true);
+    } else {
+      if (!currentUser) return toast('Not signed in — please refresh');
+      const payload = { user_id: currentUser.id, slug: genSlug(), label, url, rules, history: [] };
+      console.log('Inserting link:', payload);
+      const { data, error } = await sb.from('links').insert(payload).select();
+      if (error) { console.error('Insert error:', error); return toast('Create failed: ' + error.message); }
+      console.log('Insert success:', data);
+      toast('Link created!', true);
     }
-    const { error } = await sb.from('links')
-      .update({ label, url, rules, history, updated_at: new Date().toISOString() })
-      .eq('id', editId);
-    if (error) return toast('Update failed: ' + error.message);
-    toast('Link updated!', true);
-  } else {
-    const { error } = await sb.from('links')
-      .insert({ user_id: currentUser.id, slug: genSlug(), label, url, rules, history: [] });
-    if (error) return toast('Create failed: ' + error.message);
-    toast('Link created!', true);
-  }
 
-  closeModal('editOverlay');
-  await loadLinks();
-  render();
+    closeModal('editOverlay');
+    await loadLinks();
+    render();
+  } catch(e) {
+    console.error('saveLink exception:', e);
+    toast('Error: ' + e.message);
+  }
 }
 
 async function deleteLink(id) {
