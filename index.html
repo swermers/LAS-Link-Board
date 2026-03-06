@@ -740,12 +740,13 @@ async function enter(user) {
 
 // ─── Data ───
 async function loadLinks() {
-  const { data, error } = await sb.from('links')
-    .select('*')
-    .eq('user_id', currentUser.id)
-    .order('updated_at', { ascending: false });
-  if (error) { toast('Failed to load links'); console.error(error); return; }
-  myLinks = data || [];
+  const token = currentSession?.access_token || SUPABASE_ANON;
+  const url = SUPABASE_URL + '/rest/v1/links?user_id=eq.' + currentUser.id + '&order=updated_at.desc';
+  const res = await fetch(url, {
+    headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + token }
+  });
+  if (!res.ok) { toast('Failed to load links'); console.error(await res.text()); return; }
+  myLinks = await res.json();
 }
 
 // ─── CRUD ───
@@ -788,19 +789,18 @@ async function saveLink() {
       if (existing && existing.url !== url) {
         history.push({ url: existing.url, at: new Date().toISOString() });
       }
-      const { error } = await sb.from('links')
-        .update({ label, url, rules, history, updated_at: new Date().toISOString() })
-        .eq('id', editId);
-      if (error) { console.error('Update error:', error); return toast('Update failed: ' + error.message); }
+      const token = currentSession?.access_token || SUPABASE_ANON;
+      const updRes = await fetch(SUPABASE_URL + '/rest/v1/links?id=eq.' + editId, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({ label, url, rules, history, updated_at: new Date().toISOString() })
+      });
+      if (!updRes.ok) { console.error('Update error:', await updRes.text()); return toast('Update failed'); }
       toast('Link updated!', true);
     } else {
       if (!currentUser) return toast('Not signed in — please refresh');
       const payload = { user_id: currentUser.id, slug: genSlug(), label, url, rules, history: [] };
-      console.log('Inserting link:', payload);
-
-      // Direct fetch to bypass hanging Supabase client
       const token = currentSession?.access_token || SUPABASE_ANON;
-      console.log('Using token:', token ? token.substring(0, 20) + '...' : 'NONE');
       const fetchRes = await fetch(SUPABASE_URL + '/rest/v1/links', {
         method: 'POST',
         headers: {
@@ -811,9 +811,7 @@ async function saveLink() {
         },
         body: JSON.stringify(payload)
       });
-      const fetchBody = await fetchRes.text();
-      console.log('Insert status:', fetchRes.status, 'body:', fetchBody);
-      if (!fetchRes.ok) { return toast('Create failed: ' + fetchBody); }
+      if (!fetchRes.ok) { return toast('Create failed: ' + (await fetchRes.text())); }
       toast('Link created!', true);
     }
 
@@ -828,8 +826,12 @@ async function saveLink() {
 
 async function deleteLink(id) {
   if (!confirm('Delete this link? Printed QR codes will stop working.')) return;
-  const { error } = await sb.from('links').delete().eq('id', id);
-  if (error) return toast('Delete failed: ' + error.message);
+  const token = currentSession?.access_token || SUPABASE_ANON;
+  const delRes = await fetch(SUPABASE_URL + '/rest/v1/links?id=eq.' + id, {
+    method: 'DELETE',
+    headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + token }
+  });
+  if (!delRes.ok) return toast('Delete failed');
   await loadLinks();
   render();
   toast('Link deleted');
