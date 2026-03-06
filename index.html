@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LAS LinkBoard — Dynamic QR Codes</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,opsz,wght@0,6..12,400;0,6..12,600;0,6..12,700;0,6..12,800&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* LAS Official Brand Colors */
+  --crimson: #a42547;       /* Pantone 201C — primary brand red */
+  --orange: #ea6733;        /* Pantone 1575C — warm accent */
+  --red-orange: #d43b1b;    /* Pantone 1665C — bold action */
+  --navy: #093554;          /* Pantone 534C — deep navy */
+  --teal: #145d7a;          /* Pantone 7701C — alpine teal */
+  --crimson-hover: #8C1F3B;
+  --crimson-light: #F9ECF0;
+  --crimson-glow: rgba(164,37,71,0.12);
+  --orange-light: #FDF0EB;
+  --navy-light: #0D4A73;
+  --teal-light: #E6F0F4;
+  --bg: #F7F6F3;
+  --surface: #FFFFFF;
+  --surface-alt: #F0EDE8;
+  --border: #DDD8CE;
+  --text: #093554;
+  --text-muted: #5A7080;
+  --danger: #d43b1b;
+  --danger-light: #FDE9E5;
+  --radius: 12px;
+  --shadow: 0 2px 8px rgba(9,53,84,0.06);
+  --shadow-lg: 0 8px 32px rgba(9,53,84,0.1);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Nunito Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ═══ Alpine-inspired background ═══ */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 15% 5%, rgba(164,37,71,0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 85% 95%, rgba(27,42,74,0.04) 0%, transparent 50%);
+  pointer-events: none;
+}
+
+.app { position: relative; z-index: 1; }
+
+/* ═══ AUTH SCREEN ═══ */
+.auth-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 1.5rem;
+  background: linear-gradient(160deg, var(--navy) 0%, #1A2A3D 50%, #3D1628 100%);
+}
+
+.auth-card {
+  background: var(--surface);
+  border-radius: 18px;
+  padding: 2.5rem;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.2);
+  animation: appear 0.4s ease;
+}
+
+@keyframes appear {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.auth-brand {
+  text-align: center;
+  margin-bottom: 1.75rem;
+}
+
+.auth-crest {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 0.75rem;
+  background: var(--navy);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.05em;
+  border: 2.5px solid var(--crimson);
+}
+
+.auth-brand h1 {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--crimson);
+  letter-spacing: -0.01em;
+}
+
+.auth-brand .school-name {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-top: 0.15rem;
+}
+
+.auth-brand p {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  margin-top: 0.5rem;
+}
+
+/* ═══ Google Sign-In Button ═══ */
+.google-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-bottom: 1.25rem;
+}
+
+.google-btn:hover {
+  border-color: var(--navy-light);
+  box-shadow: 0 2px 8px rgba(27,42,74,0.08);
+  transform: translateY(-1px);
+}
+
+.google-btn svg { width: 20px; height: 20px; flex-shrink: 0; }
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1.25rem 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.auth-divider::before, .auth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ═══ FORM FIELDS ═══ */
+.field { margin-bottom: 0.9rem; }
+
+.field label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.35rem;
+}
+
+.field input, .field select {
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  background: var(--surface-alt);
+  border: 1.5px solid var(--border);
+  border-radius: 9px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.92rem;
+  transition: all 0.2s;
+}
+
+.field input:focus, .field select:focus {
+  outline: none;
+  border-color: #fff;
+  box-shadow: 0 0 0 3px var(--crimson-glow);
+  background: var(--surface);
+}
+
+.field input::placeholder { color: #AAA49A; }
+
+/* ═══ BUTTONS ═══ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.6rem 1.1rem;
+  border: none;
+  border-radius: 9px;
+  font-family: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-decoration: none;
+}
+
+.btn-primary { background: var(--navy); color: #fff; }
+.btn-primary:hover { background: var(--navy-light); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(27,42,74,0.2); }
+.btn-primary.full { width: 100%; }
+
+.btn-gold { background: var(--crimson); color: #fff; }
+.btn-gold:hover { background: var(--crimson-hover); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(164,37,71,0.25); }
+
+.btn-soft { background: var(--orange-light); color: var(--orange); border: 1px solid rgba(234,103,51,0.18); }
+.btn-soft:hover { background: #FAE0D4; }
+
+.btn-outline { background: transparent; border: 1.5px solid var(--border); color: var(--text); }
+.btn-outline:hover { background: var(--surface-alt); border-color: var(--text-muted); }
+
+.btn-ghost { background: transparent; color: var(--text-muted); }
+.btn-ghost:hover { color: var(--text); background: var(--surface-alt); }
+
+.btn-danger-ghost { background: transparent; color: var(--danger); }
+.btn-danger-ghost:hover { background: var(--danger-light); }
+
+.btn-sm { padding: 0.4rem 0.75rem; font-size: 0.8rem; }
+.btn-xs { padding: 0.3rem 0.6rem; font-size: 0.75rem; border-radius: 7px; }
+
+.auth-toggle {
+  text-align: center;
+  margin-top: 1.1rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.auth-toggle a { color: var(--navy); cursor: pointer; font-weight: 700; text-decoration: none; }
+.auth-toggle a:hover { text-decoration: underline; }
+
+/* ═══ DASHBOARD ═══ */
+.dashboard { display: none; }
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  height: 56px;
+  background: var(--navy);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  border-bottom: 3px solid var(--crimson);
+}
+
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.topbar-crest {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1.5px solid var(--crimson);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'DM Serif Display', serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.topbar-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.topbar-right { display: flex; align-items: center; gap: 0.75rem; }
+.topbar-user { font-size: 0.82rem; font-weight: 600; color: rgba(255,255,255,0.7); }
+.topbar .btn-ghost { color: rgba(255,255,255,0.6); }
+.topbar .btn-ghost:hover { color: #fff; background: rgba(255,255,255,0.1); }
+
+.main { max-width: 860px; margin: 0 auto; padding: 1.5rem; }
+
+/* ═══ STATS ═══ */
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-bottom: 1.5rem; }
+
+.stat {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  box-shadow: var(--shadow);
+}
+
+.stat-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.stat-val {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--crimson);
+  margin-top: 0.15rem;
+}
+
+/* ═══ HEADER ═══ */
+.page-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
+.page-head h2 { font-family: 'DM Serif Display', serif; font-size: 1.35rem; font-weight: 700; }
+
+/* ═══ QR CARDS ═══ */
+.cards { display: flex; flex-direction: column; gap: 0.75rem; }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.2rem;
+  box-shadow: var(--shadow);
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  gap: 1.2rem;
+  align-items: start;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  animation: appear 0.3s ease;
+}
+.card:hover { border-color: #fff; box-shadow: 0 4px 16px rgba(197,150,59,0.08); }
+
+.card-qr {
+  width: 88px; height: 88px;
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden; flex-shrink: 0;
+}
+.card-qr canvas, .card-qr img { width: 78px !important; height: 78px !important; }
+
+.card-body { min-width: 0; }
+.card-label { font-size: 1rem; font-weight: 700; color: var(--navy); line-height: 1.3; }
+.card-url { font-size: 0.78rem; color: var(--text-muted); word-break: break-all; line-height: 1.4; margin-top: 0.15rem; }
+
+.card-link-row {
+  display: flex; align-items: center; gap: 0.5rem;
+  margin: 0.45rem 0; padding: 0.35rem 0.6rem;
+  background: var(--crimson-light); border-radius: 8px; font-size: 0.78rem;
+}
+.card-link-url { color: var(--crimson); font-weight: 600; word-break: break-all; flex: 1; }
+.card-link-url a { color: inherit; text-decoration: none; }
+.card-link-url a:hover { text-decoration: underline; }
+
+.card-meta { display: flex; flex-wrap: wrap; gap: 0.6rem; font-size: 0.73rem; color: var(--text-muted); margin-top: 0.35rem; }
+.card-meta .scans { color: var(--teal); font-weight: 700; }
+
+.card-rules-badge {
+  display: inline-flex; align-items: center; gap: 0.2rem;
+  padding: 0.12rem 0.45rem;
+  background: var(--teal-light); color: var(--teal);
+  border-radius: 5px; font-size: 0.7rem; font-weight: 700;
+}
+
+.card-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.5rem; }
+
+/* ═══ RULES PREVIEW ═══ */
+.rules-preview {
+  margin-top: 0.45rem; padding: 0.45rem 0.65rem;
+  background: var(--surface-alt); border-radius: 8px; border: 1px solid var(--border);
+}
+.rule-row {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.25rem 0; font-size: 0.76rem; border-bottom: 1px solid var(--border);
+}
+.rule-row:last-child { border-bottom: none; }
+.rule-when { font-weight: 700; color: var(--teal); white-space: nowrap; }
+.rule-dest { color: var(--text-muted); word-break: break-all; flex: 1; }
+
+/* ═══ MODALS ═══ */
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(27,42,74,0.4); backdrop-filter: blur(4px);
+  display: none; align-items: center; justify-content: center;
+  z-index: 200; padding: 1.5rem;
+}
+.overlay.open { display: flex; }
+
+.modal {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 18px; padding: 2rem; width: 100%; max-width: 520px;
+  max-height: 90vh; overflow-y: auto;
+  box-shadow: var(--shadow-lg); animation: appear 0.25s ease;
+}
+.modal h3 { font-family: 'DM Serif Display', serif; font-size: 1.2rem; margin-bottom: 1.2rem; }
+.modal-foot { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1.5rem; }
+
+/* ═══ RULES EDITOR ═══ */
+.rules-section { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+.rules-section h4 {
+  font-size: 0.8rem; font-weight: 700; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.5rem;
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+.rule-editor {
+  background: var(--surface-alt); border: 1px solid var(--border);
+  border-radius: 10px; padding: 0.7rem; margin-bottom: 0.5rem;
+  animation: appear 0.2s ease;
+}
+.rule-editor-row { display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.45rem; flex-wrap: wrap; }
+.rule-editor-row:last-child { margin-bottom: 0; }
+.rule-editor .field { margin-bottom: 0; flex: 1; min-width: 110px; }
+.rule-editor .field input, .rule-editor .field select { padding: 0.45rem 0.6rem; font-size: 0.84rem; }
+
+.rule-remove { background: none; border: none; color: var(--crimson); cursor: pointer; font-size: 1.1rem; padding: 0.2rem; border-radius: 6px; }
+.rule-remove:hover { background: var(--crimson-light); }
+
+/* ═══ DAY PICKER ═══ */
+.day-picker { display: flex; gap: 0.25rem; flex-wrap: wrap; }
+.day-chip {
+  padding: 0.28rem 0.5rem; border-radius: 6px; font-size: 0.73rem; font-weight: 700;
+  border: 1.5px solid var(--border); background: var(--surface); color: var(--text-muted);
+  cursor: pointer; transition: all 0.15s; user-select: none;
+}
+.day-chip.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+.day-chip:hover:not(.active) { border-color: var(--crimson); color: var(--crimson); }
+
+/* ═══ DOWNLOAD ═══ */
+.dl-preview { display: flex; justify-content: center; padding: 1.5rem; background: #fff; border-radius: var(--radius); border: 1px solid var(--border); margin: 1rem 0; }
+.dl-btns { display: flex; gap: 0.5rem; justify-content: center; }
+
+/* ═══ EMPTY ═══ */
+.empty { text-align: center; padding: 3rem 1.5rem; }
+.empty-icon { font-size: 2.5rem; margin-bottom: 0.6rem; opacity: 0.35; }
+.empty h3 { font-family: 'DM Serif Display', serif; font-size: 1.1rem; margin-bottom: 0.3rem; }
+.empty p { color: var(--text-muted); font-size: 0.88rem; }
+
+/* ═══ TOAST ═══ */
+.toast {
+  position: fixed; bottom: 1.5rem; right: 1.5rem;
+  padding: 0.65rem 1rem; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; font-size: 0.84rem; font-weight: 600;
+  box-shadow: var(--shadow-lg); transform: translateY(80px); opacity: 0;
+  transition: all 0.25s ease; z-index: 300;
+}
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.ok { border-color: var(--teal); color: var(--teal); }
+
+/* ═══ RESPONSIVE ═══ */
+@media (max-width: 600px) {
+  .card { grid-template-columns: 1fr; }
+  .card-qr { margin: 0 auto; }
+  .stats { grid-template-columns: 1fr; }
+  .page-head { flex-direction: column; gap: 0.75rem; align-items: stretch; }
+  .page-head .btn-gold { width: 100%; }
+  .topbar { padding: 0 1rem; }
+  .main { padding: 1rem; }
+  .auth-card { padding: 1.75rem; }
+  .rule-editor-row { flex-direction: column; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ═══ AUTH ═══ -->
+  <div class="auth-screen" id="authScreen">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <img src="https://resources.finalsite.net/images/f_auto,q_auto,t_image_size_1/v1728042498/lasch/diqeqgjdqjuhcfswwovk/LAS_Logo_WEB_Horizontal.png" alt="Leysin American School" class="auth-logo-img" style="width:220px;margin:0 auto 1rem;display:block;" onerror="this.style.display='none';document.getElementById('authCrestFallback').style.display='flex'"><div id="authCrestFallback" style="display:none;width:64px;height:64px;margin:0 auto 0.75rem;background:var(--navy);border-radius:50%;align-items:center;justify-content:center;font-family:'DM Serif Display',serif;font-size:1.35rem;font-weight:700;color:#fff;border:2.5px solid var(--crimson)">LAS</div>
+        <h1>LinkBoard</h1>
+        <div class="school-name">Dynamic QR codes for your classroom</div>
+      </div>
+
+      <!-- Google Sign-In -->
+      <button class="google-btn" onclick="doGoogleLogin()">
+        <svg viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18A10.96 10.96 0 0 0 1 12c0 1.77.42 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+        Sign in with Google
+      </button>
+
+      <div class="auth-divider">or sign in with email</div>
+
+      <!-- Email Login -->
+      <div id="loginForm">
+        <div class="field">
+          <label>Email</label>
+          <input type="email" id="loginEmail" placeholder="you@las.ch">
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <input type="password" id="loginPassword" placeholder="Enter password">
+        </div>
+        <button class="btn btn-primary full" onclick="doLogin()">Sign In</button>
+        <p class="auth-toggle">New here? <a onclick="flip('register')">Create account</a></p>
+      </div>
+
+      <div id="registerForm" style="display:none">
+        <div class="field">
+          <label>Your Name</label>
+          <input type="text" id="regName" placeholder="Ms. Garcia">
+        </div>
+        <div class="field">
+          <label>Email</label>
+          <input type="email" id="regEmail" placeholder="you@las.ch">
+        </div>
+        <div class="field">
+          <label>Password</label>
+          <input type="password" id="regPassword" placeholder="6+ characters">
+        </div>
+        <button class="btn btn-primary full" onclick="doRegister()">Create Account</button>
+        <p class="auth-toggle">Have an account? <a onclick="flip('login')">Sign in</a></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ DASHBOARD ═══ -->
+  <div class="dashboard" id="dash">
+    <div class="topbar">
+      <div class="topbar-brand">
+        <img src="https://resources.finalsite.net/images/f_auto,q_auto,t_image_size_1/v1728042498/lasch/diqeqgjdqjuhcfswwovk/LAS_Logo_WEB_Horizontal.png" alt="LAS" style="height:28px;filter:brightness(0) invert(1);opacity:0.95;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="display:none;width:32px;height:32px;border-radius:50%;border:1.5px solid var(--crimson);align-items:center;justify-content:center;font-family:'DM Serif Display',serif;font-size:0.8rem;font-weight:700;color:#fff;">LAS</div>
+        <span style="color:rgba(255,255,255,0.3);margin:0 0.35rem">|</span>
+        <div class="topbar-title">LinkBoard</div>
+      </div>
+      <div class="topbar-right">
+        <span class="topbar-user" id="userName"></span>
+        <button class="btn btn-ghost btn-sm" onclick="doLogout()">Sign out</button>
+      </div>
+    </div>
+    <div class="main">
+      <div class="stats">
+        <div class="stat"><div class="stat-label">QR Codes</div><div class="stat-val" id="sTotal">0</div></div>
+        <div class="stat"><div class="stat-label">Total Scans</div><div class="stat-val" id="sScans">0</div></div>
+        <div class="stat"><div class="stat-label">With Rules</div><div class="stat-val" id="sRules">0</div></div>
+      </div>
+      <div class="page-head">
+        <h2>Your Links</h2>
+        <button class="btn btn-gold" onclick="openCreate()">+ New Link</button>
+      </div>
+      <div class="cards" id="cardList">
+        <div class="empty" id="emptyMsg">
+          <div class="empty-icon">&#9901;</div>
+          <h3>No links yet</h3>
+          <p>Create your first QR code — print it once, update the link anytime.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ CREATE / EDIT MODAL ═══ -->
+  <div class="overlay" id="editOverlay">
+    <div class="modal">
+      <h3 id="editTitle">New Link</h3>
+      <div class="field">
+        <label>Label</label>
+        <input type="text" id="fLabel" placeholder="e.g. Music of the Day">
+      </div>
+      <div class="field">
+        <label>Default Destination URL</label>
+        <input type="url" id="fUrl" placeholder="https://youtube.com/watch?v=...">
+      </div>
+      <div class="rules-section">
+        <h4>
+          Routing Rules <span style="font-weight:400;text-transform:none;font-size:0.76rem;color:var(--text-muted)">(optional)</span>
+          <button class="btn btn-soft btn-xs" onclick="addRuleRow()">+ Add Rule</button>
+        </h4>
+        <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:0.5rem;">
+          Send scanners to different URLs based on day or time. First match wins; otherwise the default URL is used.
+        </p>
+        <div id="rulesContainer"></div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-outline" onclick="closeModal('editOverlay')">Cancel</button>
+        <button class="btn btn-primary" id="editSaveBtn" onclick="saveLink()">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ DOWNLOAD MODAL ═══ -->
+  <div class="overlay" id="dlOverlay">
+    <div class="modal">
+      <h3>Download QR Code</h3>
+      <div class="dl-preview" id="dlPreview"></div>
+      <div class="dl-btns">
+        <button class="btn btn-primary" onclick="dlQR('png')">Download PNG</button>
+        <button class="btn btn-outline" onclick="dlQR('svg')">Download SVG</button>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-outline" onclick="closeModal('dlOverlay')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+//  LAS LinkBoard
+//  localStorage prototype
+//  Production: swap for Supabase + Google OAuth
+// ═══════════════════════════════════════
+
+const BASE = location.origin + location.pathname;
+const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const DAY_FULL = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
+
+// ─── Data ───
+const store = {
+  users: () => JSON.parse(localStorage.getItem('laslb_users') || '[]'),
+  saveUsers: u => localStorage.setItem('laslb_users', JSON.stringify(u)),
+  me: () => JSON.parse(sessionStorage.getItem('laslb_me') || 'null'),
+  setMe: u => sessionStorage.setItem('laslb_me', JSON.stringify(u)),
+  codes: () => JSON.parse(localStorage.getItem('laslb_codes') || '[]'),
+  saveCodes: c => localStorage.setItem('laslb_codes', JSON.stringify(c)),
+  myCodes() { const me = this.me(); return me ? this.codes().filter(c => c.uid === me.id) : []; }
+};
+
+// ─── Auth ───
+function flip(mode) {
+  document.getElementById('loginForm').style.display = mode === 'login' ? 'block' : 'none';
+  document.getElementById('registerForm').style.display = mode === 'register' ? 'block' : 'none';
+}
+
+function doGoogleLogin() {
+  // In production: Supabase auth.signInWithOAuth({ provider: 'google' })
+  // For prototype: simulate with a prompt
+  const email = prompt('Simulated Google Login\n\nEnter your @las.ch email:');
+  if (!email) return;
+  const name = email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  const users = store.users();
+  let user = users.find(u => u.email === email.toLowerCase());
+  if (!user) {
+    user = { id: crypto.randomUUID(), name, email: email.toLowerCase(), pw: '', created: new Date().toISOString() };
+    users.push(user);
+    store.saveUsers(users);
+  }
+  store.setMe({ id: user.id, name: user.name, email: user.email });
+  enter();
+  toast('Welcome, ' + user.name.split(' ')[0] + '!', true);
+}
+
+function doRegister() {
+  const name = val('regName'), email = val('regEmail').toLowerCase(), pw = val('regPassword');
+  if (!name || !email || !pw) return toast('Please fill in all fields');
+  if (pw.length < 6) return toast('Password must be 6+ characters');
+  const users = store.users();
+  if (users.find(u => u.email === email)) return toast('Account already exists');
+  const u = { id: crypto.randomUUID(), name, email, pw, created: new Date().toISOString() };
+  users.push(u);
+  store.saveUsers(users);
+  store.setMe({ id: u.id, name: u.name, email: u.email });
+  enter();
+  toast('Welcome to LinkBoard!', true);
+}
+
+function doLogin() {
+  const email = val('loginEmail').toLowerCase(), pw = val('loginPassword');
+  if (!email || !pw) return toast('Please enter email and password');
+  const u = store.users().find(u => u.email === email && u.pw === pw);
+  if (!u) return toast('Invalid email or password');
+  store.setMe({ id: u.id, name: u.name, email: u.email });
+  enter();
+  toast('Welcome back, ' + u.name.split(' ')[0] + '!', true);
+}
+
+function doLogout() {
+  sessionStorage.removeItem('laslb_me');
+  document.getElementById('authScreen').style.display = 'flex';
+  document.getElementById('dash').style.display = 'none';
+}
+
+function enter() {
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('dash').style.display = 'block';
+  document.getElementById('userName').textContent = store.me().name;
+  render();
+}
+
+// ─── CRUD ───
+let editId = null, tempRules = [];
+
+function openCreate() {
+  editId = null; tempRules = [];
+  document.getElementById('editTitle').textContent = 'New Link';
+  document.getElementById('editSaveBtn').textContent = 'Create';
+  document.getElementById('fLabel').value = '';
+  document.getElementById('fUrl').value = '';
+  renderRuleEditors();
+  openModal('editOverlay');
+}
+
+function openEdit(id) {
+  const c = store.codes().find(x => x.id === id);
+  if (!c) return;
+  editId = id;
+  tempRules = c.rules ? JSON.parse(JSON.stringify(c.rules)) : [];
+  document.getElementById('editTitle').textContent = 'Edit Link';
+  document.getElementById('editSaveBtn').textContent = 'Save';
+  document.getElementById('fLabel').value = c.label;
+  document.getElementById('fUrl').value = c.url;
+  renderRuleEditors();
+  openModal('editOverlay');
+}
+
+function saveLink() {
+  const label = val('fLabel'), url = val('fUrl');
+  if (!label || !url) return toast('Please fill in label and URL');
+  try { new URL(url); } catch { return toast('Please enter a valid URL'); }
+  collectRulesFromDOM();
+  const rules = tempRules.filter(r => r.url && (r.days.length > 0 || r.startTime || r.endTime));
+  const all = store.codes(), me = store.me();
+  if (editId) {
+    const idx = all.findIndex(c => c.id === editId);
+    if (idx < 0) return;
+    if (all[idx].url !== url) {
+      if (!all[idx].history) all[idx].history = [];
+      all[idx].history.push({ url: all[idx].url, at: new Date().toISOString() });
+    }
+    all[idx].label = label; all[idx].url = url; all[idx].rules = rules;
+    all[idx].updated = new Date().toISOString();
+    toast('Link updated!', true);
+  } else {
+    all.push({
+      id: crypto.randomUUID(), uid: me.id, slug: genSlug(),
+      label, url, rules, scans: 0, history: [],
+      created: new Date().toISOString(), updated: new Date().toISOString()
+    });
+    toast('Link created!', true);
+  }
+  store.saveCodes(all);
+  closeModal('editOverlay');
+  render();
+}
+
+function deleteLink(id) {
+  if (!confirm('Delete this link? Printed QR codes will stop working.')) return;
+  store.saveCodes(store.codes().filter(c => c.id !== id));
+  render();
+  toast('Link deleted');
+}
+
+// ─── Rules Editor ───
+function addRuleRow() { tempRules.push({ days: [], startTime: '', endTime: '', url: '' }); renderRuleEditors(); }
+function removeRule(i) { tempRules.splice(i, 1); renderRuleEditors(); }
+
+function collectRulesFromDOM() {
+  const eds = document.getElementById('rulesContainer').querySelectorAll('.rule-editor');
+  tempRules = [];
+  eds.forEach(ed => {
+    const days = [];
+    ed.querySelectorAll('.day-chip.active').forEach(c => days.push(c.dataset.day));
+    tempRules.push({
+      days, startTime: ed.querySelector('.r-start')?.value || '',
+      endTime: ed.querySelector('.r-end')?.value || '',
+      url: ed.querySelector('.r-url')?.value || ''
+    });
+  });
+}
+
+function renderRuleEditors() {
+  document.getElementById('rulesContainer').innerHTML = tempRules.map((r, i) => `
+    <div class="rule-editor">
+      <div class="rule-editor-row">
+        <div style="flex:1">
+          <label style="font-size:0.7rem;font-weight:700;color:var(--text-muted);margin-bottom:0.25rem;display:block">DAYS</label>
+          <div class="day-picker">
+            ${DAYS.map((d, di) => `<span class="day-chip ${r.days.includes(DAY_FULL[di]) ? 'active' : ''}" data-day="${DAY_FULL[di]}" onclick="this.classList.toggle('active')">${d}</span>`).join('')}
+          </div>
+        </div>
+        <button class="rule-remove" onclick="collectRulesFromDOM();removeRule(${i})" title="Remove">&times;</button>
+      </div>
+      <div class="rule-editor-row">
+        <div class="field"><label>From</label><input type="time" class="r-start" value="${r.startTime}"></div>
+        <div class="field"><label>Until</label><input type="time" class="r-end" value="${r.endTime}"></div>
+      </div>
+      <div class="rule-editor-row">
+        <div class="field" style="flex:1"><label>Destination URL</label><input type="url" class="r-url" value="${esc(r.url)}" placeholder="https://..."></div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ─── Rendering ───
+function render() {
+  const codes = store.myCodes();
+  document.getElementById('sTotal').textContent = codes.length;
+  document.getElementById('sScans').textContent = codes.reduce((s, c) => s + (c.scans || 0), 0);
+  document.getElementById('sRules').textContent = codes.filter(c => c.rules?.length > 0).length;
+  const list = document.getElementById('cardList'), empty = document.getElementById('emptyMsg');
+  if (!codes.length) { empty.style.display = 'block'; list.querySelectorAll('.card').forEach(e => e.remove()); return; }
+  empty.style.display = 'none';
+  const sorted = [...codes].sort((a, b) => new Date(b.updated) - new Date(a.updated));
+  list.innerHTML = sorted.map(c => {
+    const link = BASE + '#/q/' + c.slug;
+    const hasRules = c.rules?.length > 0;
+    const active = hasRules ? getActiveRule(c) : null;
+    const dest = active ? active.url : c.url;
+    return `
+    <div class="card">
+      <div class="card-qr" id="qr-${c.id}"></div>
+      <div class="card-body">
+        <div class="card-label">${esc(c.label)}</div>
+        <div class="card-url">&#8594; ${esc(dest)}${active ? ' <span style="color:var(--teal);font-weight:600">(rule active)</span>' : ''}</div>
+        <div class="card-link-row">
+          <span class="card-link-url"><a href="${link}" target="_blank">${link}</a></span>
+          <button class="btn btn-soft btn-xs" onclick="copyLink('${c.slug}')">Copy</button>
+        </div>
+        ${hasRules ? `<div class="rules-preview">${c.rules.map(r => `<div class="rule-row"><span class="rule-when">${fmtWhen(r)}</span><span class="rule-dest">&#8594; ${esc(r.url)}</span></div>`).join('')}<div class="rule-row" style="border:none"><span class="rule-when" style="color:var(--text-muted)">Otherwise</span><span class="rule-dest">&#8594; ${esc(c.url)}</span></div></div>` : ''}
+        <div class="card-meta">
+          <span class="scans">${c.scans || 0} scans</span>
+          ${hasRules ? `<span class="card-rules-badge">&#9881; ${c.rules.length} rule${c.rules.length > 1 ? 's' : ''}</span>` : ''}
+          <span>Updated ${timeAgo(c.updated)}</span>
+        </div>
+        <div class="card-actions">
+          <button class="btn btn-soft btn-xs" onclick="openEdit('${c.id}')">Edit</button>
+          <button class="btn btn-outline btn-xs" onclick="openDL('${c.id}')">Download QR</button>
+          <button class="btn btn-outline btn-xs" onclick="shareLink('${c.slug}')">Share</button>
+          <button class="btn btn-danger-ghost btn-xs" onclick="deleteLink('${c.id}')">Delete</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  sorted.forEach(c => {
+    const el = document.getElementById('qr-' + c.id);
+    if (el) { el.innerHTML = ''; new QRCode(el, { text: BASE + '#/q/' + c.slug, width: 78, height: 78, colorDark: '#a42547', colorLight: '#FFFFFF', correctLevel: QRCode.CorrectLevel.M }); }
+  });
+}
+
+// ─── Rule matching ───
+function getActiveRule(code) {
+  if (!code.rules?.length) return null;
+  const now = new Date();
+  const day = DAY_FULL[((now.getDay() + 6) % 7)];
+  const time = now.toTimeString().slice(0, 5);
+  for (const r of code.rules) {
+    if (r.days.length && !r.days.includes(day)) continue;
+    if (r.startTime && time < r.startTime) continue;
+    if (r.endTime && time > r.endTime) continue;
+    return r;
+  }
+  return null;
+}
+
+function fmtWhen(r) {
+  const p = [];
+  if (r.days.length > 0 && r.days.length < 7) p.push(r.days.map(d => d.slice(0,3).charAt(0).toUpperCase()+d.slice(1,3)).join(', '));
+  else if (r.days.length === 7) p.push('Every day');
+  if (r.startTime || r.endTime) p.push(fmtTime(r.startTime||'00:00')+'–'+fmtTime(r.endTime||'23:59'));
+  return p.join(' · ') || 'Always';
+}
+
+function fmtTime(t) { const [h,m] = t.split(':').map(Number); return (h%12||12) + (m?':'+String(m).padStart(2,'0'):'') + (h>=12?'pm':'am'); }
+
+// ─── Short link / share ───
+function copyLink(slug) {
+  const url = BASE + '#/q/' + slug;
+  navigator.clipboard.writeText(url).then(() => toast('Link copied!', true)).catch(() => {
+    const ta = document.createElement('textarea'); ta.value = url;
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta); toast('Link copied!', true);
+  });
+}
+
+function shareLink(slug) {
+  const url = BASE + '#/q/' + slug;
+  if (navigator.share) navigator.share({ title: 'LAS LinkBoard', url }).catch(()=>{});
+  else copyLink(slug);
+}
+
+// ─── Download ───
+let dlId = null;
+function openDL(id) {
+  dlId = id;
+  const c = store.codes().find(x => x.id === id); if (!c) return;
+  const el = document.getElementById('dlPreview'); el.innerHTML = '';
+  new QRCode(el, { text: BASE+'#/q/'+c.slug, width: 220, height: 220, colorDark: '#a42547', colorLight: '#FFFFFF', correctLevel: QRCode.CorrectLevel.H });
+  openModal('dlOverlay');
+}
+
+function dlQR(fmt) {
+  const c = store.codes().find(x => x.id === dlId); if (!c) return;
+  const canvas = document.getElementById('dlPreview').querySelector('canvas');
+  if (!canvas) return toast('QR not ready');
+  if (fmt === 'png') {
+    const a = document.createElement('a'); a.download = 'las-linkboard-'+c.slug+'.png';
+    a.href = canvas.toDataURL('image/png'); a.click();
+  } else {
+    const sz = 220, parts = [`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${sz} ${sz}" width="${sz}" height="${sz}"><rect width="${sz}" height="${sz}" fill="#fff"/>`];
+    const ctx = canvas.getContext('2d'), img = ctx.getImageData(0,0,canvas.width,canvas.height), mod = 4;
+    for (let y=0;y<canvas.height;y+=mod) for (let x=0;x<canvas.width;x+=mod) {
+      const i=(y*canvas.width+x)*4;
+      if (img.data[i]<128) { const sx=(x/canvas.width)*sz,sy=(y/canvas.height)*sz,sw=(mod/canvas.width)*sz,sh=(mod/canvas.height)*sz; parts.push(`<rect x="${sx}" y="${sy}" width="${sw}" height="${sh}" fill="#a42547"/>`); }
+    }
+    parts.push('</svg>');
+    const a = document.createElement('a'); a.download = 'las-linkboard-'+c.slug+'.svg';
+    a.href = URL.createObjectURL(new Blob([parts.join('')],{type:'image/svg+xml'})); a.click();
+  }
+  toast('Downloaded!', true);
+}
+
+// ─── Redirect ───
+function handleRedirect() {
+  const h = location.hash;
+  if (!h.startsWith('#/q/')) return false;
+  const slug = h.replace('#/q/',''), all = store.codes(), c = all.find(x=>x.slug===slug);
+  if (c) { c.scans=(c.scans||0)+1; store.saveCodes(all); const r=getActiveRule(c); window.location.href=r?r.url:c.url; return true; }
+  document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:'Nunito Sans',sans-serif;color:#093554;background:#F7F6F3;text-align:center;padding:2rem"><div><h1 style="font-family:'DM Serif Display',serif;font-size:1.5rem;margin-bottom:0.5rem;color:#a42547">Link Not Found</h1><p style="color:#5A7080">This QR code is no longer active.</p></div></div>`;
+  return true;
+}
+
+// ─── Util ───
+function val(id) { return document.getElementById(id).value.trim(); }
+function genSlug() { return Math.random().toString(36).slice(2,8); }
+function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function timeAgo(d) { const s=Math.floor((Date.now()-new Date(d))/1000); if(s<60)return'just now'; if(s<3600)return Math.floor(s/60)+'m ago'; if(s<86400)return Math.floor(s/3600)+'h ago'; if(s<2592e6)return Math.floor(s/86400)+'d ago'; return new Date(d).toLocaleDateString(); }
+function toast(msg,ok) { const el=document.getElementById('toast'); el.textContent=msg; el.className='toast show'+(ok?' ok':''); setTimeout(()=>el.className='toast',2400); }
+
+document.querySelectorAll('.overlay').forEach(o => { o.addEventListener('click', e => { if(e.target===o) o.classList.remove('open'); }); });
+document.getElementById('loginPassword').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+document.getElementById('regPassword').addEventListener('keydown', e => { if(e.key==='Enter') doRegister(); });
+
+if (!handleRedirect()) { if (store.me()) enter(); }
+</script>
+</body>
+</html>
