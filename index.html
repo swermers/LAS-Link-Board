@@ -685,6 +685,7 @@ const DAY_FULL = ['monday','tuesday','wednesday','thursday','friday','saturday',
 // ─── In-memory cache of user's links ───
 let myLinks = [];
 let currentUser = null;
+let currentSession = null;
 
 // ─── Auth ───
 function flip(mode) {
@@ -797,9 +798,8 @@ async function saveLink() {
       const payload = { user_id: currentUser.id, slug: genSlug(), label, url, rules, history: [] };
       console.log('Inserting link:', payload);
 
-      // Direct fetch to bypass Supabase client
-      const sess = sb.auth.session?.() || (await sb.auth.getSession?.())?.data?.session;
-      const token = sess?.access_token || SUPABASE_ANON;
+      // Direct fetch to bypass hanging Supabase client
+      const token = currentSession?.access_token || SUPABASE_ANON;
       console.log('Using token:', token ? token.substring(0, 20) + '...' : 'NONE');
       const fetchRes = await fetch(SUPABASE_URL + '/rest/v1/links', {
         method: 'POST',
@@ -1128,6 +1128,7 @@ document.getElementById('regPassword').addEventListener('keydown', e => { if(e.k
 
   // Listen for auth changes (login, logout, token refresh, OAuth redirect)
   sb.auth.onAuthStateChange(async (event, session) => {
+    currentSession = session;
     if (session?.user) {
       await enter(session.user);
       if (event === 'SIGNED_IN') {
