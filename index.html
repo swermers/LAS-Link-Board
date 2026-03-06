@@ -796,9 +796,24 @@ async function saveLink() {
       if (!currentUser) return toast('Not signed in — please refresh');
       const payload = { user_id: currentUser.id, slug: genSlug(), label, url, rules, history: [] };
       console.log('Inserting link:', payload);
-      const res = await sb.from('links').insert(payload);
-      console.log('Insert response:', JSON.stringify(res));
-      if (res.error) { console.error('Insert error:', res.error); return toast('Create failed: ' + res.error.message); }
+
+      // Direct fetch to bypass Supabase client
+      const sess = sb.auth.session?.() || (await sb.auth.getSession?.())?.data?.session;
+      const token = sess?.access_token || SUPABASE_ANON;
+      console.log('Using token:', token ? token.substring(0, 20) + '...' : 'NONE');
+      const fetchRes = await fetch(SUPABASE_URL + '/rest/v1/links', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_ANON,
+          'Authorization': 'Bearer ' + token,
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify(payload)
+      });
+      const fetchBody = await fetchRes.text();
+      console.log('Insert status:', fetchRes.status, 'body:', fetchBody);
+      if (!fetchRes.ok) { return toast('Create failed: ' + fetchBody); }
       toast('Link created!', true);
     }
 
