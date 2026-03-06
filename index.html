@@ -593,13 +593,12 @@ body::before {
         <h2>Your Links</h2>
         <button class="btn btn-gold" onclick="openCreate()">+ New Link</button>
       </div>
-      <div class="cards" id="cardList">
-        <div class="empty" id="emptyMsg">
-          <div class="empty-icon">&#9901;</div>
-          <h3>No links yet</h3>
-          <p>Create your first QR code — print it once, update the link anytime.</p>
-        </div>
+      <div class="empty" id="emptyMsg">
+        <div class="empty-icon">&#9901;</div>
+        <h3>No links yet</h3>
+        <p>Create your first QR code — print it once, update the link anytime.</p>
       </div>
+      <div class="cards" id="cardList"></div>
     </div>
   </div>
 
@@ -880,10 +879,11 @@ function renderRuleEditors() {
 
 // ─── Rendering ───
 function render() {
+  const list = document.getElementById('cardList'), empty = document.getElementById('emptyMsg');
+  if (!list || !empty) return;            // DOM not ready yet
   document.getElementById('sTotal').textContent = myLinks.length;
   document.getElementById('sScans').textContent = myLinks.reduce((s, c) => s + (c.scans || 0), 0);
   document.getElementById('sRules').textContent = myLinks.filter(c => c.rules?.length > 0).length;
-  const list = document.getElementById('cardList'), empty = document.getElementById('emptyMsg');
   if (!myLinks.length) { empty.style.display = 'block'; list.querySelectorAll('.card').forEach(e => e.remove()); return; }
   empty.style.display = 'none';
   const sorted = [...myLinks].sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
