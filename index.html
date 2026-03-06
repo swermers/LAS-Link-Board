@@ -695,6 +695,13 @@ body::before {
           <div class="color-swatch" data-color="#000000" style="background:#000000" onclick="pickColor(this)" title="Black"></div>
           <div class="color-swatch" data-color="#FFFFFF" style="background:#FFFFFF" onclick="pickColor(this)" title="White (dark bg)"></div>
         </div>
+        <div class="qr-options-label">Module Style</div>
+        <div class="logo-options" id="shapeOptions">
+          <div class="logo-option active" data-shape="square" onclick="pickShape(this)">Square</div>
+          <div class="logo-option" data-shape="rounded" onclick="pickShape(this)">Rounded</div>
+          <div class="logo-option" data-shape="dots" onclick="pickShape(this)">Dots</div>
+          <div class="logo-option" data-shape="diamond" onclick="pickShape(this)">Diamond</div>
+        </div>
         <div class="qr-options-label">Center Logo</div>
         <div class="logo-options" id="logoOptions">
           <div class="logo-option active" data-logo="none" onclick="pickLogo(this)">None</div>
@@ -1124,6 +1131,7 @@ function shareLink(slug) {
 let dlId = null;
 let dlColor = '#a42547';
 let dlLogo = 'none';
+let dlShape = 'square';
 
 const LOGO_URLS = {
   crest: '/public/LAS-black-lettering.png',
@@ -1154,8 +1162,15 @@ function pickColor(el) {
   regeneratePreview();
 }
 
+function pickShape(el) {
+  document.querySelectorAll('#shapeOptions .logo-option').forEach(o => o.classList.remove('active'));
+  el.classList.add('active');
+  dlShape = el.dataset.shape;
+  regeneratePreview();
+}
+
 function pickLogo(el) {
-  document.querySelectorAll('.logo-option').forEach(o => o.classList.remove('active'));
+  document.querySelectorAll('#logoOptions .logo-option').forEach(o => o.classList.remove('active'));
   el.classList.add('active');
   dlLogo = el.dataset.logo;
   regeneratePreview();
@@ -1165,9 +1180,11 @@ function openDL(id) {
   dlId = id;
   dlColor = '#a42547';
   dlLogo = 'none';
+  dlShape = 'square';
   // Reset UI
   document.querySelectorAll('.color-swatch').forEach(s => s.classList.toggle('active', s.dataset.color === '#a42547'));
-  document.querySelectorAll('.logo-option').forEach(o => o.classList.toggle('active', o.dataset.logo === 'none'));
+  document.querySelectorAll('#logoOptions .logo-option').forEach(o => o.classList.toggle('active', o.dataset.logo === 'none'));
+  document.querySelectorAll('#shapeOptions .logo-option').forEach(o => o.classList.toggle('active', o.dataset.shape === 'square'));
   regeneratePreview();
   openModal('dlOverlay');
 }
@@ -1177,54 +1194,124 @@ function regeneratePreview() {
   const el = document.getElementById('dlPreview'); el.innerHTML = '';
   const bgColor = dlColor === '#FFFFFF' ? '#1a1a1a' : '#FFFFFF';
   el.style.background = bgColor;
-  const qr = new QRCode(el, {
-    text: BASE + '#/q/' + c.slug, width: 1024, height: 1024,
+
+  // Generate QR model only (we'll render ourselves)
+  const tempDiv = document.createElement('div');
+  const qr = new QRCode(tempDiv, {
+    text: BASE + '#/q/' + c.slug, width: 256, height: 256,
     colorDark: dlColor, colorLight: bgColor,
     correctLevel: QRCode.CorrectLevel.H
   });
-  // Store QR model for SVG export
-  el._qrModel = qr._oQRCode;
-  // Scale down display size but keep high-res canvas
-  setTimeout(() => {
-    const canvas = el.querySelector('canvas');
-    if (canvas) { canvas.style.width = '220px'; canvas.style.height = '220px'; }
-    const img = el.querySelector('img');
-    if (img) { img.style.width = '220px'; img.style.height = '220px'; }
-    addLogoOverlay(el);
-  }, 200);
-}
+  const model = qr._oQRCode;
+  el._qrModel = model;
 
-function addLogoOverlay(container) {
-  const canvas = container.querySelector('canvas');
-  if (!canvas || dlLogo === 'none') return;
-
-  // QRCode.js hides canvas and shows an <img> on desktop.
-  // Make canvas visible so we can draw on it.
-  canvas.style.display = 'block';
-  const imgEl = container.querySelector('img');
-  if (imgEl) imgEl.style.display = 'none';
+  // Create our own high-res canvas
+  const pxSize = 1024;
+  const canvas = document.createElement('canvas');
+  canvas.width = pxSize; canvas.height = pxSize;
+  canvas.style.width = '220px'; canvas.style.height = '220px';
+  el.appendChild(canvas);
 
   const ctx = canvas.getContext('2d');
-  const size = canvas.width;
-  const logoSize = Math.floor(size * 0.25);
-  const cx = (size - logoSize) / 2;
-  const cy = (size - logoSize) / 2;
-  const bgColor = dlColor === '#FFFFFF' ? '#1a1a1a' : '#FFFFFF';
+  drawQRCanvas(ctx, model, pxSize, dlColor, bgColor, dlShape);
+
+  // Add logo overlay
+  if (dlLogo !== 'none') addLogoOverlay(canvas, pxSize, bgColor);
+}
+
+function drawQRCanvas(ctx, model, pxSize, fgColor, bgColor, shape) {
+  const count = model.getModuleCount();
+  const margin = 2;
+  const totalMod = count + margin * 2;
+  const modPx = pxSize / totalMod;
+
+  ctx.fillStyle = bgColor;
+  ctx.fillRect(0, 0, pxSize, pxSize);
+  ctx.fillStyle = fgColor;
+
+  for (let row = 0; row < count; row++) {
+    for (let col = 0; col < count; col++) {
+      if (!model.isDark(row, col)) continue;
+      const x = (col + margin) * modPx;
+      const y = (row + margin) * modPx;
+      const inFinder = isFinderModule(row, col, count);
+      // Finder patterns always square for scannability
+      if (inFinder) {
+        ctx.fillRect(x, y, modPx, modPx);
+      } else {
+        drawModule(ctx, x, y, modPx, shape);
+      }
+    }
+  }
+}
+
+function isFinderModule(row, col, count) {
+  // Top-left, top-right, bottom-left finder patterns (7x7 + 1 separator)
+  const s = 8;
+  if (row < s && col < s) return true;
+  if (row < s && col >= count - s) return true;
+  if (row >= count - s && col < s) return true;
+  return false;
+}
+
+function drawModule(ctx, x, y, size, shape) {
+  const gap = size * 0.08; // small gap between modules for cleaner look
+  switch (shape) {
+    case 'rounded': {
+      const r = size * 0.3;
+      const s = size - gap;
+      const ox = x + gap / 2, oy = y + gap / 2;
+      ctx.beginPath();
+      ctx.moveTo(ox + r, oy);
+      ctx.lineTo(ox + s - r, oy); ctx.quadraticCurveTo(ox + s, oy, ox + s, oy + r);
+      ctx.lineTo(ox + s, oy + s - r); ctx.quadraticCurveTo(ox + s, oy + s, ox + s - r, oy + s);
+      ctx.lineTo(ox + r, oy + s); ctx.quadraticCurveTo(ox, oy + s, ox, oy + s - r);
+      ctx.lineTo(ox, oy + r); ctx.quadraticCurveTo(ox, oy, ox + r, oy);
+      ctx.fill();
+      break;
+    }
+    case 'dots': {
+      const r = (size - gap) / 2;
+      ctx.beginPath();
+      ctx.arc(x + size / 2, y + size / 2, r, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+    case 'diamond': {
+      const cx = x + size / 2, cy = y + size / 2;
+      const half = (size - gap) / 2;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - half);
+      ctx.lineTo(cx + half, cy);
+      ctx.lineTo(cx, cy + half);
+      ctx.lineTo(cx - half, cy);
+      ctx.closePath();
+      ctx.fill();
+      break;
+    }
+    default: // square
+      ctx.fillRect(x, y, size, size);
+  }
+}
+
+function addLogoOverlay(canvas, pxSize, bgColor) {
+  const ctx = canvas.getContext('2d');
+  const logoSize = Math.floor(pxSize * 0.25);
+  const cx = (pxSize - logoSize) / 2;
+  const cy = (pxSize - logoSize) / 2;
 
   function drawLogo(img) {
-    // Draw background behind logo
-    const pad = Math.floor(size * 0.01);
+    const pad = Math.floor(pxSize * 0.012);
     ctx.fillStyle = bgColor;
     ctx.beginPath();
-    roundRect(ctx, cx - pad, cy - pad, logoSize + pad * 2, logoSize + pad * 2, Math.floor(size * 0.015));
+    roundRect(ctx, cx - pad, cy - pad, logoSize + pad * 2, logoSize + pad * 2, Math.floor(pxSize * 0.015));
     ctx.fill();
     const ratio = Math.min(logoSize / img.width, logoSize / img.height);
     const w = img.width * ratio;
     const h = img.height * ratio;
-    ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+    ctx.drawImage(img, (pxSize - w) / 2, (pxSize - h) / 2, w, h);
   }
 
-  // Use cached image if available, otherwise load
   if (LOGO_CACHE[dlLogo]) {
     drawLogo(LOGO_CACHE[dlLogo]);
   } else {
@@ -1261,8 +1348,17 @@ function dlQR(fmt) {
     const parts = [`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${sz} ${sz}" width="512" height="512"><rect width="${sz}" height="${sz}" fill="${bgColor}"/>`];
     for (let row = 0; row < count; row++) {
       for (let col = 0; col < count; col++) {
-        if (qrModel.isDark(row, col)) {
-          parts.push(`<rect x="${col + margin}" y="${row + margin}" width="1" height="1" fill="${dlColor}"/>`);
+        if (!qrModel.isDark(row, col)) continue;
+        const x = col + margin, y = row + margin;
+        const inFinder = isFinderModule(row, col, count);
+        if (inFinder || dlShape === 'square') {
+          parts.push(`<rect x="${x}" y="${y}" width="1" height="1" fill="${dlColor}"/>`);
+        } else if (dlShape === 'rounded') {
+          parts.push(`<rect x="${x+0.04}" y="${y+0.04}" width="0.92" height="0.92" rx="0.28" fill="${dlColor}"/>`);
+        } else if (dlShape === 'dots') {
+          parts.push(`<circle cx="${x+0.5}" cy="${y+0.5}" r="0.45" fill="${dlColor}"/>`);
+        } else if (dlShape === 'diamond') {
+          parts.push(`<polygon points="${x+0.5},${y+0.05} ${x+0.95},${y+0.5} ${x+0.5},${y+0.95} ${x+0.05},${y+0.5}" fill="${dlColor}"/>`);
         }
       }
     }
