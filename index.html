@@ -974,6 +974,13 @@ const LOGO_URLS = {
   mountain: '/public/mountain-gray-lettering.png',
   ibex: '/public/Ibex-gray-lettering.png'
 };
+// Preload logo images
+const LOGO_CACHE = {};
+Object.entries(LOGO_URLS).forEach(([key, url]) => {
+  const img = new Image();
+  img.src = url;
+  img.onload = () => { LOGO_CACHE[key] = img; };
+});
 
 function pickColor(el) {
   document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
@@ -1005,13 +1012,15 @@ function regeneratePreview() {
   const el = document.getElementById('dlPreview'); el.innerHTML = '';
   const bgColor = dlColor === '#FFFFFF' ? '#1a1a1a' : '#FFFFFF';
   el.style.background = bgColor;
-  new QRCode(el, {
+  const qr = new QRCode(el, {
     text: BASE + '#/q/' + c.slug, width: 220, height: 220,
     colorDark: dlColor, colorLight: bgColor,
     correctLevel: QRCode.CorrectLevel.H
   });
+  // Store QR model for SVG export
+  el._qrModel = qr._oQRCode;
   // Wait for canvas to render, then overlay logo
-  setTimeout(() => addLogoOverlay(el), 100);
+  setTimeout(() => addLogoOverlay(el), 200);
 }
 
 function addLogoOverlay(container) {
@@ -1019,27 +1028,33 @@ function addLogoOverlay(container) {
   if (!canvas || dlLogo === 'none') return;
   const ctx = canvas.getContext('2d');
   const size = canvas.width;
-  const logoSize = Math.floor(size * 0.22);
-  const x = (size - logoSize) / 2;
-  const y = (size - logoSize) / 2;
+  const logoSize = Math.floor(size * 0.25);
+  const cx = (size - logoSize) / 2;
+  const cy = (size - logoSize) / 2;
   const bgColor = dlColor === '#FFFFFF' ? '#1a1a1a' : '#FFFFFF';
 
-  // Draw white rounded rect behind logo
-  const pad = 4;
-  ctx.fillStyle = bgColor;
-  ctx.beginPath();
-  roundRect(ctx, x - pad, y - pad, logoSize + pad * 2, logoSize + pad * 2, 6);
-  ctx.fill();
-
-  const img = new Image();
-  img.onload = () => {
+  function drawLogo(img) {
+    // Draw background behind logo
+    const pad = 6;
+    ctx.fillStyle = bgColor;
+    ctx.beginPath();
+    roundRect(ctx, cx - pad, cy - pad, logoSize + pad * 2, logoSize + pad * 2, 8);
+    ctx.fill();
     const ratio = Math.min(logoSize / img.width, logoSize / img.height);
     const w = img.width * ratio;
     const h = img.height * ratio;
     ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
-  };
-  img.onerror = () => console.error('Logo failed to load:', img.src);
-  img.src = LOGO_URLS[dlLogo] || LOGO_URLS.crest;
+  }
+
+  // Use cached image if available, otherwise load
+  if (LOGO_CACHE[dlLogo]) {
+    drawLogo(LOGO_CACHE[dlLogo]);
+  } else {
+    const img = new Image();
+    img.onload = () => { LOGO_CACHE[dlLogo] = img; drawLogo(img); };
+    img.onerror = () => console.error('Logo failed to load:', img.src);
+    img.src = LOGO_URLS[dlLogo] || LOGO_URLS.crest;
+  }
 }
 
 function roundRect(ctx, x, y, w, h, r) {
@@ -1059,38 +1074,25 @@ function dlQR(fmt) {
     a.href = canvas.toDataURL('image/png'); a.click();
   } else {
     const bgColor = dlColor === '#FFFFFF' ? '#1a1a1a' : '#FFFFFF';
-    const ctx2 = canvas.getContext('2d'), imgData = ctx2.getImageData(0,0,canvas.width,canvas.height);
-    // Detect module size by scanning first row for color transitions
-    const cw = canvas.width;
-    function isDark(px, py) {
-      const i = (py * cw + px) * 4;
-      const lum = imgData.data[i] * 0.299 + imgData.data[i+1] * 0.587 + imgData.data[i+2] * 0.114;
-      return lum < 128;
-    }
-    // Find module size from top-left finder pattern (starts with dark modules)
-    let modSize = 1;
-    const firstDark = isDark(0, 0);
-    for (let x = 1; x < cw; x++) {
-      if (isDark(x, 0) !== firstDark) { modSize = x; break; }
-    }
-    if (modSize < 2) modSize = Math.round(cw / 41); // fallback: version 6 QR = 41 modules
-    const count = Math.round(cw / modSize);
-    const sz = count;
-    const parts = [`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${sz} ${sz}" width="512" height="512"><rect width="${sz}" height="${sz}" fill="${bgColor}"/>`];
+    const el = document.getElementById('dlPreview');
+    const qrModel = el._qrModel;
+    if (!qrModel) return toast('QR not ready — try again');
+    const count = qrModel.getModuleCount();
+    const margin = 2;
+    const sz = count + margin * 2;
+    const parts = [`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${sz} ${sz}" width="512" height="512"><rect width="${sz}" height="${sz}" fill="${bgColor}"/>`];
     for (let row = 0; row < count; row++) {
       for (let col = 0; col < count; col++) {
-        const px = Math.floor(col * modSize + modSize / 2);
-        const py = Math.floor(row * modSize + modSize / 2);
-        if (px < cw && py < cw && isDark(px, py)) {
-          parts.push(`<rect x="${col}" y="${row}" width="1" height="1" fill="${dlColor}"/>`);
+        if (qrModel.isDark(row, col)) {
+          parts.push(`<rect x="${col + margin}" y="${row + margin}" width="1" height="1" fill="${dlColor}"/>`);
         }
       }
     }
     // Embed logo in SVG if selected
     if (dlLogo !== 'none' && LOGO_URLS[dlLogo]) {
-      const logoSz = Math.floor(count * 0.22);
-      const logoOff = Math.floor((count - logoSz) / 2);
-      const pad = 1;
+      const logoSz = Math.floor(count * 0.25);
+      const logoOff = margin + Math.floor((count - logoSz) / 2);
+      const pad = 0.5;
       parts.push(`<rect x="${logoOff - pad}" y="${logoOff - pad}" width="${logoSz + pad*2}" height="${logoSz + pad*2}" rx="1" fill="${bgColor}"/>`);
       parts.push(`<image href="${LOGO_URLS[dlLogo]}" x="${logoOff}" y="${logoOff}" width="${logoSz}" height="${logoSz}"/>`);
     }
