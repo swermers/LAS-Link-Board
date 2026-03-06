@@ -451,6 +451,41 @@ body::before {
 .dl-preview { display: flex; justify-content: center; padding: 1.5rem; background: #fff; border-radius: var(--radius); border: 1px solid var(--border); margin: 1rem 0; }
 .dl-btns { display: flex; gap: 0.5rem; justify-content: center; }
 
+/* ═══ QR CUSTOMIZATION ═══ */
+.qr-options { margin: 0.75rem 0; }
+.qr-options-label {
+  font-size: 0.7rem; font-weight: 700; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem;
+}
+.color-swatches { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+.color-swatch {
+  width: 32px; height: 32px; border-radius: 8px; border: 2.5px solid transparent;
+  cursor: pointer; transition: all 0.15s; position: relative;
+}
+.color-swatch:hover { transform: scale(1.1); }
+.color-swatch.active { border-color: var(--navy); box-shadow: 0 0 0 2px rgba(9,53,84,0.2); }
+.color-swatch.active::after {
+  content: '\2713'; position: absolute; inset: 0; display: flex;
+  align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700;
+}
+.color-swatch[data-color="#000000"].active::after,
+.color-swatch[data-color="#a42547"].active::after,
+.color-swatch[data-color="#d43b1b"].active::after,
+.color-swatch[data-color="#093554"].active::after,
+.color-swatch[data-color="#145d7a"].active::after { color: #fff; }
+.color-swatch[data-color="#FFFFFF"].active::after,
+.color-swatch[data-color="#ea6733"].active::after { color: var(--navy); }
+.color-swatch[data-color="#FFFFFF"] { border-color: var(--border); }
+
+.logo-options { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.logo-option {
+  padding: 0.35rem 0.7rem; border-radius: 7px; font-size: 0.78rem; font-weight: 600;
+  border: 1.5px solid var(--border); background: var(--surface); color: var(--text-muted);
+  cursor: pointer; transition: all 0.15s; user-select: none;
+}
+.logo-option.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+.logo-option:hover:not(.active) { border-color: var(--crimson); color: var(--crimson); }
+
 /* ═══ EMPTY ═══ */
 .empty { text-align: center; padding: 3rem 1.5rem; }
 .empty-icon { font-size: 2.5rem; margin-bottom: 0.6rem; opacity: 0.35; }
@@ -601,6 +636,25 @@ body::before {
   <div class="overlay" id="dlOverlay">
     <div class="modal">
       <h3>Download QR Code</h3>
+      <div class="qr-options">
+        <div class="qr-options-label">QR Color</div>
+        <div class="color-swatches" id="colorSwatches">
+          <div class="color-swatch active" data-color="#a42547" style="background:#a42547" onclick="pickColor(this)" title="Crimson"></div>
+          <div class="color-swatch" data-color="#ea6733" style="background:#ea6733" onclick="pickColor(this)" title="Orange"></div>
+          <div class="color-swatch" data-color="#d43b1b" style="background:#d43b1b" onclick="pickColor(this)" title="Red-Orange"></div>
+          <div class="color-swatch" data-color="#093554" style="background:#093554" onclick="pickColor(this)" title="Navy"></div>
+          <div class="color-swatch" data-color="#145d7a" style="background:#145d7a" onclick="pickColor(this)" title="Teal"></div>
+          <div class="color-swatch" data-color="#000000" style="background:#000000" onclick="pickColor(this)" title="Black"></div>
+          <div class="color-swatch" data-color="#FFFFFF" style="background:#FFFFFF" onclick="pickColor(this)" title="White (dark bg)"></div>
+        </div>
+        <div class="qr-options-label">Center Logo</div>
+        <div class="logo-options" id="logoOptions">
+          <div class="logo-option active" data-logo="none" onclick="pickLogo(this)">None</div>
+          <div class="logo-option" data-logo="horizontal" onclick="pickLogo(this)">LAS Horizontal</div>
+          <div class="logo-option" data-logo="crest" onclick="pickLogo(this)">LAS Crest</div>
+          <div class="logo-option" data-logo="text" onclick="pickLogo(this)">LAS Text</div>
+        </div>
+      </div>
       <div class="dl-preview" id="dlPreview"></div>
       <div class="dl-btns">
         <button class="btn btn-primary" onclick="dlQR('png')">Download PNG</button>
@@ -885,14 +939,100 @@ function shareLink(slug) {
   else copyLink(slug);
 }
 
-// ─── Download ───
+// ─── Download with color & logo ───
 let dlId = null;
+let dlColor = '#a42547';
+let dlLogo = 'none';
+
+const LOGO_URLS = {
+  horizontal: 'https://resources.finalsite.net/images/f_auto,q_auto,t_image_size_1/v1728042498/lasch/diqeqgjdqjuhcfswwovk/LAS_Logo_WEB_Horizontal.png',
+  crest: 'https://resources.finalsite.net/images/f_auto,q_auto/v1728042498/lasch/ww1jfhzjrqzktflbmqfz/LAS_Crest.png'
+};
+
+function pickColor(el) {
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+  dlColor = el.dataset.color;
+  regeneratePreview();
+}
+
+function pickLogo(el) {
+  document.querySelectorAll('.logo-option').forEach(o => o.classList.remove('active'));
+  el.classList.add('active');
+  dlLogo = el.dataset.logo;
+  regeneratePreview();
+}
+
 function openDL(id) {
   dlId = id;
-  const c = myLinks.find(x => x.id === id); if (!c) return;
-  const el = document.getElementById('dlPreview'); el.innerHTML = '';
-  new QRCode(el, { text: BASE+'#/q/'+c.slug, width: 220, height: 220, colorDark: '#a42547', colorLight: '#FFFFFF', correctLevel: QRCode.CorrectLevel.H });
+  dlColor = '#a42547';
+  dlLogo = 'none';
+  // Reset UI
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.toggle('active', s.dataset.color === '#a42547'));
+  document.querySelectorAll('.logo-option').forEach(o => o.classList.toggle('active', o.dataset.logo === 'none'));
+  regeneratePreview();
   openModal('dlOverlay');
+}
+
+function regeneratePreview() {
+  const c = myLinks.find(x => x.id === dlId); if (!c) return;
+  const el = document.getElementById('dlPreview'); el.innerHTML = '';
+  const bgColor = dlColor === '#FFFFFF' ? '#1a1a1a' : '#FFFFFF';
+  el.style.background = bgColor;
+  new QRCode(el, {
+    text: BASE + '#/q/' + c.slug, width: 220, height: 220,
+    colorDark: dlColor, colorLight: bgColor,
+    correctLevel: QRCode.CorrectLevel.H
+  });
+  // Wait for canvas to render, then overlay logo
+  setTimeout(() => addLogoOverlay(el), 100);
+}
+
+function addLogoOverlay(container) {
+  const canvas = container.querySelector('canvas');
+  if (!canvas || dlLogo === 'none') return;
+  const ctx = canvas.getContext('2d');
+  const size = canvas.width;
+  const logoSize = Math.floor(size * 0.22);
+  const x = (size - logoSize) / 2;
+  const y = (size - logoSize) / 2;
+  const bgColor = dlColor === '#FFFFFF' ? '#1a1a1a' : '#FFFFFF';
+
+  // Draw white rounded rect behind logo
+  const pad = 4;
+  ctx.fillStyle = bgColor;
+  ctx.beginPath();
+  roundRect(ctx, x - pad, y - pad, logoSize + pad * 2, logoSize + pad * 2, 6);
+  ctx.fill();
+
+  if (dlLogo === 'text') {
+    // Draw "LAS" text
+    ctx.fillStyle = dlColor;
+    ctx.font = `bold ${Math.floor(logoSize * 0.45)}px 'DM Serif Display', serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('LAS', size / 2, size / 2);
+  } else {
+    // Load and draw image logo
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      // Fit image within logoSize maintaining aspect ratio
+      const ratio = Math.min(logoSize / img.width, logoSize / img.height);
+      const w = img.width * ratio;
+      const h = img.height * ratio;
+      ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+    };
+    img.src = LOGO_URLS[dlLogo] || LOGO_URLS.horizontal;
+  }
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y);
 }
 
 function dlQR(fmt) {
@@ -903,11 +1043,17 @@ function dlQR(fmt) {
     const a = document.createElement('a'); a.download = 'las-linkboard-'+c.slug+'.png';
     a.href = canvas.toDataURL('image/png'); a.click();
   } else {
-    const sz = 220, parts = [`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${sz} ${sz}" width="${sz}" height="${sz}"><rect width="${sz}" height="${sz}" fill="#fff"/>`];
-    const ctx = canvas.getContext('2d'), img = ctx.getImageData(0,0,canvas.width,canvas.height), mod = 4;
+    const bgColor = dlColor === '#FFFFFF' ? '#1a1a1a' : '#FFFFFF';
+    const sz = 220, parts = [`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${sz} ${sz}" width="${sz}" height="${sz}"><rect width="${sz}" height="${sz}" fill="${bgColor}"/>`];
+    const ctx2 = canvas.getContext('2d'), img = ctx2.getImageData(0,0,canvas.width,canvas.height), mod = 4;
     for (let y=0;y<canvas.height;y+=mod) for (let x=0;x<canvas.width;x+=mod) {
       const i=(y*canvas.width+x)*4;
-      if (img.data[i]<128) { const sx=(x/canvas.width)*sz,sy=(y/canvas.height)*sz,sw=(mod/canvas.width)*sz,sh=(mod/canvas.height)*sz; parts.push(`<rect x="${sx}" y="${sy}" width="${sw}" height="${sh}" fill="#a42547"/>`); }
+      const r=img.data[i],g=img.data[i+1],b=img.data[i+2];
+      const hex='#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+      if (hex.toLowerCase() !== bgColor.toLowerCase()) {
+        const sx=(x/canvas.width)*sz,sy=(y/canvas.height)*sz,sw=(mod/canvas.width)*sz,sh=(mod/canvas.height)*sz;
+        parts.push(`<rect x="${sx}" y="${sy}" width="${sw}" height="${sh}" fill="${hex}"/>`);
+      }
     }
     parts.push('</svg>');
     const a = document.createElement('a'); a.download = 'las-linkboard-'+c.slug+'.svg';
