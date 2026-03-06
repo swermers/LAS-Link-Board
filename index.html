@@ -1059,16 +1059,40 @@ function dlQR(fmt) {
     a.href = canvas.toDataURL('image/png'); a.click();
   } else {
     const bgColor = dlColor === '#FFFFFF' ? '#1a1a1a' : '#FFFFFF';
-    const sz = 220, parts = [`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${sz} ${sz}" width="${sz}" height="${sz}"><rect width="${sz}" height="${sz}" fill="${bgColor}"/>`];
-    const ctx2 = canvas.getContext('2d'), img = ctx2.getImageData(0,0,canvas.width,canvas.height), mod = 4;
-    for (let y=0;y<canvas.height;y+=mod) for (let x=0;x<canvas.width;x+=mod) {
-      const i=(y*canvas.width+x)*4;
-      const r=img.data[i],g=img.data[i+1],b=img.data[i+2];
-      const hex='#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
-      if (hex.toLowerCase() !== bgColor.toLowerCase()) {
-        const sx=(x/canvas.width)*sz,sy=(y/canvas.height)*sz,sw=(mod/canvas.width)*sz,sh=(mod/canvas.height)*sz;
-        parts.push(`<rect x="${sx}" y="${sy}" width="${sw}" height="${sh}" fill="${hex}"/>`);
+    const ctx2 = canvas.getContext('2d'), imgData = ctx2.getImageData(0,0,canvas.width,canvas.height);
+    // Detect module size by scanning first row for color transitions
+    const cw = canvas.width;
+    function isDark(px, py) {
+      const i = (py * cw + px) * 4;
+      const lum = imgData.data[i] * 0.299 + imgData.data[i+1] * 0.587 + imgData.data[i+2] * 0.114;
+      return lum < 128;
+    }
+    // Find module size from top-left finder pattern (starts with dark modules)
+    let modSize = 1;
+    const firstDark = isDark(0, 0);
+    for (let x = 1; x < cw; x++) {
+      if (isDark(x, 0) !== firstDark) { modSize = x; break; }
+    }
+    if (modSize < 2) modSize = Math.round(cw / 41); // fallback: version 6 QR = 41 modules
+    const count = Math.round(cw / modSize);
+    const sz = count;
+    const parts = [`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${sz} ${sz}" width="512" height="512"><rect width="${sz}" height="${sz}" fill="${bgColor}"/>`];
+    for (let row = 0; row < count; row++) {
+      for (let col = 0; col < count; col++) {
+        const px = Math.floor(col * modSize + modSize / 2);
+        const py = Math.floor(row * modSize + modSize / 2);
+        if (px < cw && py < cw && isDark(px, py)) {
+          parts.push(`<rect x="${col}" y="${row}" width="1" height="1" fill="${dlColor}"/>`);
+        }
       }
+    }
+    // Embed logo in SVG if selected
+    if (dlLogo !== 'none' && LOGO_URLS[dlLogo]) {
+      const logoSz = Math.floor(count * 0.22);
+      const logoOff = Math.floor((count - logoSz) / 2);
+      const pad = 1;
+      parts.push(`<rect x="${logoOff - pad}" y="${logoOff - pad}" width="${logoSz + pad*2}" height="${logoSz + pad*2}" rx="1" fill="${bgColor}"/>`);
+      parts.push(`<image href="${LOGO_URLS[dlLogo]}" x="${logoOff}" y="${logoOff}" width="${logoSz}" height="${logoSz}"/>`);
     }
     parts.push('</svg>');
     const a = document.createElement('a'); a.download = 'las-linkboard-'+c.slug+'.svg';
