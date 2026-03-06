@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LAS LinkBoard — Dynamic QR Codes</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,opsz,wght@0,6..12,400;0,6..12,600;0,6..12,700;0,6..12,800&family=DM+Serif+Display&display=swap" rel="stylesheet">
 <style>
@@ -450,6 +451,41 @@ body::before {
 .dl-preview { display: flex; justify-content: center; padding: 1.5rem; background: #fff; border-radius: var(--radius); border: 1px solid var(--border); margin: 1rem 0; }
 .dl-btns { display: flex; gap: 0.5rem; justify-content: center; }
 
+/* ═══ QR CUSTOMIZATION ═══ */
+.qr-options { margin: 0.75rem 0; }
+.qr-options-label {
+  font-size: 0.7rem; font-weight: 700; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem;
+}
+.color-swatches { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+.color-swatch {
+  width: 32px; height: 32px; border-radius: 8px; border: 2.5px solid transparent;
+  cursor: pointer; transition: all 0.15s; position: relative;
+}
+.color-swatch:hover { transform: scale(1.1); }
+.color-swatch.active { border-color: var(--navy); box-shadow: 0 0 0 2px rgba(9,53,84,0.2); }
+.color-swatch.active::after {
+  content: '\2713'; position: absolute; inset: 0; display: flex;
+  align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700;
+}
+.color-swatch[data-color="#000000"].active::after,
+.color-swatch[data-color="#a42547"].active::after,
+.color-swatch[data-color="#d43b1b"].active::after,
+.color-swatch[data-color="#093554"].active::after,
+.color-swatch[data-color="#145d7a"].active::after { color: #fff; }
+.color-swatch[data-color="#FFFFFF"].active::after,
+.color-swatch[data-color="#ea6733"].active::after { color: var(--navy); }
+.color-swatch[data-color="#FFFFFF"] { border-color: var(--border); }
+
+.logo-options { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.logo-option {
+  padding: 0.35rem 0.7rem; border-radius: 7px; font-size: 0.78rem; font-weight: 600;
+  border: 1.5px solid var(--border); background: var(--surface); color: var(--text-muted);
+  cursor: pointer; transition: all 0.15s; user-select: none;
+}
+.logo-option.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+.logo-option:hover:not(.active) { border-color: var(--crimson); color: var(--crimson); }
+
 /* ═══ EMPTY ═══ */
 .empty { text-align: center; padding: 3rem 1.5rem; }
 .empty-icon { font-size: 2.5rem; margin-bottom: 0.6rem; opacity: 0.35; }
@@ -600,6 +636,25 @@ body::before {
   <div class="overlay" id="dlOverlay">
     <div class="modal">
       <h3>Download QR Code</h3>
+      <div class="qr-options">
+        <div class="qr-options-label">QR Color</div>
+        <div class="color-swatches" id="colorSwatches">
+          <div class="color-swatch active" data-color="#a42547" style="background:#a42547" onclick="pickColor(this)" title="Crimson"></div>
+          <div class="color-swatch" data-color="#ea6733" style="background:#ea6733" onclick="pickColor(this)" title="Orange"></div>
+          <div class="color-swatch" data-color="#d43b1b" style="background:#d43b1b" onclick="pickColor(this)" title="Red-Orange"></div>
+          <div class="color-swatch" data-color="#093554" style="background:#093554" onclick="pickColor(this)" title="Navy"></div>
+          <div class="color-swatch" data-color="#145d7a" style="background:#145d7a" onclick="pickColor(this)" title="Teal"></div>
+          <div class="color-swatch" data-color="#000000" style="background:#000000" onclick="pickColor(this)" title="Black"></div>
+          <div class="color-swatch" data-color="#FFFFFF" style="background:#FFFFFF" onclick="pickColor(this)" title="White (dark bg)"></div>
+        </div>
+        <div class="qr-options-label">Center Logo</div>
+        <div class="logo-options" id="logoOptions">
+          <div class="logo-option active" data-logo="none" onclick="pickLogo(this)">None</div>
+          <div class="logo-option" data-logo="horizontal" onclick="pickLogo(this)">LAS Horizontal</div>
+          <div class="logo-option" data-logo="crest" onclick="pickLogo(this)">LAS Crest</div>
+          <div class="logo-option" data-logo="text" onclick="pickLogo(this)">LAS Text</div>
+        </div>
+      </div>
       <div class="dl-preview" id="dlPreview"></div>
       <div class="dl-btns">
         <button class="btn btn-primary" onclick="dlQR('png')">Download PNG</button>
@@ -616,25 +671,20 @@ body::before {
 
 <script>
 // ═══════════════════════════════════════
-//  LAS LinkBoard
-//  localStorage prototype
-//  Production: swap for Supabase + Google OAuth
+//  LAS LinkBoard — Supabase Edition
 // ═══════════════════════════════════════
+
+const SUPABASE_URL = 'https://pmhoeqxuamvqlwsatozu.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBtaG9lcXh1YW12cWx3c2F0b3p1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MTY2NDYsImV4cCI6MjA4ODM5MjY0Nn0.ktaozIz1XrIUeUrPjtKp3VZ92BptG8xehOFsv_ny12w';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
 const BASE = location.origin + location.pathname;
 const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const DAY_FULL = ['monday','tuesday','wednesday','thursday','friday','saturday','sunday'];
 
-// ─── Data ───
-const store = {
-  users: () => JSON.parse(localStorage.getItem('laslb_users') || '[]'),
-  saveUsers: u => localStorage.setItem('laslb_users', JSON.stringify(u)),
-  me: () => JSON.parse(sessionStorage.getItem('laslb_me') || 'null'),
-  setMe: u => sessionStorage.setItem('laslb_me', JSON.stringify(u)),
-  codes: () => JSON.parse(localStorage.getItem('laslb_codes') || '[]'),
-  saveCodes: c => localStorage.setItem('laslb_codes', JSON.stringify(c)),
-  myCodes() { const me = this.me(); return me ? this.codes().filter(c => c.uid === me.id) : []; }
-};
+// ─── In-memory cache of user's links ───
+let myLinks = [];
+let currentUser = null;
 
 // ─── Auth ───
 function flip(mode) {
@@ -642,59 +692,59 @@ function flip(mode) {
   document.getElementById('registerForm').style.display = mode === 'register' ? 'block' : 'none';
 }
 
-function doGoogleLogin() {
-  // In production: Supabase auth.signInWithOAuth({ provider: 'google' })
-  // For prototype: simulate with a prompt
-  const email = prompt('Simulated Google Login\n\nEnter your @las.ch email:');
-  if (!email) return;
-  const name = email.split('@')[0].replace(/[._]/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-  const users = store.users();
-  let user = users.find(u => u.email === email.toLowerCase());
-  if (!user) {
-    user = { id: crypto.randomUUID(), name, email: email.toLowerCase(), pw: '', created: new Date().toISOString() };
-    users.push(user);
-    store.saveUsers(users);
-  }
-  store.setMe({ id: user.id, name: user.name, email: user.email });
-  enter();
-  toast('Welcome, ' + user.name.split(' ')[0] + '!', true);
+async function doGoogleLogin() {
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: BASE }
+  });
+  if (error) toast('Google sign-in failed: ' + error.message);
 }
 
-function doRegister() {
+async function doRegister() {
   const name = val('regName'), email = val('regEmail').toLowerCase(), pw = val('regPassword');
   if (!name || !email || !pw) return toast('Please fill in all fields');
   if (pw.length < 6) return toast('Password must be 6+ characters');
-  const users = store.users();
-  if (users.find(u => u.email === email)) return toast('Account already exists');
-  const u = { id: crypto.randomUUID(), name, email, pw, created: new Date().toISOString() };
-  users.push(u);
-  store.saveUsers(users);
-  store.setMe({ id: u.id, name: u.name, email: u.email });
-  enter();
-  toast('Welcome to LinkBoard!', true);
+  const { error } = await sb.auth.signUp({
+    email, password: pw,
+    options: { data: { full_name: name } }
+  });
+  if (error) return toast(error.message);
+  toast('Check your email to confirm your account!', true);
 }
 
-function doLogin() {
+async function doLogin() {
   const email = val('loginEmail').toLowerCase(), pw = val('loginPassword');
   if (!email || !pw) return toast('Please enter email and password');
-  const u = store.users().find(u => u.email === email && u.pw === pw);
-  if (!u) return toast('Invalid email or password');
-  store.setMe({ id: u.id, name: u.name, email: u.email });
-  enter();
-  toast('Welcome back, ' + u.name.split(' ')[0] + '!', true);
+  const { error } = await sb.auth.signInWithPassword({ email, password: pw });
+  if (error) return toast('Invalid email or password');
 }
 
-function doLogout() {
-  sessionStorage.removeItem('laslb_me');
+async function doLogout() {
+  await sb.auth.signOut();
+  currentUser = null;
+  myLinks = [];
   document.getElementById('authScreen').style.display = 'flex';
   document.getElementById('dash').style.display = 'none';
 }
 
-function enter() {
+async function enter(user) {
+  currentUser = user;
   document.getElementById('authScreen').style.display = 'none';
   document.getElementById('dash').style.display = 'block';
-  document.getElementById('userName').textContent = store.me().name;
+  const name = user.user_metadata?.full_name || user.email.split('@')[0];
+  document.getElementById('userName').textContent = name;
+  await loadLinks();
   render();
+}
+
+// ─── Data ───
+async function loadLinks() {
+  const { data, error } = await sb.from('links')
+    .select('*')
+    .eq('user_id', currentUser.id)
+    .order('updated_at', { ascending: false });
+  if (error) { toast('Failed to load links'); console.error(error); return; }
+  myLinks = data || [];
 }
 
 // ─── CRUD ───
@@ -711,7 +761,7 @@ function openCreate() {
 }
 
 function openEdit(id) {
-  const c = store.codes().find(x => x.id === id);
+  const c = myLinks.find(x => x.id === id);
   if (!c) return;
   editId = id;
   tempRules = c.rules ? JSON.parse(JSON.stringify(c.rules)) : [];
@@ -723,39 +773,41 @@ function openEdit(id) {
   openModal('editOverlay');
 }
 
-function saveLink() {
+async function saveLink() {
   const label = val('fLabel'), url = val('fUrl');
   if (!label || !url) return toast('Please fill in label and URL');
   try { new URL(url); } catch { return toast('Please enter a valid URL'); }
   collectRulesFromDOM();
   const rules = tempRules.filter(r => r.url && (r.days.length > 0 || r.startTime || r.endTime));
-  const all = store.codes(), me = store.me();
+
   if (editId) {
-    const idx = all.findIndex(c => c.id === editId);
-    if (idx < 0) return;
-    if (all[idx].url !== url) {
-      if (!all[idx].history) all[idx].history = [];
-      all[idx].history.push({ url: all[idx].url, at: new Date().toISOString() });
+    const existing = myLinks.find(c => c.id === editId);
+    const history = existing?.history || [];
+    if (existing && existing.url !== url) {
+      history.push({ url: existing.url, at: new Date().toISOString() });
     }
-    all[idx].label = label; all[idx].url = url; all[idx].rules = rules;
-    all[idx].updated = new Date().toISOString();
+    const { error } = await sb.from('links')
+      .update({ label, url, rules, history, updated_at: new Date().toISOString() })
+      .eq('id', editId);
+    if (error) return toast('Update failed: ' + error.message);
     toast('Link updated!', true);
   } else {
-    all.push({
-      id: crypto.randomUUID(), uid: me.id, slug: genSlug(),
-      label, url, rules, scans: 0, history: [],
-      created: new Date().toISOString(), updated: new Date().toISOString()
-    });
+    const { error } = await sb.from('links')
+      .insert({ user_id: currentUser.id, slug: genSlug(), label, url, rules, history: [] });
+    if (error) return toast('Create failed: ' + error.message);
     toast('Link created!', true);
   }
-  store.saveCodes(all);
+
   closeModal('editOverlay');
+  await loadLinks();
   render();
 }
 
-function deleteLink(id) {
+async function deleteLink(id) {
   if (!confirm('Delete this link? Printed QR codes will stop working.')) return;
-  store.saveCodes(store.codes().filter(c => c.id !== id));
+  const { error } = await sb.from('links').delete().eq('id', id);
+  if (error) return toast('Delete failed: ' + error.message);
+  await loadLinks();
   render();
   toast('Link deleted');
 }
@@ -803,14 +855,13 @@ function renderRuleEditors() {
 
 // ─── Rendering ───
 function render() {
-  const codes = store.myCodes();
-  document.getElementById('sTotal').textContent = codes.length;
-  document.getElementById('sScans').textContent = codes.reduce((s, c) => s + (c.scans || 0), 0);
-  document.getElementById('sRules').textContent = codes.filter(c => c.rules?.length > 0).length;
+  document.getElementById('sTotal').textContent = myLinks.length;
+  document.getElementById('sScans').textContent = myLinks.reduce((s, c) => s + (c.scans || 0), 0);
+  document.getElementById('sRules').textContent = myLinks.filter(c => c.rules?.length > 0).length;
   const list = document.getElementById('cardList'), empty = document.getElementById('emptyMsg');
-  if (!codes.length) { empty.style.display = 'block'; list.querySelectorAll('.card').forEach(e => e.remove()); return; }
+  if (!myLinks.length) { empty.style.display = 'block'; list.querySelectorAll('.card').forEach(e => e.remove()); return; }
   empty.style.display = 'none';
-  const sorted = [...codes].sort((a, b) => new Date(b.updated) - new Date(a.updated));
+  const sorted = [...myLinks].sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
   list.innerHTML = sorted.map(c => {
     const link = BASE + '#/q/' + c.slug;
     const hasRules = c.rules?.length > 0;
@@ -830,7 +881,7 @@ function render() {
         <div class="card-meta">
           <span class="scans">${c.scans || 0} scans</span>
           ${hasRules ? `<span class="card-rules-badge">&#9881; ${c.rules.length} rule${c.rules.length > 1 ? 's' : ''}</span>` : ''}
-          <span>Updated ${timeAgo(c.updated)}</span>
+          <span>Updated ${timeAgo(c.updated_at)}</span>
         </div>
         <div class="card-actions">
           <button class="btn btn-soft btn-xs" onclick="openEdit('${c.id}')">Edit</button>
@@ -888,29 +939,121 @@ function shareLink(slug) {
   else copyLink(slug);
 }
 
-// ─── Download ───
+// ─── Download with color & logo ───
 let dlId = null;
+let dlColor = '#a42547';
+let dlLogo = 'none';
+
+const LOGO_URLS = {
+  horizontal: 'https://resources.finalsite.net/images/f_auto,q_auto,t_image_size_1/v1728042498/lasch/diqeqgjdqjuhcfswwovk/LAS_Logo_WEB_Horizontal.png',
+  crest: 'https://resources.finalsite.net/images/f_auto,q_auto/v1728042498/lasch/ww1jfhzjrqzktflbmqfz/LAS_Crest.png'
+};
+
+function pickColor(el) {
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+  dlColor = el.dataset.color;
+  regeneratePreview();
+}
+
+function pickLogo(el) {
+  document.querySelectorAll('.logo-option').forEach(o => o.classList.remove('active'));
+  el.classList.add('active');
+  dlLogo = el.dataset.logo;
+  regeneratePreview();
+}
+
 function openDL(id) {
   dlId = id;
-  const c = store.codes().find(x => x.id === id); if (!c) return;
-  const el = document.getElementById('dlPreview'); el.innerHTML = '';
-  new QRCode(el, { text: BASE+'#/q/'+c.slug, width: 220, height: 220, colorDark: '#a42547', colorLight: '#FFFFFF', correctLevel: QRCode.CorrectLevel.H });
+  dlColor = '#a42547';
+  dlLogo = 'none';
+  // Reset UI
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.toggle('active', s.dataset.color === '#a42547'));
+  document.querySelectorAll('.logo-option').forEach(o => o.classList.toggle('active', o.dataset.logo === 'none'));
+  regeneratePreview();
   openModal('dlOverlay');
 }
 
+function regeneratePreview() {
+  const c = myLinks.find(x => x.id === dlId); if (!c) return;
+  const el = document.getElementById('dlPreview'); el.innerHTML = '';
+  const bgColor = dlColor === '#FFFFFF' ? '#1a1a1a' : '#FFFFFF';
+  el.style.background = bgColor;
+  new QRCode(el, {
+    text: BASE + '#/q/' + c.slug, width: 220, height: 220,
+    colorDark: dlColor, colorLight: bgColor,
+    correctLevel: QRCode.CorrectLevel.H
+  });
+  // Wait for canvas to render, then overlay logo
+  setTimeout(() => addLogoOverlay(el), 100);
+}
+
+function addLogoOverlay(container) {
+  const canvas = container.querySelector('canvas');
+  if (!canvas || dlLogo === 'none') return;
+  const ctx = canvas.getContext('2d');
+  const size = canvas.width;
+  const logoSize = Math.floor(size * 0.22);
+  const x = (size - logoSize) / 2;
+  const y = (size - logoSize) / 2;
+  const bgColor = dlColor === '#FFFFFF' ? '#1a1a1a' : '#FFFFFF';
+
+  // Draw white rounded rect behind logo
+  const pad = 4;
+  ctx.fillStyle = bgColor;
+  ctx.beginPath();
+  roundRect(ctx, x - pad, y - pad, logoSize + pad * 2, logoSize + pad * 2, 6);
+  ctx.fill();
+
+  if (dlLogo === 'text') {
+    // Draw "LAS" text
+    ctx.fillStyle = dlColor;
+    ctx.font = `bold ${Math.floor(logoSize * 0.45)}px 'DM Serif Display', serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('LAS', size / 2, size / 2);
+  } else {
+    // Load and draw image logo
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      // Fit image within logoSize maintaining aspect ratio
+      const ratio = Math.min(logoSize / img.width, logoSize / img.height);
+      const w = img.width * ratio;
+      const h = img.height * ratio;
+      ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+    };
+    img.src = LOGO_URLS[dlLogo] || LOGO_URLS.horizontal;
+  }
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y);
+}
+
 function dlQR(fmt) {
-  const c = store.codes().find(x => x.id === dlId); if (!c) return;
+  const c = myLinks.find(x => x.id === dlId); if (!c) return;
   const canvas = document.getElementById('dlPreview').querySelector('canvas');
   if (!canvas) return toast('QR not ready');
   if (fmt === 'png') {
     const a = document.createElement('a'); a.download = 'las-linkboard-'+c.slug+'.png';
     a.href = canvas.toDataURL('image/png'); a.click();
   } else {
-    const sz = 220, parts = [`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${sz} ${sz}" width="${sz}" height="${sz}"><rect width="${sz}" height="${sz}" fill="#fff"/>`];
-    const ctx = canvas.getContext('2d'), img = ctx.getImageData(0,0,canvas.width,canvas.height), mod = 4;
+    const bgColor = dlColor === '#FFFFFF' ? '#1a1a1a' : '#FFFFFF';
+    const sz = 220, parts = [`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${sz} ${sz}" width="${sz}" height="${sz}"><rect width="${sz}" height="${sz}" fill="${bgColor}"/>`];
+    const ctx2 = canvas.getContext('2d'), img = ctx2.getImageData(0,0,canvas.width,canvas.height), mod = 4;
     for (let y=0;y<canvas.height;y+=mod) for (let x=0;x<canvas.width;x+=mod) {
       const i=(y*canvas.width+x)*4;
-      if (img.data[i]<128) { const sx=(x/canvas.width)*sz,sy=(y/canvas.height)*sz,sw=(mod/canvas.width)*sz,sh=(mod/canvas.height)*sz; parts.push(`<rect x="${sx}" y="${sy}" width="${sw}" height="${sh}" fill="#a42547"/>`); }
+      const r=img.data[i],g=img.data[i+1],b=img.data[i+2];
+      const hex='#'+[r,g,b].map(v=>v.toString(16).padStart(2,'0')).join('');
+      if (hex.toLowerCase() !== bgColor.toLowerCase()) {
+        const sx=(x/canvas.width)*sz,sy=(y/canvas.height)*sz,sw=(mod/canvas.width)*sz,sh=(mod/canvas.height)*sz;
+        parts.push(`<rect x="${sx}" y="${sy}" width="${sw}" height="${sh}" fill="${hex}"/>`);
+      }
     }
     parts.push('</svg>');
     const a = document.createElement('a'); a.download = 'las-linkboard-'+c.slug+'.svg';
@@ -919,13 +1062,23 @@ function dlQR(fmt) {
   toast('Downloaded!', true);
 }
 
-// ─── Redirect ───
-function handleRedirect() {
+// ─── Redirect (public — no auth needed) ───
+async function handleRedirect() {
   const h = location.hash;
   if (!h.startsWith('#/q/')) return false;
-  const slug = h.replace('#/q/',''), all = store.codes(), c = all.find(x=>x.slug===slug);
-  if (c) { c.scans=(c.scans||0)+1; store.saveCodes(all); const r=getActiveRule(c); window.location.href=r?r.url:c.url; return true; }
-  document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:'Nunito Sans',sans-serif;color:#093554;background:#F7F6F3;text-align:center;padding:2rem"><div><h1 style="font-family:'DM Serif Display',serif;font-size:1.5rem;margin-bottom:0.5rem;color:#a42547">Link Not Found</h1><p style="color:#5A7080">This QR code is no longer active.</p></div></div>`;
+  const slug = h.replace('#/q/', '');
+
+  // Use RPC to atomically increment scans and get link data
+  const { data, error } = await sb.rpc('increment_scans', { link_slug: slug });
+  if (error || !data) {
+    document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:'Nunito Sans',sans-serif;color:#093554;background:#F7F6F3;text-align:center;padding:2rem"><div><h1 style="font-family:'DM Serif Display',serif;font-size:1.5rem;margin-bottom:0.5rem;color:#a42547">Link Not Found</h1><p style="color:#5A7080">This QR code is no longer active.</p></div></div>`;
+    return true;
+  }
+
+  // Evaluate routing rules client-side
+  const rules = data.rules || [];
+  const activeRule = getActiveRule({ rules });
+  window.location.href = activeRule ? activeRule.url : data.url;
   return true;
 }
 
@@ -942,7 +1095,28 @@ document.querySelectorAll('.overlay').forEach(o => { o.addEventListener('click',
 document.getElementById('loginPassword').addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
 document.getElementById('regPassword').addEventListener('keydown', e => { if(e.key==='Enter') doRegister(); });
 
-if (!handleRedirect()) { if (store.me()) enter(); }
+// ─── Init: listen for auth state changes ───
+(async () => {
+  // Handle redirect first (no auth needed)
+  if (location.hash.startsWith('#/q/')) {
+    await handleRedirect();
+    return;
+  }
+
+  // Listen for auth changes (login, logout, token refresh, OAuth redirect)
+  sb.auth.onAuthStateChange(async (event, session) => {
+    if (session?.user) {
+      await enter(session.user);
+      if (event === 'SIGNED_IN') {
+        const name = session.user.user_metadata?.full_name || session.user.email.split('@')[0];
+        toast('Welcome, ' + name.split(' ')[0] + '!', true);
+      }
+    } else {
+      document.getElementById('authScreen').style.display = 'flex';
+      document.getElementById('dash').style.display = 'none';
+    }
+  });
+})();
 </script>
 </body>
 </html>
