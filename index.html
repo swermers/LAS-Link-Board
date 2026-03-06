@@ -796,7 +796,6 @@ async function saveLink() {
       if (!currentUser) return toast('Not signed in — please refresh');
       const payload = { user_id: currentUser.id, slug: genSlug(), label, url, rules, history: [] };
       console.log('Inserting link:', payload);
-      console.log('Session:', await sb.auth.getSession());
       const res = await sb.from('links').insert(payload);
       console.log('Insert response:', JSON.stringify(res));
       if (res.error) { console.error('Insert error:', res.error); return toast('Create failed: ' + res.error.message); }
