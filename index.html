@@ -663,7 +663,7 @@ body {
   <div class="dashboard" id="dash">
     <div class="topbar">
       <div class="topbar-brand">
-        <img src="/public/LAS-black-lettering.png" alt="LAS" style="height:36px;width:36px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.2);" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="display:none;width:36px;height:36px;border-radius:50%;border:2px solid var(--gold);align-items:center;justify-content:center;font-family:'Montserrat',sans-serif;font-size:0.7rem;font-weight:800;color:#fff;">LAS</div>
+        <div style="width:38px;height:38px;border-radius:50%;border:2px solid var(--gold);overflow:hidden;display:flex;align-items:center;justify-content:center;background:#fff;flex-shrink:0;"><img src="/public/LAS-black-lettering.png" alt="LAS" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.parentElement.innerHTML='<span style=font-family:Montserrat,sans-serif;font-size:0.7rem;font-weight:800;color:#fff>LAS</span>';this.parentElement.style.background='var(--navy)'"></div>
         <span style="color:rgba(255,255,255,0.3);margin:0 0.35rem">|</span>
         <div class="topbar-title">LinkBoard</div>
       </div>
@@ -757,6 +757,7 @@ body {
           <div class="logo-option" data-shape="rounded" onclick="pickShape(this)">Rounded</div>
           <div class="logo-option" data-shape="dots" onclick="pickShape(this)">Dots</div>
           <div class="logo-option" data-shape="diamond" onclick="pickShape(this)">Diamond</div>
+          <div class="logo-option" data-shape="goat" onclick="pickShape(this)">Goats</div>
         </div>
         <div class="qr-options-label">Center Logo</div>
         <div class="logo-options" id="logoOptions">
@@ -1379,6 +1380,32 @@ function drawModule(ctx, x, y, size, shape) {
       ctx.fill();
       break;
     }
+    case 'goat': {
+      // Simplified goat head silhouette (front view with horns)
+      const s = size - gap;
+      const ox = x + gap / 2, oy = y + gap / 2;
+      ctx.beginPath();
+      // Left horn
+      ctx.moveTo(ox + s * 0.15, oy + s * 0.35);
+      ctx.lineTo(ox + s * 0.05, oy);
+      ctx.lineTo(ox + s * 0.3, oy + s * 0.25);
+      // Top of head
+      ctx.lineTo(ox + s * 0.5, oy + s * 0.18);
+      // Right horn
+      ctx.lineTo(ox + s * 0.7, oy + s * 0.25);
+      ctx.lineTo(ox + s * 0.95, oy);
+      ctx.lineTo(ox + s * 0.85, oy + s * 0.35);
+      // Right side of face
+      ctx.quadraticCurveTo(ox + s * 0.95, oy + s * 0.55, ox + s * 0.85, oy + s * 0.7);
+      // Chin / beard
+      ctx.quadraticCurveTo(ox + s * 0.7, oy + s * 0.9, ox + s * 0.5, oy + s);
+      ctx.quadraticCurveTo(ox + s * 0.3, oy + s * 0.9, ox + s * 0.15, oy + s * 0.7);
+      // Left side of face
+      ctx.quadraticCurveTo(ox + s * 0.05, oy + s * 0.55, ox + s * 0.15, oy + s * 0.35);
+      ctx.closePath();
+      ctx.fill();
+      break;
+    }
     default: // square
       ctx.fillRect(x, y, size, size);
   }
@@ -1449,6 +1476,8 @@ function dlQR(fmt) {
           parts.push(`<circle cx="${x+0.5}" cy="${y+0.5}" r="0.45" fill="${dlColor}"/>`);
         } else if (dlShape === 'diamond') {
           parts.push(`<polygon points="${x+0.5},${y+0.05} ${x+0.95},${y+0.5} ${x+0.5},${y+0.95} ${x+0.05},${y+0.5}" fill="${dlColor}"/>`);
+        } else if (dlShape === 'goat') {
+          parts.push(`<path d="M${x+0.15},${y+0.35} L${x+0.05},${y} L${x+0.3},${y+0.25} L${x+0.5},${y+0.18} L${x+0.7},${y+0.25} L${x+0.95},${y} L${x+0.85},${y+0.35} Q${x+0.95},${y+0.55} ${x+0.85},${y+0.7} Q${x+0.7},${y+0.9} ${x+0.5},${y+1} Q${x+0.3},${y+0.9} ${x+0.15},${y+0.7} Q${x+0.05},${y+0.55} ${x+0.15},${y+0.35} Z" fill="${dlColor}"/>`);
         }
       }
     }
