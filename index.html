@@ -649,9 +649,9 @@ body::before {
         <div class="qr-options-label">Center Logo</div>
         <div class="logo-options" id="logoOptions">
           <div class="logo-option active" data-logo="none" onclick="pickLogo(this)">None</div>
-          <div class="logo-option" data-logo="horizontal" onclick="pickLogo(this)">LAS Horizontal</div>
           <div class="logo-option" data-logo="crest" onclick="pickLogo(this)">LAS Crest</div>
-          <div class="logo-option" data-logo="text" onclick="pickLogo(this)">LAS Text</div>
+          <div class="logo-option" data-logo="mountain" onclick="pickLogo(this)">Mountain</div>
+          <div class="logo-option" data-logo="ibex" onclick="pickLogo(this)">Ibex</div>
         </div>
       </div>
       <div class="dl-preview" id="dlPreview"></div>
@@ -970,8 +970,9 @@ let dlColor = '#a42547';
 let dlLogo = 'none';
 
 const LOGO_URLS = {
-  horizontal: 'https://resources.finalsite.net/images/f_auto,q_auto,t_image_size_1/v1728042498/lasch/diqeqgjdqjuhcfswwovk/LAS_Logo_WEB_Horizontal.png',
-  crest: 'https://resources.finalsite.net/images/f_auto,q_auto/v1728042498/lasch/ww1jfhzjrqzktflbmqfz/LAS_Crest.png'
+  crest: 'public/LAS-black-lettering.png',
+  mountain: 'public/mountain-gray-lettering.png',
+  ibex: 'public/Ibex-gray-lettering.png'
 };
 
 function pickColor(el) {
@@ -1030,26 +1031,15 @@ function addLogoOverlay(container) {
   roundRect(ctx, x - pad, y - pad, logoSize + pad * 2, logoSize + pad * 2, 6);
   ctx.fill();
 
-  if (dlLogo === 'text') {
-    // Draw "LAS" text
-    ctx.fillStyle = dlColor;
-    ctx.font = `bold ${Math.floor(logoSize * 0.45)}px 'DM Serif Display', serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('LAS', size / 2, size / 2);
-  } else {
-    // Load and draw image logo
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      // Fit image within logoSize maintaining aspect ratio
-      const ratio = Math.min(logoSize / img.width, logoSize / img.height);
-      const w = img.width * ratio;
-      const h = img.height * ratio;
-      ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
-    };
-    img.src = LOGO_URLS[dlLogo] || LOGO_URLS.horizontal;
-  }
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => {
+    const ratio = Math.min(logoSize / img.width, logoSize / img.height);
+    const w = img.width * ratio;
+    const h = img.height * ratio;
+    ctx.drawImage(img, (size - w) / 2, (size - h) / 2, w, h);
+  };
+  img.src = LOGO_URLS[dlLogo] || LOGO_URLS.crest;
 }
 
 function roundRect(ctx, x, y, w, h, r) {
