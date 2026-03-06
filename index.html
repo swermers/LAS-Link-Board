@@ -1026,6 +1026,13 @@ function regeneratePreview() {
 function addLogoOverlay(container) {
   const canvas = container.querySelector('canvas');
   if (!canvas || dlLogo === 'none') return;
+
+  // QRCode.js hides canvas and shows an <img> on desktop.
+  // Make canvas visible so we can draw on it.
+  canvas.style.display = 'block';
+  const imgEl = container.querySelector('img');
+  if (imgEl) imgEl.style.display = 'none';
+
   const ctx = canvas.getContext('2d');
   const size = canvas.width;
   const logoSize = Math.floor(size * 0.25);
