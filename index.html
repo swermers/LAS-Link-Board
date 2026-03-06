@@ -974,12 +974,21 @@ const LOGO_URLS = {
   mountain: '/public/mountain-gray-lettering.png',
   ibex: '/public/Ibex-gray-lettering.png'
 };
-// Preload logo images
+// Preload logo images and cache as data URLs for SVG embedding
 const LOGO_CACHE = {};
+const LOGO_DATA_URLS = {};
 Object.entries(LOGO_URLS).forEach(([key, url]) => {
   const img = new Image();
+  img.crossOrigin = 'anonymous';
   img.src = url;
-  img.onload = () => { LOGO_CACHE[key] = img; };
+  img.onload = () => {
+    LOGO_CACHE[key] = img;
+    // Convert to data URL for SVG embedding
+    const cv = document.createElement('canvas');
+    cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+    cv.getContext('2d').drawImage(img, 0, 0);
+    try { LOGO_DATA_URLS[key] = cv.toDataURL('image/png'); } catch(e) {}
+  };
 });
 
 function pickColor(el) {
@@ -1013,14 +1022,20 @@ function regeneratePreview() {
   const bgColor = dlColor === '#FFFFFF' ? '#1a1a1a' : '#FFFFFF';
   el.style.background = bgColor;
   const qr = new QRCode(el, {
-    text: BASE + '#/q/' + c.slug, width: 220, height: 220,
+    text: BASE + '#/q/' + c.slug, width: 1024, height: 1024,
     colorDark: dlColor, colorLight: bgColor,
     correctLevel: QRCode.CorrectLevel.H
   });
   // Store QR model for SVG export
   el._qrModel = qr._oQRCode;
-  // Wait for canvas to render, then overlay logo
-  setTimeout(() => addLogoOverlay(el), 200);
+  // Scale down display size but keep high-res canvas
+  setTimeout(() => {
+    const canvas = el.querySelector('canvas');
+    if (canvas) { canvas.style.width = '220px'; canvas.style.height = '220px'; }
+    const img = el.querySelector('img');
+    if (img) { img.style.width = '220px'; img.style.height = '220px'; }
+    addLogoOverlay(el);
+  }, 200);
 }
 
 function addLogoOverlay(container) {
@@ -1042,10 +1057,10 @@ function addLogoOverlay(container) {
 
   function drawLogo(img) {
     // Draw background behind logo
-    const pad = 6;
+    const pad = Math.floor(size * 0.01);
     ctx.fillStyle = bgColor;
     ctx.beginPath();
-    roundRect(ctx, cx - pad, cy - pad, logoSize + pad * 2, logoSize + pad * 2, 8);
+    roundRect(ctx, cx - pad, cy - pad, logoSize + pad * 2, logoSize + pad * 2, Math.floor(size * 0.015));
     ctx.fill();
     const ratio = Math.min(logoSize / img.width, logoSize / img.height);
     const w = img.width * ratio;
@@ -1095,13 +1110,13 @@ function dlQR(fmt) {
         }
       }
     }
-    // Embed logo in SVG if selected
-    if (dlLogo !== 'none' && LOGO_URLS[dlLogo]) {
+    // Embed logo in SVG as base64 data URL
+    if (dlLogo !== 'none' && LOGO_DATA_URLS[dlLogo]) {
       const logoSz = Math.floor(count * 0.25);
       const logoOff = margin + Math.floor((count - logoSz) / 2);
       const pad = 0.5;
       parts.push(`<rect x="${logoOff - pad}" y="${logoOff - pad}" width="${logoSz + pad*2}" height="${logoSz + pad*2}" rx="1" fill="${bgColor}"/>`);
-      parts.push(`<image href="${LOGO_URLS[dlLogo]}" x="${logoOff}" y="${logoOff}" width="${logoSz}" height="${logoSz}"/>`);
+      parts.push(`<image href="${LOGO_DATA_URLS[dlLogo]}" x="${logoOff}" y="${logoOff}" width="${logoSz}" height="${logoSz}"/>`);
     }
     parts.push('</svg>');
     const a = document.createElement('a'); a.download = 'las-linkboard-'+c.slug+'.svg';
