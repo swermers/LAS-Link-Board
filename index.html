@@ -1276,7 +1276,7 @@ function render() {
     return `
     <div class="card${selectedIds.has(c.id) ? ' selected' : ''}" data-id="${c.id}">
       <div class="card-select"><input type="checkbox" ${selectedIds.has(c.id) ? 'checked' : ''} onclick="toggleSelect('${c.id}')"></div>
-      <div class="card-qr" id="qr-${c.id}"></div>
+      <div class="card-qr" id="qr-${c.id}" onclick="window.open('${esc(dest)}','_blank')" style="cursor:pointer" title="Open destination"></div>
       <div class="card-body">
         <div class="card-label">${esc(c.label)}${isExpired ? '<span class="card-expired-badge">EXPIRED</span>' : ''}</div>
         <div class="card-url">&#8594; ${esc(dest)}${active ? ' <span style="color:var(--teal);font-weight:600">(rule active)</span>' : ''}</div>
@@ -2029,27 +2029,41 @@ async function handleRedirect() {
   // Backwards compat: old links used #/q/<slug>
   if (slug.startsWith('q/')) slug = slug.slice(2);
 
-  // Use RPC to atomically increment scans and log details
+  // Hide splash, show a minimal redirect page
+  document.getElementById('loadingSplash').style.display = 'none';
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('dash').style.display = 'none';
+
+  // Try RPC first (atomically increments scans and logs details)
+  let linkData = null;
   const { data, error } = await sb.rpc('increment_scans', {
     link_slug: slug,
     scan_user_agent: navigator.userAgent || '',
     scan_referrer: document.referrer || ''
   });
-  if (error || !data) {
+  if (!error && data) {
+    linkData = data;
+  } else {
+    // Fallback: look up the link directly (read-only, no scan increment)
+    const { data: rows } = await sb.from('links').select('url,rules,expires_at').eq('slug', slug).limit(1);
+    if (rows && rows.length > 0) linkData = rows[0];
+  }
+
+  if (!linkData) {
     document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:'Inter',sans-serif;color:#093554;background:#F7F6F3;text-align:center;padding:2rem"><div><h1 style="font-family:'Montserrat',sans-serif;font-size:1.5rem;margin-bottom:0.5rem;color:#a42547">Link Not Found</h1><p style="color:#5A7080">This QR code is no longer active.</p></div></div>`;
     return true;
   }
 
   // Check expiration
-  if (data.expires_at && new Date(data.expires_at) <= new Date()) {
+  if (linkData.expires_at && new Date(linkData.expires_at) <= new Date()) {
     document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:'Inter',sans-serif;color:#093554;background:#F7F6F3;text-align:center;padding:2rem"><div><h1 style="font-family:'Montserrat',sans-serif;font-size:1.5rem;margin-bottom:0.5rem;color:#a42547">Link Expired</h1><p style="color:#5A7080">This QR code is no longer active.</p></div></div>`;
     return true;
   }
 
   // Evaluate routing rules client-side
-  const rules = data.rules || [];
+  const rules = linkData.rules || [];
   const activeRule = getActiveRule({ rules });
-  window.location.href = activeRule ? activeRule.url : data.url;
+  window.location.replace(activeRule ? activeRule.url : linkData.url);
   return true;
 }
 
