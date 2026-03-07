@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy — LAS LinkBoard</title>
+<meta name="theme-color" content="#093554">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy: #0B2545;
+  --gold: #C5963B;
+  --bg: #F8F9FA;
+  --surface: #FFFFFF;
+  --border: #E2E6EA;
+  --text: #0B2545;
+  --text-muted: #6B7C8D;
+  --radius: 10px;
+  --shadow: 0 1px 3px rgba(11,37,69,0.06), 0 1px 2px rgba(11,37,69,0.04);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.7;
+}
+header {
+  background: var(--navy);
+  color: #fff;
+  padding: 2rem 1.5rem;
+  text-align: center;
+}
+header h1 {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+header p {
+  margin-top: .4rem;
+  opacity: .7;
+  font-size: .9rem;
+}
+main {
+  max-width: 720px;
+  margin: 2rem auto;
+  padding: 0 1.5rem 4rem;
+}
+section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  margin-bottom: 1.25rem;
+  box-shadow: var(--shadow);
+}
+h2 {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: .6rem;
+  color: var(--navy);
+}
+p, li { font-size: .95rem; color: #333; }
+ul { padding-left: 1.25rem; margin-top: .4rem; }
+li { margin-bottom: .3rem; }
+a { color: var(--gold); }
+.back-link {
+  display: inline-block;
+  margin-bottom: 1.5rem;
+  font-size: .9rem;
+  text-decoration: none;
+  color: var(--text-muted);
+}
+.back-link:hover { color: var(--navy); }
+.updated {
+  text-align: center;
+  font-size: .85rem;
+  color: var(--text-muted);
+  margin-top: 2rem;
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>LAS LinkBoard — Privacy Policy</h1>
+  <p>Chrome Extension &amp; Web Application</p>
+</header>
+<main>
+  <a href="/" class="back-link">&larr; Back to LinkBoard</a>
+
+  <section>
+    <h2>Overview</h2>
+    <p>LAS LinkBoard ("the Service") is a tool for Leysin American School staff to create dynamic QR codes and track email campaign opens. This policy explains what data we collect, how we use it, and your rights.</p>
+  </section>
+
+  <section>
+    <h2>Data We Collect</h2>
+    <ul>
+      <li><strong>Google account email and name</strong> — used to authenticate you via Google Sign-In and associate your campaigns with your account.</li>
+      <li><strong>Email campaign metadata</strong> — subject lines you enter and recipient lists you create for open-tracking campaigns.</li>
+      <li><strong>Email open events</strong> — when a tracked email is opened, we log the timestamp. We do not collect the recipient's IP address, location, or device information.</li>
+      <li><strong>QR code links</strong> — the URLs you save to generate dynamic QR codes.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>How We Use Your Data</h2>
+    <ul>
+      <li>To display your campaign analytics (open counts, timestamps).</li>
+      <li>To power dynamic QR code redirects.</li>
+      <li>To authenticate and secure your account.</li>
+    </ul>
+    <p>We do <strong>not</strong> sell, rent, or share your data with any third parties.</p>
+  </section>
+
+  <section>
+    <h2>Third-Party Services</h2>
+    <ul>
+      <li><strong>Google Sign-In</strong> — for authentication. Google's privacy policy applies to data handled by Google.</li>
+      <li><strong>Supabase</strong> — our database provider. Data is stored securely in Supabase-managed infrastructure.</li>
+      <li><strong>Vercel</strong> — hosts the application and serverless API functions.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Chrome Extension Permissions</h2>
+    <p>The LAS LinkBoard Tracker extension requests these permissions:</p>
+    <ul>
+      <li><strong>activeTab</strong> — to inject the tracking toggle into Gmail's compose window.</li>
+      <li><strong>storage</strong> — to save your authentication state locally.</li>
+      <li><strong>identity</strong> — to sign in with your Google account.</li>
+    </ul>
+    <p>The extension only activates on <code>mail.google.com</code> and does not access any other websites.</p>
+  </section>
+
+  <section>
+    <h2>Data Retention &amp; Deletion</h2>
+    <p>Your data is retained as long as your account is active. To request deletion of your account and associated data, contact the school IT department or the extension developer.</p>
+  </section>
+
+  <section>
+    <h2>Children's Privacy</h2>
+    <p>This service is intended for school staff use only and is not directed at children under 13.</p>
+  </section>
+
+  <section>
+    <h2>Changes to This Policy</h2>
+    <p>We may update this policy from time to time. Changes will be posted on this page with an updated date below.</p>
+  </section>
+
+  <section>
+    <h2>Contact</h2>
+    <p>For questions about this privacy policy or your data, contact the Leysin American School IT department.</p>
+  </section>
+
+  <p class="updated">Last updated: March 7, 2026</p>
+</main>
+</body>
+</html>

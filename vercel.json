@@ -4,6 +4,7 @@
   "framework": null,
   "rewrites": [
     { "source": "/api/t/:id", "destination": "/api/t/[id]" },
+    { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
