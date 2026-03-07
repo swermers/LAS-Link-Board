@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "LAS LinkBoard Tracker",
+  "version": "1.0",
+  "description": "Track email opens from Gmail newsletters",
+  "permissions": ["activeTab", "storage"],
+  "icons": {
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://mail.google.com/*"],
+      "js": ["content.js"],
+      "css": ["content.css"]
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icon48.png"
+  }
+}

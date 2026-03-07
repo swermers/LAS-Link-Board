@@ -1,0 +1,38 @@
+/* LAS LinkBoard Track button in Gmail */
+.lb-track-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  height: 36px;
+  margin-left: 8px;
+  border-radius: 18px;
+  background: #C5993E;
+  color: #fff;
+  font-family: 'Google Sans', Roboto, system-ui, sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  user-select: none;
+  transition: background 0.2s, transform 0.1s;
+  vertical-align: middle;
+}
+
+.lb-track-btn:hover {
+  background: #b08832;
+  transform: scale(1.02);
+}
+
+.lb-track-btn:active {
+  transform: scale(0.98);
+}
+
+.lb-track-active {
+  background: #1A7A6D !important;
+  cursor: default;
+}
+
+.lb-track-active::before {
+  content: '\2713 ';
+}

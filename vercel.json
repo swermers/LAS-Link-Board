@@ -3,6 +3,7 @@
   "outputDirectory": ".",
   "framework": null,
   "rewrites": [
+    { "source": "/api/t/:id", "destination": "/api/t/[id]" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

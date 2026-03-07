@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  width: 320px; font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #F7F6F3; color: #093554; padding: 16px;
+}
+h2 { font-size: 14px; font-weight: 800; margin-bottom: 12px; }
+.status { font-size: 12px; color: #5A7080; margin-bottom: 12px; }
+.status.ok { color: #1A7A6D; }
+.status.err { color: #a42547; }
+.btn {
+  display: block; width: 100%; padding: 10px; border: none; border-radius: 8px;
+  font-size: 13px; font-weight: 700; cursor: pointer; margin-bottom: 8px;
+}
+.btn-primary { background: #C5993E; color: #fff; }
+.btn-primary:hover { background: #b08832; }
+.btn-outline { background: none; border: 1.5px solid #D6D3CC; color: #093554; }
+.btn-outline:hover { border-color: #C5993E; }
+.field { margin-bottom: 10px; }
+.field label { font-size: 11px; font-weight: 700; color: #5A7080; display: block; margin-bottom: 4px; }
+.field input { width: 100%; padding: 8px 10px; border: 1.5px solid #D6D3CC; border-radius: 8px; font-size: 13px; }
+.field input:focus { outline: none; border-color: #C5993E; }
+.info { font-size: 11px; color: #5A7080; margin-top: 8px; line-height: 1.4; }
+.divider { border-top: 1px solid #D6D3CC; margin: 12px 0; }
+#loginSection, #mainSection { display: none; }
+</style>
+</head>
+<body>
+  <h2>LAS LinkBoard Tracker</h2>
+
+  <div id="loginSection">
+    <p class="status">Sign in with your LinkBoard account to track email opens.</p>
+    <div class="field">
+      <label>Email</label>
+      <input type="email" id="email" placeholder="you@las.ch">
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="password" placeholder="Password">
+    </div>
+    <button class="btn btn-primary" id="loginBtn">Sign In</button>
+    <div id="loginError" class="status err" style="display:none"></div>
+  </div>
+
+  <div id="mainSection">
+    <p class="status ok" id="userInfo"></p>
+    <p class="info" style="margin-bottom:12px">Open a Gmail compose window, then click the <strong>Track</strong> button that appears next to Send.</p>
+    <div class="divider"></div>
+    <p class="info">Tracking is automatic once you click the Track button. View stats in your <a href="https://las-link-board.vercel.app" target="_blank" style="color:#C5993E;font-weight:600">LinkBoard dashboard</a> under the Campaigns tab.</p>
+    <div class="divider"></div>
+    <button class="btn btn-outline" id="logoutBtn">Sign Out</button>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
