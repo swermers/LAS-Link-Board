@@ -83,10 +83,14 @@ async function injectToggle(toolbar, sendBtn) {
     sendBtn.parentElement.appendChild(toggle);
   }
 
-  // Intercept Send: when the user clicks Send, inject the pixel first
+  // Intercept Send: block the click, inject pixel, then re-click
   sendBtn.addEventListener('click', async (e) => {
     if (toggle.dataset.tracking !== 'on') return; // Tracking off, let send proceed
-    if (toggle.dataset.sent === 'true') return; // Already injected
+    if (toggle.dataset.sent === 'true') return;   // Already injected, let send proceed
+
+    // BLOCK the send — we need to inject the pixel first
+    e.preventDefault();
+    e.stopImmediatePropagation();
 
     // Check auth
     const stored = await chrome.storage.local.get(['lb_token', 'lb_user_id']);
@@ -97,23 +101,30 @@ async function injectToggle(toolbar, sendBtn) {
         toggle.classList.remove('lb-no-auth');
         toggle.querySelector('.lb-label').textContent = 'Track';
       }, 3000);
-      return; // Let the email send without tracking
+      // Let user send without tracking — mark as sent so next click goes through
+      toggle.dataset.sent = 'true';
+      sendBtn.click();
+      return;
     }
 
     // Get subject for campaign name
-    const dialog = sendBtn.closest('div[role="dialog"]') || sendBtn.closest('.AD');
+    const composeDialog = sendBtn.closest('div[role="dialog"]') || sendBtn.closest('.AD');
     let subject = 'Email Campaign';
-    if (dialog) {
-      const subjectInput = dialog.querySelector('input[name="subjectbox"]');
+    if (composeDialog) {
+      const subjectInput = composeDialog.querySelector('input[name="subjectbox"]');
       if (subjectInput && subjectInput.value.trim()) {
         subject = subjectInput.value.trim();
       }
     }
 
-    // Create campaign and inject pixel (don't block the send)
+    // Create campaign and inject pixel, THEN re-trigger send
     try {
       const token = await getValidToken(stored);
-      if (!token) return;
+      if (!token) {
+        toggle.dataset.sent = 'true';
+        sendBtn.click();
+        return;
+      }
 
       const res = await fetch(SUPABASE_URL + '/rest/v1/campaigns', {
         method: 'POST',
@@ -132,12 +143,15 @@ async function injectToggle(toolbar, sendBtn) {
 
       if (res.ok) {
         const [camp] = await res.json();
-        injectPixel(dialog, camp.id);
-        toggle.dataset.sent = 'true';
+        injectPixel(composeDialog, camp.id);
       }
     } catch (err) {
       console.error('LinkBoard: tracking failed', err);
     }
+
+    // Mark as sent and re-trigger the actual send
+    toggle.dataset.sent = 'true';
+    sendBtn.click();
   }, true); // Use capture phase to run BEFORE Gmail's send handler
 }
 
@@ -149,14 +163,11 @@ function injectPixel(dialog, campaignId) {
   const target = body || document.querySelector('div[role="textbox"][g_editable="true"], div.Am.Al.editable');
   if (!target) return;
 
+  // Use raw HTML insertion so Gmail includes it in the sent email HTML.
+  // Avoid opacity:0/display:none — Gmail strips hidden elements.
   const pixelUrl = PIXEL_BASE + campaignId;
-  const img = document.createElement('img');
-  img.src = pixelUrl;
-  img.width = 1;
-  img.height = 1;
-  img.style.cssText = 'display:block;width:1px;height:1px;opacity:0;position:absolute;';
-  img.alt = '';
-  target.appendChild(img);
+  const pixelHtml = '<img src="' + pixelUrl + '" width="1" height="1" style="width:1px;height:1px;max-height:1px;overflow:hidden;" alt="" />';
+  target.insertAdjacentHTML('beforeend', pixelHtml);
 }
 
 async function getValidToken(stored) {
