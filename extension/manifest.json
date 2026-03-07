@@ -2,9 +2,10 @@
   "manifest_version": 3,
   "name": "LAS LinkBoard Tracker",
   "version": "1.1",
-  "description": "Track email opens from Gmail newsletters",
+  "description": "Track email opens from Gmail newsletters. Adds a tracking toggle next to Send in Gmail — on by default, one-click to disable per email.",
   "permissions": ["activeTab", "storage", "identity"],
   "icons": {
+    "16": "icon48.png",
     "48": "icon48.png",
     "128": "icon128.png"
   },
@@ -17,6 +18,9 @@
   ],
   "action": {
     "default_popup": "popup.html",
-    "default_icon": "icon48.png"
+    "default_icon": {
+      "16": "icon48.png",
+      "48": "icon48.png"
+    }
   }
 }
