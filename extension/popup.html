@@ -38,6 +38,20 @@ h2 { font-size: 14px; font-weight: 800; margin-bottom: 12px; }
   content: ''; flex: 1; height: 1px; background: #D6D3CC;
 }
 #loginSection, #mainSection { display: none; }
+.camp-list { margin-top: 4px; max-height: 180px; overflow-y: auto; }
+.camp-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 0; border-bottom: 1px solid #eee; font-size: 11px;
+}
+.camp-item:last-child { border-bottom: none; }
+.camp-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #093554; }
+.camp-opens { font-size: 10px; color: #5A7080; margin: 0 8px; white-space: nowrap; }
+.camp-del {
+  background: none; border: none; color: #c55; cursor: pointer; font-size: 13px;
+  padding: 2px 4px; border-radius: 4px; line-height: 1;
+}
+.camp-del:hover { background: #fee; }
+.camp-loading { font-size: 10px; color: #999; padding: 8px 0; }
 </style>
 </head>
 <body>
@@ -67,6 +81,9 @@ h2 { font-size: 14px; font-weight: 800; margin-bottom: 12px; }
     <p class="info" style="margin-bottom:12px">Tracking is <strong>on by default</strong> for new emails. Toggle the switch next to Send in Gmail to turn it on or off per email.</p>
     <div class="divider"></div>
     <p class="info">View your stats in the <a href="https://las-link-board.vercel.app" target="_blank" style="color:#C5993E;font-weight:600">LinkBoard dashboard</a> under Campaigns.</p>
+    <div class="divider"></div>
+    <p class="info" style="font-weight:700; color:#093554; margin-bottom:0;">Tracked Emails</p>
+    <div id="campList" class="camp-list"><div class="camp-loading">Loading...</div></div>
     <div class="divider"></div>
     <button class="btn btn-outline" id="logoutBtn">Sign Out</button>
   </div>

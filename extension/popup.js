@@ -61,10 +61,13 @@ function pollForAuth() {
   }, 500);
 }
 
-// ── Google OAuth — trigger background worker then popup will close ──
+// ── Google OAuth — trigger background worker and poll for completion ──
 document.getElementById('googleBtn').addEventListener('click', () => {
   document.getElementById('loginError').style.display = 'none';
+  document.getElementById('googleBtn').textContent = 'Signing in…';
+  document.getElementById('googleBtn').disabled = true;
   chrome.runtime.sendMessage({ action: 'googleSignIn' });
+  pollForAuth();
 });
 
 // ── Email/Password login ──
@@ -109,6 +112,76 @@ function showMain(name) {
   document.getElementById('loginSection').style.display = 'none';
   document.getElementById('mainSection').style.display = 'block';
   document.getElementById('userInfo').textContent = 'Signed in as ' + name;
+  loadCampaigns();
+}
+
+async function loadCampaigns() {
+  const stored = await chrome.storage.local.get(['lb_token', 'lb_user_id']);
+  if (!stored.lb_token || !stored.lb_user_id) return;
+
+  const listEl = document.getElementById('campList');
+  try {
+    // Load campaigns
+    const res = await fetch(SUPABASE_URL + '/rest/v1/campaigns?user_id=eq.' + stored.lb_user_id + '&order=created_at.desc&limit=50', {
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + stored.lb_token }
+    });
+    if (!res.ok) { listEl.innerHTML = '<div class="camp-loading">Failed to load</div>'; return; }
+    const camps = await res.json();
+
+    if (camps.length === 0) {
+      listEl.innerHTML = '<div class="camp-loading">No tracked emails yet</div>';
+      return;
+    }
+
+    // Load open counts
+    const ids = camps.map(c => c.id).join(',');
+    let openCounts = {};
+    try {
+      const opensRes = await fetch(SUPABASE_URL + '/rest/v1/campaign_opens?campaign_id=in.(' + ids + ')&select=campaign_id', {
+        headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + stored.lb_token }
+      });
+      if (opensRes.ok) {
+        const opens = await opensRes.json();
+        opens.forEach(o => { openCounts[o.campaign_id] = (openCounts[o.campaign_id] || 0) + 1; });
+      }
+    } catch (e) {}
+
+    listEl.innerHTML = '';
+    camps.forEach(c => {
+      const count = openCounts[c.id] || 0;
+      const item = document.createElement('div');
+      item.className = 'camp-item';
+      item.innerHTML = '<span class="camp-name">' + escHtml(c.name) + '</span>'
+        + '<span class="camp-opens">' + count + ' open' + (count !== 1 ? 's' : '') + '</span>'
+        + '<button class="camp-del" title="Delete">&times;</button>';
+      item.querySelector('.camp-del').addEventListener('click', () => deleteCampaign(c.id, item));
+      listEl.appendChild(item);
+    });
+  } catch (e) {
+    listEl.innerHTML = '<div class="camp-loading">Error loading campaigns</div>';
+  }
+}
+
+async function deleteCampaign(id, itemEl) {
+  if (!confirm('Delete this tracked email?')) return;
+  const stored = await chrome.storage.local.get(['lb_token']);
+  if (!stored.lb_token) return;
+  const headers = { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + stored.lb_token };
+
+  // Delete opens first, then campaign
+  await fetch(SUPABASE_URL + '/rest/v1/campaign_opens?campaign_id=eq.' + id, { method: 'DELETE', headers });
+  await fetch(SUPABASE_URL + '/rest/v1/campaigns?id=eq.' + id, { method: 'DELETE', headers });
+  itemEl.remove();
+
+  // Show empty state if no items left
+  const listEl = document.getElementById('campList');
+  if (!listEl.querySelector('.camp-item')) {
+    listEl.innerHTML = '<div class="camp-loading">No tracked emails yet</div>';
+  }
+}
+
+function escHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 init();
