@@ -30,15 +30,7 @@ setInterval(() => {
 module.exports = async function handler(req, res) {
   const { id } = req.query;
 
-  // Serve the pixel immediately (don't make the email client wait)
-  res.setHeader('Content-Type', 'image/gif');
-  res.setHeader('Content-Length', PIXEL.length);
-  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-  res.setHeader('Pragma', 'no-cache');
-  res.setHeader('Expires', '0');
-  res.status(200).end(PIXEL);
-
-  // Log the open after responding (fire-and-forget)
+  // Log the open BEFORE responding (Vercel kills the function after res.end)
   if (id) {
     const ua = req.headers['user-agent'] || '';
     const ip = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || '';
@@ -49,30 +41,38 @@ module.exports = async function handler(req, res) {
     const now = Date.now();
     const lastSeen = recentOpens.get(key);
     if (lastSeen && (now - lastSeen) < DEDUP_MINUTES * 60 * 1000) {
-      return; // Already logged recently, skip
-    }
-    recentOpens.set(key, now);
-
-    try {
-      await fetch(SUPABASE_URL + '/rest/v1/campaign_opens', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': SUPABASE_ANON,
-          'Authorization': 'Bearer ' + SUPABASE_ANON,
-          'Prefer': 'return=minimal'
-        },
-        body: JSON.stringify({
-          campaign_id: id,
-          user_agent: ua,
-          ip_hash: ipHash,
-          opened_at: new Date().toISOString()
-        })
-      });
-    } catch (e) {
-      // Silently fail — don't break the pixel
+      // Skip DB insert, still serve pixel
+    } else {
+      recentOpens.set(key, now);
+      try {
+        await fetch(SUPABASE_URL + '/rest/v1/campaign_opens', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_ANON,
+            'Authorization': 'Bearer ' + SUPABASE_ANON,
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify({
+            campaign_id: id,
+            user_agent: ua,
+            ip_hash: ipHash,
+            opened_at: new Date().toISOString()
+          })
+        });
+      } catch (e) {
+        // Silently fail — don't break the pixel
+      }
     }
   }
+
+  // Serve the pixel after logging
+  res.setHeader('Content-Type', 'image/gif');
+  res.setHeader('Content-Length', PIXEL.length);
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.status(200).end(PIXEL);
 };
 
 // Hash IP for privacy (don't store raw IPs)
