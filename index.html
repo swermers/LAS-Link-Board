@@ -2041,12 +2041,30 @@ async function handleRedirect() {
     scan_user_agent: navigator.userAgent || '',
     scan_referrer: document.referrer || ''
   });
+
   if (!error && data) {
-    linkData = data;
-  } else {
-    // Fallback: look up the link directly (read-only, no scan increment)
-    const { data: rows } = await sb.from('links').select('url,rules,expires_at').eq('slug', slug).limit(1);
-    if (rows && rows.length > 0) linkData = rows[0];
+    // RPC may return a single object, an array, or a string
+    if (typeof data === 'string') {
+      linkData = { url: data };
+    } else if (Array.isArray(data)) {
+      linkData = data[0] || null;
+    } else {
+      linkData = data;
+    }
+  }
+
+  // Fallback: direct lookup if RPC failed or returned no url
+  if (!linkData || !linkData.url) {
+    try {
+      // Use direct REST call with anon key (bypasses client RLS issues)
+      const res = await fetch(SUPABASE_URL + '/rest/v1/links?slug=eq.' + encodeURIComponent(slug) + '&select=url,rules,expires_at&limit=1', {
+        headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + SUPABASE_ANON }
+      });
+      if (res.ok) {
+        const rows = await res.json();
+        if (rows && rows.length > 0) linkData = rows[0];
+      }
+    } catch (e) { /* ignore fetch errors */ }
   }
 
   if (!linkData) {
@@ -2063,7 +2081,12 @@ async function handleRedirect() {
   // Evaluate routing rules client-side
   const rules = linkData.rules || [];
   const activeRule = getActiveRule({ rules });
-  window.location.replace(activeRule ? activeRule.url : linkData.url);
+  const dest = activeRule ? activeRule.url : linkData.url;
+  if (!dest) {
+    document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:'Inter',sans-serif;color:#093554;background:#F7F6F3;text-align:center;padding:2rem"><div><h1 style="font-family:'Montserrat',sans-serif;font-size:1.5rem;margin-bottom:0.5rem;color:#a42547">Link Error</h1><p style="color:#5A7080">This link has no destination configured.</p></div></div>`;
+    return true;
+  }
+  window.location.replace(dest);
   return true;
 }
 
