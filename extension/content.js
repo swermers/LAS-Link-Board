@@ -71,8 +71,14 @@ async function injectToggle(toolbar, sendBtn) {
     toggle.dataset.tracking = toggle.dataset.tracking === 'on' ? 'off' : 'on';
   });
 
-  // Insert after send button
-  sendBtn.parentElement.insertBefore(toggle, sendBtn.nextSibling);
+  // Insert at the right end of the toolbar row
+  const row = sendBtn.closest('tr') || sendBtn.parentElement;
+  const lastTd = row.querySelector ? row.querySelector('td:last-child') : null;
+  if (lastTd && lastTd !== sendBtn.parentElement) {
+    lastTd.appendChild(toggle);
+  } else {
+    sendBtn.parentElement.appendChild(toggle);
+  }
 
   // Intercept Send: when the user clicks Send, inject the pixel first
   sendBtn.addEventListener('click', async (e) => {
