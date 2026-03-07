@@ -611,6 +611,18 @@ body {
 .camp-card-stat strong { color: var(--teal); font-weight: 700; }
 .camp-card-notes { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.35rem; font-style: italic; }
 
+/* ═══ EXTENSION INSTALL ═══ */
+.ext-steps { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1rem; }
+.ext-step { display: flex; gap: 0.75rem; align-items: flex-start; }
+.ext-step-num {
+  width: 28px; height: 28px; border-radius: 50%; background: var(--gold);
+  color: #fff; font-weight: 800; font-size: 0.8rem;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.ext-step-text { flex: 1; }
+.ext-step-text strong { font-size: 0.85rem; color: var(--navy); display: block; }
+.ext-step-text p { font-size: 0.78rem; color: var(--text-muted); margin-top: 2px; }
+
 /* ═══ SETTINGS ═══ */
 .settings-section { }
 .settings-label {
@@ -798,14 +810,67 @@ body {
       </div>
       <div class="page-head">
         <h2>Your Campaigns</h2>
-        <button class="btn btn-gold" onclick="openCreateCampaign()">+ New Campaign</button>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+          <button class="btn btn-outline btn-sm" onclick="openExtensionInstall()">Get Gmail Extension</button>
+          <button class="btn btn-gold" onclick="openCreateCampaign()">+ New Campaign</button>
+        </div>
       </div>
       <div class="empty" id="campEmptyMsg">
         <div class="empty-icon">&#9993;</div>
         <h3>No campaigns yet</h3>
-        <p>Create a campaign to track email opens. Paste the tracking pixel into your Gmail newsletter.</p>
+        <p>Create a campaign to track email opens. Install the Gmail extension for one-click tracking.</p>
+        <button class="btn btn-outline btn-sm" style="margin-top:0.75rem" onclick="openExtensionInstall()">Install Gmail Extension</button>
       </div>
       <div class="cards" id="campList"></div>
+    </div>
+  </div>
+
+  <!-- ═══ EXTENSION INSTALL MODAL ═══ -->
+  <div class="overlay" id="extOverlay">
+    <div class="modal" style="max-width:520px">
+      <h3>Install Gmail Extension</h3>
+      <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:1rem">Track email opens with one click. The extension adds a <strong>"Track"</strong> button next to Send in Gmail.</p>
+      <div class="ext-steps">
+        <div class="ext-step">
+          <div class="ext-step-num">1</div>
+          <div class="ext-step-text">
+            <strong>Download the extension</strong>
+            <p>Click below to download the extension files.</p>
+          </div>
+        </div>
+        <div class="ext-step">
+          <div class="ext-step-num">2</div>
+          <div class="ext-step-text">
+            <strong>Unzip the file</strong>
+            <p>Extract the downloaded zip to a folder on your computer.</p>
+          </div>
+        </div>
+        <div class="ext-step">
+          <div class="ext-step-num">3</div>
+          <div class="ext-step-text">
+            <strong>Open Chrome Extensions</strong>
+            <p>Go to <code style="background:#E8E6E1;padding:2px 6px;border-radius:4px;font-size:0.78rem">chrome://extensions</code> and enable <strong>Developer mode</strong> (top right).</p>
+          </div>
+        </div>
+        <div class="ext-step">
+          <div class="ext-step-num">4</div>
+          <div class="ext-step-text">
+            <strong>Load the extension</strong>
+            <p>Click <strong>"Load unpacked"</strong> and select the unzipped folder.</p>
+          </div>
+        </div>
+        <div class="ext-step">
+          <div class="ext-step-num">5</div>
+          <div class="ext-step-text">
+            <strong>Sign in</strong>
+            <p>Click the extension icon in your toolbar and sign in with your LinkBoard account.</p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-outline" onclick="closeModal('extOverlay')">Close</button>
+        <button class="btn btn-primary" onclick="downloadExtension()">Download Extension</button>
+      </div>
     </div>
   </div>
 
@@ -2364,6 +2429,18 @@ function renderCampChart(opens) {
 function copyCampPixel() {
   const url = document.getElementById('campPixelUrl').textContent;
   navigator.clipboard.writeText(url).then(() => toast('Pixel URL copied!', true));
+}
+
+function openExtensionInstall() {
+  openModal('extOverlay');
+}
+
+async function downloadExtension() {
+  // Build a zip of the extension files using JSZip-like approach
+  // Since we don't have JSZip, link to the GitHub repo's extension folder
+  const repoUrl = 'https://github.com/swermers/LAS-Link-Board/archive/refs/heads/main.zip';
+  window.open(repoUrl, '_blank');
+  toast('Download started! Unzip and find the extension/ folder inside.', true);
 }
 
 async function deleteCampaign() {
