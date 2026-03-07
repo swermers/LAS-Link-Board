@@ -71,12 +71,15 @@ async function injectToggle(toolbar, sendBtn) {
     toggle.dataset.tracking = toggle.dataset.tracking === 'on' ? 'off' : 'on';
   });
 
-  // Insert at the right end of the toolbar row
-  const row = sendBtn.closest('tr') || sendBtn.parentElement;
-  const lastTd = row.querySelector ? row.querySelector('td:last-child') : null;
-  if (lastTd && lastTd !== sendBtn.parentElement) {
-    lastTd.appendChild(toggle);
+  // Insert between the scheduled-send dropdown and the next toolbar section
+  // The send button's <td> contains: [Send] [Schedule dropdown]
+  // We want our toggle right after that <td>, before the icons <td>
+  const sendTd = sendBtn.closest('td');
+  if (sendTd && sendTd.nextElementSibling) {
+    // Insert before the next td (which has Mailsuite, formatting, etc.)
+    sendTd.parentElement.insertBefore(toggle, sendTd.nextElementSibling);
   } else {
+    // Fallback: insert after the send button's container
     sendBtn.parentElement.appendChild(toggle);
   }
 
