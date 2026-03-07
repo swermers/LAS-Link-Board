@@ -25,8 +25,13 @@ function observeCompose() {
 
 async function injectToggle(toolbar, sendBtn) {
   // Read default tracking preference from storage (default: off)
-  const stored = await chrome.storage.local.get(['lb_track_default']);
-  const defaultOn = stored.lb_track_default === true;
+  let defaultOn = false;
+  try {
+    const stored = await chrome.storage.local.get(['lb_track_default']);
+    defaultOn = stored.lb_track_default === true;
+  } catch (e) {
+    // Extension context may be invalidated after reload — use default
+  }
 
   // Create the toggle element
   const toggle = document.createElement('div');
@@ -92,64 +97,59 @@ async function injectToggle(toolbar, sendBtn) {
     e.preventDefault();
     e.stopImmediatePropagation();
 
-    // Check auth
-    const stored = await chrome.storage.local.get(['lb_token', 'lb_user_id']);
-    if (!stored.lb_token) {
-      toggle.classList.add('lb-no-auth');
-      toggle.querySelector('.lb-label').textContent = 'Sign in';
-      setTimeout(() => {
-        toggle.classList.remove('lb-no-auth');
-        toggle.querySelector('.lb-label').textContent = 'Track';
-      }, 3000);
-      // Let user send without tracking — mark as sent so next click goes through
-      toggle.dataset.sent = 'true';
-      sendBtn.click();
-      return;
-    }
-
-    // Get subject for campaign name
-    const composeDialog = sendBtn.closest('div[role="dialog"]') || sendBtn.closest('.AD');
-    let subject = 'Email Campaign';
-    if (composeDialog) {
-      const subjectInput = composeDialog.querySelector('input[name="subjectbox"]');
-      if (subjectInput && subjectInput.value.trim()) {
-        subject = subjectInput.value.trim();
-      }
-    }
-
-    // Create campaign and inject pixel, THEN re-trigger send
     try {
-      const token = await getValidToken(stored);
-      if (!token) {
+      // Check auth
+      const stored = await chrome.storage.local.get(['lb_token', 'lb_user_id']);
+      if (!stored.lb_token) {
+        toggle.classList.add('lb-no-auth');
+        toggle.querySelector('.lb-label').textContent = 'Sign in';
+        setTimeout(() => {
+          toggle.classList.remove('lb-no-auth');
+          toggle.querySelector('.lb-label').textContent = 'Track';
+        }, 3000);
         toggle.dataset.sent = 'true';
         sendBtn.click();
         return;
       }
 
-      const res = await fetch(SUPABASE_URL + '/rest/v1/campaigns', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': SUPABASE_ANON,
-          'Authorization': 'Bearer ' + token,
-          'Prefer': 'return=representation'
-        },
-        body: JSON.stringify({
-          user_id: stored.lb_user_id,
-          name: subject,
-          notes: 'Created via Gmail extension'
-        })
-      });
+      // Get subject for campaign name
+      const composeDialog = sendBtn.closest('div[role="dialog"]') || sendBtn.closest('.AD');
+      let subject = 'Email Campaign';
+      if (composeDialog) {
+        const subjectInput = composeDialog.querySelector('input[name="subjectbox"]');
+        if (subjectInput && subjectInput.value.trim()) {
+          subject = subjectInput.value.trim();
+        }
+      }
 
-      if (res.ok) {
-        const [camp] = await res.json();
-        injectPixel(composeDialog, camp.id);
+      // Create campaign and inject pixel, THEN re-trigger send
+      const token = await getValidToken(stored);
+      if (token) {
+        const res = await fetch(SUPABASE_URL + '/rest/v1/campaigns', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_ANON,
+            'Authorization': 'Bearer ' + token,
+            'Prefer': 'return=representation'
+          },
+          body: JSON.stringify({
+            user_id: stored.lb_user_id,
+            name: subject,
+            notes: 'Created via Gmail extension'
+          })
+        });
+
+        if (res.ok) {
+          const [camp] = await res.json();
+          injectPixel(composeDialog, camp.id);
+        }
       }
     } catch (err) {
       console.error('LinkBoard: tracking failed', err);
     }
 
-    // Mark as sent and re-trigger the actual send
+    // Always re-trigger send, even if tracking failed
     toggle.dataset.sent = 'true';
     sendBtn.click();
   }, true); // Use capture phase to run BEFORE Gmail's send handler
