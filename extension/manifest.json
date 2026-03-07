@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "LAS LinkBoard Tracker",
-  "version": "1.0",
+  "version": "1.1",
   "description": "Track email opens from Gmail newsletters",
-  "permissions": ["activeTab", "storage"],
+  "permissions": ["activeTab", "storage", "identity"],
   "icons": {
     "48": "icon48.png",
     "128": "icon128.png"
