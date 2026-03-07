@@ -161,16 +161,21 @@ async function exchangeCodeForTokens(code, codeVerifier) {
   try {
     await debugLog('POST /auth/v1/token...');
 
+    const body = new URLSearchParams({
+      grant_type: 'authorization_code',
+      code: code,
+      code_verifier: codeVerifier
+    });
+
+    await debugLog('Body: ' + body.toString().substring(0, 120));
+
     const res = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=authorization_code', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Content-Type': 'application/x-www-form-urlencoded',
         'apikey': SUPABASE_ANON
       },
-      body: JSON.stringify({
-        code: code,
-        code_verifier: codeVerifier
-      })
+      body: body.toString()
     });
 
     const data = await res.json();
