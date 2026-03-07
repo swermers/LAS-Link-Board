@@ -3,8 +3,9 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.action === 'googleSignIn') {
-    handleGoogleSignIn().then(sendResponse);
-    return true; // keep channel open for async response
+    // Fire and forget — don't rely on sendResponse since popup will close
+    handleGoogleSignIn();
+    sendResponse({ started: true });
   }
 });
 
@@ -12,7 +13,6 @@ async function handleGoogleSignIn() {
   const redirectUrl = chrome.identity.getRedirectURL();
   console.log('[LB] Redirect URL:', redirectUrl);
 
-  // Use response_type=token to get implicit flow (tokens in hash, no PKCE code exchange needed)
   const authUrl = SUPABASE_URL + '/auth/v1/authorize?' + new URLSearchParams({
     provider: 'google',
     redirect_to: redirectUrl,
@@ -30,7 +30,6 @@ async function handleGoogleSignIn() {
     console.log('[LB] Response URL:', responseUrl);
 
     // Parse tokens from hash fragment (#access_token=...&refresh_token=...)
-    // or from query params (?access_token=...) as a fallback
     const url = new URL(responseUrl);
     const hashStr = url.hash.substring(1);
     const hashParams = new URLSearchParams(hashStr);
@@ -41,7 +40,10 @@ async function handleGoogleSignIn() {
 
     if (!accessToken) {
       console.error('[LB] No token found. Hash:', hashStr, 'Search:', url.search);
-      return { error: 'No token received. URL: ' + responseUrl.substring(0, 300) };
+      await chrome.storage.local.set({
+        lb_auth_error: 'No token received. URL: ' + responseUrl.substring(0, 300)
+      });
+      return;
     }
 
     console.log('[LB] Got access token, fetching user info...');
@@ -57,17 +59,21 @@ async function handleGoogleSignIn() {
     console.log('[LB] User response:', JSON.stringify(user).substring(0, 200));
     const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'User';
 
+    // Save to storage — popup's init() or storage listener will pick this up
     await chrome.storage.local.set({
       lb_token: accessToken,
       lb_refresh: refreshToken,
       lb_user_id: user.id,
       lb_user_name: name
     });
+    // Clear any previous error
+    await chrome.storage.local.remove(['lb_auth_error']);
 
     console.log('[LB] Saved to storage. User:', name, 'ID:', user.id);
-    return { success: true, name };
   } catch (e) {
     console.error('[LB] OAuth error:', e);
-    return { error: e.message || 'Sign-in cancelled' };
+    await chrome.storage.local.set({
+      lb_auth_error: e.message || 'Sign-in cancelled'
+    });
   }
 }
