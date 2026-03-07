@@ -2,7 +2,11 @@
   "buildCommand": "",
   "outputDirectory": ".",
   "framework": null,
+  "functions": {
+    "api/t/[id].js": { "runtime": "@vercel/node@3" }
+  },
   "rewrites": [
+    { "source": "/api/t/:id", "destination": "/api/t/[id]" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

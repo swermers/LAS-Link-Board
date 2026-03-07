@@ -581,6 +581,36 @@ body {
   #printFrame { position: absolute; left: 0; top: 0; width: 100%; }
 }
 
+/* ═══ TAB BAR ═══ */
+.tab-bar {
+  display: flex; gap: 0; background: var(--surface); border-bottom: 2px solid var(--border);
+  padding: 0 1.5rem; max-width: 900px; margin: 0 auto; width: 100%;
+}
+.tab {
+  padding: 0.7rem 1.5rem; font-family: 'Montserrat', sans-serif;
+  font-size: 0.82rem; font-weight: 700; color: var(--text-muted);
+  background: none; border: none; cursor: pointer;
+  border-bottom: 3px solid transparent; margin-bottom: -2px;
+  transition: color 0.2s, border-color 0.2s;
+}
+.tab:hover { color: var(--navy); }
+.tab.active { color: var(--navy); border-bottom-color: var(--gold); }
+
+/* ═══ CAMPAIGNS ═══ */
+.camp-card {
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 14px; padding: 1rem 1.25rem; margin-bottom: 0.75rem;
+  cursor: pointer; transition: border-color 0.2s, box-shadow 0.2s;
+}
+.camp-card:hover { border-color: var(--gold); box-shadow: var(--shadow-md); }
+.camp-card-head { display: flex; justify-content: space-between; align-items: center; }
+.camp-card-name { font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 0.95rem; color: var(--navy); }
+.camp-card-date { font-size: 0.76rem; color: var(--text-muted); }
+.camp-card-stats { display: flex; gap: 1.5rem; margin-top: 0.5rem; font-size: 0.82rem; }
+.camp-card-stat { color: var(--text-muted); }
+.camp-card-stat strong { color: var(--teal); font-weight: 700; }
+.camp-card-notes { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.35rem; font-style: italic; }
+
 /* ═══ SETTINGS ═══ */
 .settings-section { }
 .settings-label {
@@ -725,7 +755,11 @@ body {
         <button class="btn btn-ghost btn-sm" onclick="doLogout()">Sign out</button>
       </div>
     </div>
-    <div class="main">
+    <div class="tab-bar">
+      <button class="tab active" id="tabLinks" onclick="switchTab('links')">Links</button>
+      <button class="tab" id="tabCampaigns" onclick="switchTab('campaigns')">Campaigns</button>
+    </div>
+    <div class="main" id="linksSection">
       <div class="stats">
         <div class="stat"><div class="stat-label">QR Codes</div><div class="stat-val" id="sTotal">0</div></div>
         <div class="stat"><div class="stat-label">Total Scans</div><div class="stat-val" id="sScans">0</div></div>
@@ -753,6 +787,90 @@ body {
         <p>Create your first QR code — print it once, update the link anytime.</p>
       </div>
       <div class="cards" id="cardList"></div>
+    </div>
+
+    <!-- ═══ CAMPAIGNS SECTION ═══ -->
+    <div class="main" id="campaignsSection" style="display:none">
+      <div class="stats">
+        <div class="stat"><div class="stat-label">Campaigns</div><div class="stat-val" id="sCampTotal">0</div></div>
+        <div class="stat"><div class="stat-label">Total Opens</div><div class="stat-val" id="sCampOpens">0</div></div>
+        <div class="stat"><div class="stat-label">Unique Opens</div><div class="stat-val" id="sCampUnique">0</div></div>
+      </div>
+      <div class="page-head">
+        <h2>Your Campaigns</h2>
+        <button class="btn btn-gold" onclick="openCreateCampaign()">+ New Campaign</button>
+      </div>
+      <div class="empty" id="campEmptyMsg">
+        <div class="empty-icon">&#9993;</div>
+        <h3>No campaigns yet</h3>
+        <p>Create a campaign to track email opens. Paste the tracking pixel into your Gmail newsletter.</p>
+      </div>
+      <div class="cards" id="campList"></div>
+    </div>
+  </div>
+
+  <!-- ═══ CREATE CAMPAIGN MODAL ═══ -->
+  <div class="overlay" id="campOverlay">
+    <div class="modal" style="max-width:520px">
+      <h3 id="campModalTitle">New Campaign</h3>
+      <div class="field">
+        <label>Campaign Name</label>
+        <input type="text" id="campName" placeholder="e.g. Week 12 Newsletter">
+      </div>
+      <div class="field">
+        <label>Notes <span style="font-weight:400;font-size:0.76rem;color:var(--text-muted)">(optional)</span></label>
+        <input type="text" id="campNotes" placeholder="e.g. Sent to Grade 10-12">
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-outline" onclick="closeModal('campOverlay')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveCampaign()">Create Campaign</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ CAMPAIGN DETAIL MODAL ═══ -->
+  <div class="overlay" id="campDetailOverlay">
+    <div class="modal" style="max-width:600px">
+      <h3 id="campDetailTitle">Campaign</h3>
+      <div class="camp-pixel-section">
+        <div class="settings-label">Tracking Pixel</div>
+        <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:0.5rem">Paste this into your Gmail newsletter as an image (Insert Image &rarr; By URL):</p>
+        <div class="card-link-row">
+          <span class="card-link-url" id="campPixelUrl" style="font-size:0.75rem"></span>
+          <button class="btn btn-soft btn-xs" onclick="copyCampPixel()">Copy</button>
+        </div>
+      </div>
+      <div class="camp-stats-section" style="margin-top:1rem">
+        <div class="settings-label">Stats</div>
+        <div class="settings-row">
+          <span class="settings-key">Total Opens</span>
+          <span class="settings-val" id="campDetailOpens">0</span>
+        </div>
+        <div class="settings-row">
+          <span class="settings-key">Unique Opens</span>
+          <span class="settings-val" id="campDetailUnique">0</span>
+        </div>
+        <div class="settings-row">
+          <span class="settings-key">First Opened</span>
+          <span class="settings-val" id="campDetailFirst">—</span>
+        </div>
+        <div class="settings-row">
+          <span class="settings-key">Last Opened</span>
+          <span class="settings-val" id="campDetailLast">—</span>
+        </div>
+      </div>
+      <div style="margin-top:1rem">
+        <div class="settings-label">Open Timeline</div>
+        <canvas id="campChart" height="160" style="width:100%"></canvas>
+      </div>
+      <div style="margin-top:1rem">
+        <div class="settings-label">Recent Opens</div>
+        <div id="campOpensList" style="max-height:200px;overflow-y:auto"></div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-danger-ghost btn-sm" onclick="deleteCampaign()">Delete</button>
+        <button class="btn btn-outline" onclick="closeModal('campDetailOverlay')">Close</button>
+      </div>
     </div>
   </div>
 
@@ -2019,6 +2137,252 @@ async function handlePublicProfile() {
     if (el) new QRCode(el, { text: BASE + '#/' + c.slug, width: 78, height: 78, colorDark: '#a42547', colorLight: '#FFFFFF', correctLevel: QRCode.CorrectLevel.M });
   });
   return true;
+}
+
+// ─── Campaigns ───
+let myCampaigns = [];
+let activeCampId = null;
+const PIXEL_BASE = location.origin + '/api/t/';
+
+function switchTab(tab) {
+  document.getElementById('tabLinks').classList.toggle('active', tab === 'links');
+  document.getElementById('tabCampaigns').classList.toggle('active', tab === 'campaigns');
+  document.getElementById('linksSection').style.display = tab === 'links' ? 'block' : 'none';
+  document.getElementById('campaignsSection').style.display = tab === 'campaigns' ? 'block' : 'none';
+  if (tab === 'campaigns') loadCampaigns();
+}
+
+async function loadCampaigns() {
+  if (!currentUser) return;
+  const token = currentSession?.access_token || SUPABASE_ANON;
+  const res = await fetch(SUPABASE_URL + '/rest/v1/campaigns?user_id=eq.' + currentUser.id + '&order=created_at.desc', {
+    headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + token }
+  });
+  if (!res.ok) { toast('Failed to load campaigns'); return; }
+  myCampaigns = await res.json();
+  renderCampaigns();
+}
+
+async function renderCampaigns() {
+  const list = document.getElementById('campList');
+  const empty = document.getElementById('campEmptyMsg');
+  document.getElementById('sCampTotal').textContent = myCampaigns.length;
+  if (myCampaigns.length === 0) {
+    empty.style.display = 'block';
+    list.innerHTML = '';
+    document.getElementById('sCampOpens').textContent = '0';
+    document.getElementById('sCampUnique').textContent = '0';
+    return;
+  }
+  empty.style.display = 'none';
+
+  // Fetch open counts for all campaigns
+  const token = currentSession?.access_token || SUPABASE_ANON;
+  const ids = myCampaigns.map(c => c.id);
+  let openCounts = {};
+  let uniqueCounts = {};
+  let totalOpens = 0;
+  let totalUnique = 0;
+  try {
+    const res = await fetch(SUPABASE_URL + '/rest/v1/campaign_opens?campaign_id=in.(' + ids.join(',') + ')&select=campaign_id,ip_hash', {
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + token }
+    });
+    if (res.ok) {
+      const opens = await res.json();
+      opens.forEach(o => {
+        openCounts[o.campaign_id] = (openCounts[o.campaign_id] || 0) + 1;
+        if (!uniqueCounts[o.campaign_id]) uniqueCounts[o.campaign_id] = new Set();
+        uniqueCounts[o.campaign_id].add(o.ip_hash);
+      });
+      totalOpens = opens.length;
+      const allUnique = new Set(opens.map(o => o.ip_hash));
+      totalUnique = allUnique.size;
+    }
+  } catch (e) {}
+  document.getElementById('sCampOpens').textContent = totalOpens;
+  document.getElementById('sCampUnique').textContent = totalUnique;
+
+  list.innerHTML = myCampaigns.map(c => {
+    const opens = openCounts[c.id] || 0;
+    const unique = uniqueCounts[c.id] ? uniqueCounts[c.id].size : 0;
+    return `
+    <div class="camp-card" onclick="openCampaignDetail('${c.id}')">
+      <div class="camp-card-head">
+        <span class="camp-card-name">${esc(c.name)}</span>
+        <span class="camp-card-date">${timeAgo(c.created_at)}</span>
+      </div>
+      ${c.notes ? `<div class="camp-card-notes">${esc(c.notes)}</div>` : ''}
+      <div class="camp-card-stats">
+        <span class="camp-card-stat"><strong>${opens}</strong> opens</span>
+        <span class="camp-card-stat"><strong>${unique}</strong> unique</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openCreateCampaign() {
+  document.getElementById('campName').value = '';
+  document.getElementById('campNotes').value = '';
+  document.getElementById('campModalTitle').textContent = 'New Campaign';
+  openModal('campOverlay');
+}
+
+async function saveCampaign() {
+  const name = document.getElementById('campName').value.trim();
+  if (!name) { toast('Please enter a campaign name'); return; }
+  const notes = document.getElementById('campNotes').value.trim();
+  const token = currentSession?.access_token || SUPABASE_ANON;
+  const res = await fetch(SUPABASE_URL + '/rest/v1/campaigns', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': SUPABASE_ANON,
+      'Authorization': 'Bearer ' + token,
+      'Prefer': 'return=representation'
+    },
+    body: JSON.stringify({ user_id: currentUser.id, name, notes })
+  });
+  if (!res.ok) { toast('Failed to create campaign'); return; }
+  const [camp] = await res.json();
+  closeModal('campOverlay');
+  toast('Campaign created!', true);
+  await loadCampaigns();
+  openCampaignDetail(camp.id);
+}
+
+async function openCampaignDetail(id) {
+  activeCampId = id;
+  const camp = myCampaigns.find(c => c.id === id);
+  if (!camp) return;
+  document.getElementById('campDetailTitle').textContent = camp.name;
+  const pixelUrl = PIXEL_BASE + id;
+  document.getElementById('campPixelUrl').textContent = pixelUrl;
+
+  // Load opens
+  const token = currentSession?.access_token || SUPABASE_ANON;
+  let opens = [];
+  try {
+    const res = await fetch(SUPABASE_URL + '/rest/v1/campaign_opens?campaign_id=eq.' + id + '&order=opened_at.desc&limit=5000', {
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + token }
+    });
+    if (res.ok) opens = await res.json();
+  } catch (e) {}
+
+  const unique = new Set(opens.map(o => o.ip_hash)).size;
+  document.getElementById('campDetailOpens').textContent = opens.length;
+  document.getElementById('campDetailUnique').textContent = unique;
+  document.getElementById('campDetailFirst').textContent = opens.length ? timeAgo(opens[opens.length - 1].opened_at) : '—';
+  document.getElementById('campDetailLast').textContent = opens.length ? timeAgo(opens[0].opened_at) : '—';
+
+  // Render open timeline chart
+  renderCampChart(opens);
+
+  // Render recent opens list
+  const listEl = document.getElementById('campOpensList');
+  if (opens.length === 0) {
+    listEl.innerHTML = '<p style="font-size:0.82rem;color:var(--text-muted)">No opens yet. Send your newsletter with the tracking pixel to start tracking!</p>';
+  } else {
+    listEl.innerHTML = opens.slice(0, 50).map(o => {
+      const ua = o.user_agent || '';
+      const device = /Mobile|iPhone|Android/i.test(ua) ? 'Mobile' : 'Desktop';
+      const client = /Thunderbird/i.test(ua) ? 'Thunderbird' : /Outlook/i.test(ua) ? 'Outlook' : /Apple Mail|CFNetwork/i.test(ua) ? 'Apple Mail' : /GoogleImageProxy/i.test(ua) ? 'Gmail (proxy)' : 'Other';
+      return `<div class="settings-row"><span class="settings-key">${timeAgo(o.opened_at)}</span><span class="settings-val" style="font-size:0.78rem">${device} &middot; ${client}</span></div>`;
+    }).join('');
+  }
+
+  openModal('campDetailOverlay');
+}
+
+function renderCampChart(opens) {
+  const canvas = document.getElementById('campChart');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth * 2;
+  canvas.height = 320;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (opens.length === 0) {
+    ctx.fillStyle = '#5A7080';
+    ctx.font = '24px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('No data yet', canvas.width / 2, canvas.height / 2);
+    return;
+  }
+
+  // Group opens by hour for the last 7 days
+  const now = new Date();
+  const daysBack = 7;
+  const buckets = {};
+  for (let i = 0; i < daysBack; i++) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    buckets[key] = 0;
+  }
+  opens.forEach(o => {
+    const key = new Date(o.opened_at).toISOString().slice(0, 10);
+    if (buckets.hasOwnProperty(key)) buckets[key]++;
+  });
+
+  const labels = Object.keys(buckets).reverse();
+  const vals = labels.map(l => buckets[l]);
+  const max = Math.max(...vals, 1);
+  const w = canvas.width;
+  const h = canvas.height;
+  const pad = { t: 20, b: 50, l: 40, r: 20 };
+  const plotW = w - pad.l - pad.r;
+  const plotH = h - pad.t - pad.b;
+  const barW = plotW / labels.length * 0.6;
+  const gap = plotW / labels.length;
+
+  // Bars
+  labels.forEach((l, i) => {
+    const x = pad.l + i * gap + (gap - barW) / 2;
+    const barH = (vals[i] / max) * plotH;
+    const y = pad.t + plotH - barH;
+    ctx.fillStyle = vals[i] > 0 ? '#1A7A6D' : '#E8E6E1';
+    ctx.beginPath();
+    ctx.roundRect(x, y, barW, barH || 4, [6, 6, 0, 0]);
+    ctx.fill();
+
+    // Value on top
+    if (vals[i] > 0) {
+      ctx.fillStyle = '#093554';
+      ctx.font = 'bold 20px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(vals[i], x + barW / 2, y - 8);
+    }
+
+    // Label
+    ctx.fillStyle = '#5A7080';
+    ctx.font = '18px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    const dayLabel = new Date(l).toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' });
+    ctx.fillText(dayLabel, x + barW / 2, h - pad.b + 30);
+  });
+}
+
+function copyCampPixel() {
+  const url = document.getElementById('campPixelUrl').textContent;
+  navigator.clipboard.writeText(url).then(() => toast('Pixel URL copied!', true));
+}
+
+async function deleteCampaign() {
+  if (!activeCampId) return;
+  if (!confirm('Delete this campaign and all its tracking data?')) return;
+  const token = currentSession?.access_token || SUPABASE_ANON;
+  // Delete opens first
+  await fetch(SUPABASE_URL + '/rest/v1/campaign_opens?campaign_id=eq.' + activeCampId, {
+    method: 'DELETE',
+    headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + token }
+  });
+  // Delete campaign
+  await fetch(SUPABASE_URL + '/rest/v1/campaigns?id=eq.' + activeCampId, {
+    method: 'DELETE',
+    headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + token }
+  });
+  closeModal('campDetailOverlay');
+  toast('Campaign deleted', true);
+  await loadCampaigns();
 }
 
 // ─── Redirect (public — no auth needed) ───
