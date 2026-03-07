@@ -168,7 +168,7 @@ async function exchangeCodeForTokens(code, codeVerifier) {
         'apikey': SUPABASE_ANON
       },
       body: JSON.stringify({
-        auth_code: code,
+        code: code,
         code_verifier: codeVerifier
       })
     });
