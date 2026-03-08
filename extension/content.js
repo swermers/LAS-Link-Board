@@ -1,6 +1,8 @@
-// LAS LinkBoard Tracker — Gmail content script
+// LAS LinkBoard Tracker — Gmail content script v1.4
 // Adds a Mailsuite-style tracking toggle next to Send in Gmail compose windows
 // Tracking default is controlled by lb_track_default setting (off by default)
+
+console.log('[LB] Content script v1.4 loaded');
 
 const SUPABASE_URL = 'https://pmhoeqxuamvqlwsatozu.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBtaG9lcXh1YW12cWx3c2F0b3p1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MTY2NDYsImV4cCI6MjA4ODM5MjY0Nn0.ktaozIz1XrIUeUrPjtKp3VZ92BptG8xehOFsv_ny12w';
@@ -89,41 +91,52 @@ async function injectToggle(toolbar, sendBtn) {
     sendBtn.parentElement.appendChild(toggle);
   }
 
-  // Intercept Send: block the click, inject pixel, then re-click
-  sendBtn.addEventListener('click', async (e) => {
-    if (toggle.dataset.tracking !== 'on') return; // Tracking off, let send proceed
-    if (toggle.dataset.sent === 'true') return;   // Already injected, let send proceed
+  // Intercept Send: inject pixel SYNCHRONOUSLY, never block the click.
+  // Campaign creation happens async after the email sends.
+  sendBtn.addEventListener('click', (e) => {
+    console.log('[LB] Send clicked. tracking=' + toggle.dataset.tracking + ' sent=' + toggle.dataset.sent);
 
-    // BLOCK the send — we need to inject the pixel first
-    e.preventDefault();
-    e.stopImmediatePropagation();
+    if (toggle.dataset.tracking !== 'on') {
+      console.log('[LB] Tracking off, letting send proceed');
+      return;
+    }
+    if (toggle.dataset.sent === 'true') {
+      console.log('[LB] Already injected, letting send proceed');
+      return;
+    }
+
+    // Mark sent immediately so we don't double-inject
+    toggle.dataset.sent = 'true';
 
     try {
-      // Check auth
-      let stored;
-      try {
-        stored = await chrome.storage.local.get(['lb_token', 'lb_user_id']);
-      } catch (storageErr) {
-        console.warn('LinkBoard: storage unavailable, skipping tracking');
-        toggle.dataset.sent = 'true';
-        sendBtn.click();
-        return;
-      }
+      const token = toggle.dataset.lbToken;
+      const userId = toggle.dataset.lbUserId;
 
-      if (!stored.lb_token) {
+      console.log('[LB] Auth cached: token=' + (token ? 'yes(' + token.substring(0, 20) + '...)' : 'NO') +
+                  ' userId=' + (userId || 'NO'));
+
+      if (!token || !userId) {
+        console.warn('[LB] No auth credentials cached — skipping tracking');
         toggle.classList.add('lb-no-auth');
         toggle.querySelector('.lb-label').textContent = 'Sign in';
         setTimeout(() => {
           toggle.classList.remove('lb-no-auth');
           toggle.querySelector('.lb-label').textContent = 'Track';
         }, 3000);
-        toggle.dataset.sent = 'true';
-        sendBtn.click();
-        return;
+        return; // Let click through, but don't track
       }
 
-      // Get subject for campaign name
+      // Generate campaign ID client-side so we can inject pixel synchronously
+      const campaignId = crypto.randomUUID();
+      console.log('[LB] Generated campaign ID: ' + campaignId);
+
       const composeDialog = sendBtn.closest('div[role="dialog"]') || sendBtn.closest('.AD');
+
+      // Inject tracking pixel into email body SYNCHRONOUSLY before Gmail sends
+      injectPixel(composeDialog, campaignId);
+      console.log('[LB] Pixel injected into email body');
+
+      // Get subject for campaign name
       let subject = 'Email Campaign';
       if (composeDialog) {
         const subjectInput = composeDialog.querySelector('input[name="subjectbox"]');
@@ -131,47 +144,21 @@ async function injectToggle(toolbar, sendBtn) {
           subject = subjectInput.value.trim();
         }
       }
+      console.log('[LB] Subject: ' + subject);
 
-      // Create campaign and inject pixel, THEN re-trigger send
-      const token = await getValidToken(stored);
-      if (token) {
-        const res = await fetch(SUPABASE_URL + '/rest/v1/campaigns', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': SUPABASE_ANON,
-            'Authorization': 'Bearer ' + token,
-            'Prefer': 'return=representation'
-          },
-          body: JSON.stringify({
-            user_id: stored.lb_user_id,
-            name: subject,
-            notes: 'Created via Gmail extension'
-          })
-        });
+      // Create campaign in Supabase ASYNC — fire and forget
+      createCampaignAsync(token, userId, campaignId, subject);
 
-        if (res.ok) {
-          const data = await res.json();
-          const camp = Array.isArray(data) ? data[0] : data;
-          if (camp && camp.id) {
-            injectPixel(composeDialog, camp.id);
-          } else {
-            console.warn('LinkBoard: campaign created but no ID returned', data);
-          }
-        } else {
-          console.warn('LinkBoard: campaign creation failed', res.status, await res.text().catch(() => ''));
-        }
-      } else {
-        console.warn('LinkBoard: no valid token, skipping tracking');
-      }
     } catch (err) {
-      console.error('LinkBoard: tracking failed', err);
+      console.error('[LB] Tracking failed:', err);
     }
 
-    // Always re-trigger send, even if tracking failed
-    toggle.dataset.sent = 'true';
-    sendBtn.click();
+    // Click is NEVER blocked — Gmail sends normally
+    console.log('[LB] Click passing through to Gmail send handler');
   }, true); // Use capture phase to run BEFORE Gmail's send handler
+
+  // Pre-cache auth credentials on the toggle so we can read them synchronously
+  cacheAuthOnToggle(toggle);
 }
 
 function injectPixel(dialog, campaignId) {
@@ -201,22 +188,86 @@ function injectPixel(dialog, campaignId) {
   target.insertAdjacentHTML('beforeend', pixelHtml);
 }
 
-async function getValidToken(stored) {
-  // Try current token first
-  const check = await fetch(SUPABASE_URL + '/auth/v1/user', {
-    headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + stored.lb_token }
-  });
-
-  if (check.ok) return stored.lb_token;
-
-  // Token expired, try refresh
-  const refreshed = await refreshToken();
-  if (refreshed) {
-    const updated = await chrome.storage.local.get(['lb_token']);
-    return updated.lb_token;
+// Pre-cache auth credentials on the toggle element so the click handler
+// can read them synchronously without awaiting chrome.storage
+async function cacheAuthOnToggle(toggle) {
+  try {
+    const stored = await chrome.storage.local.get(['lb_token', 'lb_user_id']);
+    console.log('[LB] Cache auth: token=' + (stored.lb_token ? 'yes' : 'no') +
+                ' userId=' + (stored.lb_user_id || 'none'));
+    if (stored.lb_token) toggle.dataset.lbToken = stored.lb_token;
+    if (stored.lb_user_id) toggle.dataset.lbUserId = stored.lb_user_id;
+  } catch (e) {
+    console.warn('[LB] Cache auth failed:', e.message);
   }
 
-  return null;
+  // Re-cache whenever storage changes (e.g. after login or token refresh)
+  chrome.storage.onChanged.addListener((changes) => {
+    if (changes.lb_token) {
+      console.log('[LB] Token updated in storage');
+      toggle.dataset.lbToken = changes.lb_token.newValue || '';
+    }
+    if (changes.lb_user_id) {
+      console.log('[LB] User ID updated in storage');
+      toggle.dataset.lbUserId = changes.lb_user_id.newValue || '';
+    }
+  });
+}
+
+// Create campaign in Supabase after the email has already been sent.
+// We provide our own UUID so the tracking pixel (already injected) matches.
+async function createCampaignAsync(token, userId, campaignId, subject) {
+  try {
+    // Try with current token first
+    let res = await fetch(SUPABASE_URL + '/rest/v1/campaigns', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON,
+        'Authorization': 'Bearer ' + token,
+        'Prefer': 'return=representation'
+      },
+      body: JSON.stringify({
+        id: campaignId,
+        user_id: userId,
+        name: subject,
+        notes: 'Created via Gmail extension'
+      })
+    });
+
+    // If token expired, try refreshing and retry
+    if (res.status === 401) {
+      const refreshed = await refreshToken();
+      if (refreshed) {
+        const updated = await chrome.storage.local.get(['lb_token']);
+        res = await fetch(SUPABASE_URL + '/rest/v1/campaigns', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_ANON,
+            'Authorization': 'Bearer ' + updated.lb_token,
+            'Prefer': 'return=representation'
+          },
+          body: JSON.stringify({
+            id: campaignId,
+            user_id: userId,
+            name: subject,
+            notes: 'Created via Gmail extension'
+          })
+        });
+      }
+    }
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      console.warn('[LB] Campaign creation failed: HTTP ' + res.status + ' — ' + body);
+    } else {
+      const data = await res.json().catch(() => null);
+      console.log('[LB] Campaign created successfully!', campaignId, data);
+    }
+  } catch (err) {
+    console.error('[LB] Async campaign creation error:', err);
+  }
 }
 
 async function refreshToken() {
