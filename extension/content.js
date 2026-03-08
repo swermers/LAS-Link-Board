@@ -1,6 +1,8 @@
-// LAS LinkBoard Tracker — Gmail content script
+// LAS LinkBoard Tracker — Gmail content script v1.4
 // Adds a Mailsuite-style tracking toggle next to Send in Gmail compose windows
 // Tracking default is controlled by lb_track_default setting (off by default)
+
+console.log('[LB] Content script v1.4 loaded');
 
 const SUPABASE_URL = 'https://pmhoeqxuamvqlwsatozu.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBtaG9lcXh1YW12cWx3c2F0b3p1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MTY2NDYsImV4cCI6MjA4ODM5MjY0Nn0.ktaozIz1XrIUeUrPjtKp3VZ92BptG8xehOFsv_ny12w';
@@ -92,21 +94,29 @@ async function injectToggle(toolbar, sendBtn) {
   // Intercept Send: inject pixel SYNCHRONOUSLY, never block the click.
   // Campaign creation happens async after the email sends.
   sendBtn.addEventListener('click', (e) => {
-    if (toggle.dataset.tracking !== 'on') return; // Tracking off, let send proceed
-    if (toggle.dataset.sent === 'true') return;   // Already injected, let send proceed
+    console.log('[LB] Send clicked. tracking=' + toggle.dataset.tracking + ' sent=' + toggle.dataset.sent);
+
+    if (toggle.dataset.tracking !== 'on') {
+      console.log('[LB] Tracking off, letting send proceed');
+      return;
+    }
+    if (toggle.dataset.sent === 'true') {
+      console.log('[LB] Already injected, letting send proceed');
+      return;
+    }
 
     // Mark sent immediately so we don't double-inject
     toggle.dataset.sent = 'true';
 
-    // Check auth synchronously from cached data
-    let stored;
     try {
-      // chrome.storage.local.get is async, but we pre-cache credentials
-      // in toggle.dataset to avoid blocking the click
       const token = toggle.dataset.lbToken;
       const userId = toggle.dataset.lbUserId;
 
+      console.log('[LB] Auth cached: token=' + (token ? 'yes(' + token.substring(0, 20) + '...)' : 'NO') +
+                  ' userId=' + (userId || 'NO'));
+
       if (!token || !userId) {
+        console.warn('[LB] No auth credentials cached — skipping tracking');
         toggle.classList.add('lb-no-auth');
         toggle.querySelector('.lb-label').textContent = 'Sign in';
         setTimeout(() => {
@@ -118,11 +128,13 @@ async function injectToggle(toolbar, sendBtn) {
 
       // Generate campaign ID client-side so we can inject pixel synchronously
       const campaignId = crypto.randomUUID();
+      console.log('[LB] Generated campaign ID: ' + campaignId);
 
       const composeDialog = sendBtn.closest('div[role="dialog"]') || sendBtn.closest('.AD');
 
       // Inject tracking pixel into email body SYNCHRONOUSLY before Gmail sends
       injectPixel(composeDialog, campaignId);
+      console.log('[LB] Pixel injected into email body');
 
       // Get subject for campaign name
       let subject = 'Email Campaign';
@@ -132,16 +144,17 @@ async function injectToggle(toolbar, sendBtn) {
           subject = subjectInput.value.trim();
         }
       }
+      console.log('[LB] Subject: ' + subject);
 
       // Create campaign in Supabase ASYNC — fire and forget
-      // The pixel URL already works because the tracking API uses the campaign ID from the URL
       createCampaignAsync(token, userId, campaignId, subject);
 
     } catch (err) {
-      console.error('LinkBoard: tracking failed', err);
+      console.error('[LB] Tracking failed:', err);
     }
 
     // Click is NEVER blocked — Gmail sends normally
+    console.log('[LB] Click passing through to Gmail send handler');
   }, true); // Use capture phase to run BEFORE Gmail's send handler
 
   // Pre-cache auth credentials on the toggle so we can read them synchronously
@@ -180,16 +193,24 @@ function injectPixel(dialog, campaignId) {
 async function cacheAuthOnToggle(toggle) {
   try {
     const stored = await chrome.storage.local.get(['lb_token', 'lb_user_id']);
+    console.log('[LB] Cache auth: token=' + (stored.lb_token ? 'yes' : 'no') +
+                ' userId=' + (stored.lb_user_id || 'none'));
     if (stored.lb_token) toggle.dataset.lbToken = stored.lb_token;
     if (stored.lb_user_id) toggle.dataset.lbUserId = stored.lb_user_id;
   } catch (e) {
-    // Extension context may be invalidated
+    console.warn('[LB] Cache auth failed:', e.message);
   }
 
   // Re-cache whenever storage changes (e.g. after login or token refresh)
   chrome.storage.onChanged.addListener((changes) => {
-    if (changes.lb_token) toggle.dataset.lbToken = changes.lb_token.newValue || '';
-    if (changes.lb_user_id) toggle.dataset.lbUserId = changes.lb_user_id.newValue || '';
+    if (changes.lb_token) {
+      console.log('[LB] Token updated in storage');
+      toggle.dataset.lbToken = changes.lb_token.newValue || '';
+    }
+    if (changes.lb_user_id) {
+      console.log('[LB] User ID updated in storage');
+      toggle.dataset.lbUserId = changes.lb_user_id.newValue || '';
+    }
   });
 }
 
@@ -238,12 +259,14 @@ async function createCampaignAsync(token, userId, campaignId, subject) {
     }
 
     if (!res.ok) {
-      console.warn('LinkBoard: campaign creation failed', res.status, await res.text().catch(() => ''));
+      const body = await res.text().catch(() => '');
+      console.warn('[LB] Campaign creation failed: HTTP ' + res.status + ' — ' + body);
     } else {
-      console.log('LinkBoard: campaign created', campaignId);
+      const data = await res.json().catch(() => null);
+      console.log('[LB] Campaign created successfully!', campaignId, data);
     }
   } catch (err) {
-    console.error('LinkBoard: async campaign creation failed', err);
+    console.error('[LB] Async campaign creation error:', err);
   }
 }
 
