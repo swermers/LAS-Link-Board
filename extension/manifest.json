@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "LAS LinkBoard Tracker",
-  "version": "1.4",
+  "version": "1.5",
   "description": "Track email opens from Gmail newsletters with a simple toggle next to Send.",
   "permissions": ["activeTab", "storage", "identity"],
   "host_permissions": ["https://*.supabase.co/*"],

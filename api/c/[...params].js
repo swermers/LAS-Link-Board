@@ -34,33 +34,29 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  // Log the click (fire-and-forget — don't delay the redirect)
-  try {
-    const ua = req.headers['user-agent'] || '';
-    const ip = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || '';
-    const ipHash = simpleHash(ip);
+  // Log the click — truly fire-and-forget so redirect is instant
+  const ua = req.headers['user-agent'] || '';
+  const ip = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || '';
+  const ipHash = simpleHash(ip);
 
-    await fetch(SUPABASE_URL + '/rest/v1/campaign_clicks', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SUPABASE_ANON,
-        'Authorization': 'Bearer ' + SUPABASE_ANON,
-        'Prefer': 'return=minimal'
-      },
-      body: JSON.stringify({
-        campaign_id: campaignId,
-        link_url: dest,
-        user_agent: ua,
-        ip_hash: ipHash,
-        clicked_at: new Date().toISOString()
-      })
-    });
-  } catch (e) {
-    // Silently fail — don't break the redirect
-  }
+  fetch(SUPABASE_URL + '/rest/v1/campaign_clicks', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': SUPABASE_ANON,
+      'Authorization': 'Bearer ' + SUPABASE_ANON,
+      'Prefer': 'return=minimal'
+    },
+    body: JSON.stringify({
+      campaign_id: campaignId,
+      link_url: dest,
+      user_agent: ua,
+      ip_hash: ipHash,
+      clicked_at: new Date().toISOString()
+    })
+  }).catch(e => console.error('click log error:', e.message));
 
-  // Redirect to destination
+  // Redirect to destination immediately
   res.writeHead(302, { Location: dest });
   res.end();
 };

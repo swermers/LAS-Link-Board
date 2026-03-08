@@ -153,16 +153,21 @@ async function loadCampaigns() {
       return;
     }
 
-    // Load open counts
+    // Load open counts — deduplicate by ip_hash to get unique opens
     const ids = camps.map(c => c.id).join(',');
     let openCounts = {};
     try {
-      const opensRes = await fetch(SUPABASE_URL + '/rest/v1/campaign_opens?campaign_id=in.(' + ids + ')&select=campaign_id', {
+      const opensRes = await fetch(SUPABASE_URL + '/rest/v1/campaign_opens?campaign_id=in.(' + ids + ')&select=campaign_id,ip_hash', {
         headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + stored.lb_token }
       });
       if (opensRes.ok) {
         const opens = await opensRes.json();
-        opens.forEach(o => { openCounts[o.campaign_id] = (openCounts[o.campaign_id] || 0) + 1; });
+        const uniqueSets = {};
+        opens.forEach(o => {
+          if (!uniqueSets[o.campaign_id]) uniqueSets[o.campaign_id] = new Set();
+          uniqueSets[o.campaign_id].add(o.ip_hash);
+        });
+        Object.keys(uniqueSets).forEach(id => { openCounts[id] = uniqueSets[id].size; });
       }
     } catch (e) {}
 

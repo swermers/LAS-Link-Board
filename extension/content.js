@@ -1,8 +1,8 @@
-// LAS LinkBoard Tracker — Gmail content script v1.4
+// LAS LinkBoard Tracker — Gmail content script v1.5
 // Adds a Mailsuite-style tracking toggle next to Send in Gmail compose windows
 // Tracking default is controlled by lb_track_default setting (off by default)
 
-console.log('[LB] Content script v1.4 loaded');
+console.log('[LB] Content script v1.5 loaded');
 
 const SUPABASE_URL = 'https://pmhoeqxuamvqlwsatozu.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBtaG9lcXh1YW12cWx3c2F0b3p1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MTY2NDYsImV4cCI6MjA4ODM5MjY0Nn0.ktaozIz1XrIUeUrPjtKp3VZ92BptG8xehOFsv_ny12w';
@@ -11,6 +11,29 @@ const CLICK_BASE = 'https://las-link-board.vercel.app/api/c/';
 
 // Track which compose windows already have our toggle
 const injected = new WeakSet();
+
+// Global auth cache — single source of truth, no per-toggle listeners
+let cachedToken = '';
+let cachedUserId = '';
+
+// Load auth once at startup
+chrome.storage.local.get(['lb_token', 'lb_user_id'], (stored) => {
+  cachedToken = stored.lb_token || '';
+  cachedUserId = stored.lb_user_id || '';
+  console.log('[LB] Auth loaded: token=' + (cachedToken ? 'yes' : 'no') + ' userId=' + (cachedUserId || 'none'));
+});
+
+// Single global listener for auth changes (not per-toggle)
+chrome.storage.onChanged.addListener((changes) => {
+  if (changes.lb_token) {
+    cachedToken = changes.lb_token.newValue || '';
+    console.log('[LB] Token updated globally');
+  }
+  if (changes.lb_user_id) {
+    cachedUserId = changes.lb_user_id.newValue || '';
+    console.log('[LB] User ID updated globally');
+  }
+});
 
 function observeCompose() {
   const observer = new MutationObserver(() => {
@@ -80,14 +103,10 @@ async function injectToggle(toolbar, sendBtn) {
   });
 
   // Insert between the scheduled-send dropdown and the next toolbar section
-  // The send button's <td> contains: [Send] [Schedule dropdown]
-  // We want our toggle right after that <td>, before the icons <td>
   const sendTd = sendBtn.closest('td');
   if (sendTd && sendTd.nextElementSibling) {
-    // Insert before the next td (which has Mailsuite, formatting, etc.)
     sendTd.parentElement.insertBefore(toggle, sendTd.nextElementSibling);
   } else {
-    // Fallback: insert after the send button's container
     sendBtn.parentElement.appendChild(toggle);
   }
 
@@ -98,34 +117,36 @@ async function injectToggle(toolbar, sendBtn) {
 
     if (toggle.dataset.tracking !== 'on') {
       console.log('[LB] Tracking off, letting send proceed');
-      return;
+      return; // Not tracking — let Gmail send normally
     }
     if (toggle.dataset.sent === 'true') {
       console.log('[LB] Already injected, letting send proceed');
-      return;
+      return; // Already injected — let Gmail send normally
     }
 
-    // Mark sent immediately so we don't double-inject
+    // Check auth BEFORE setting sent flag — if no auth, let them retry
+    const token = cachedToken;
+    const userId = cachedUserId;
+
+    console.log('[LB] Auth: token=' + (token ? 'yes(' + token.substring(0, 20) + '...)' : 'NO') +
+                ' userId=' + (userId || 'NO'));
+
+    if (!token || !userId) {
+      console.warn('[LB] No auth credentials — skipping tracking');
+      toggle.classList.add('lb-no-auth');
+      toggle.querySelector('.lb-label').textContent = 'Sign in';
+      setTimeout(() => {
+        toggle.classList.remove('lb-no-auth');
+        toggle.querySelector('.lb-label').textContent = 'Track';
+      }, 3000);
+      // Don't set sent='true' — allow retry after signing in
+      return; // Let click through, but don't track
+    }
+
+    // Auth is good — mark sent to prevent double-injection
     toggle.dataset.sent = 'true';
 
     try {
-      const token = toggle.dataset.lbToken;
-      const userId = toggle.dataset.lbUserId;
-
-      console.log('[LB] Auth cached: token=' + (token ? 'yes(' + token.substring(0, 20) + '...)' : 'NO') +
-                  ' userId=' + (userId || 'NO'));
-
-      if (!token || !userId) {
-        console.warn('[LB] No auth credentials cached — skipping tracking');
-        toggle.classList.add('lb-no-auth');
-        toggle.querySelector('.lb-label').textContent = 'Sign in';
-        setTimeout(() => {
-          toggle.classList.remove('lb-no-auth');
-          toggle.querySelector('.lb-label').textContent = 'Track';
-        }, 3000);
-        return; // Let click through, but don't track
-      }
-
       // Generate campaign ID client-side so we can inject pixel synchronously
       const campaignId = crypto.randomUUID();
       console.log('[LB] Generated campaign ID: ' + campaignId);
@@ -156,9 +177,6 @@ async function injectToggle(toolbar, sendBtn) {
     // Click is NEVER blocked — Gmail sends normally
     console.log('[LB] Click passing through to Gmail send handler');
   }, true); // Use capture phase to run BEFORE Gmail's send handler
-
-  // Pre-cache auth credentials on the toggle so we can read them synchronously
-  cacheAuthOnToggle(toggle);
 }
 
 function injectPixel(dialog, campaignId) {
@@ -188,32 +206,6 @@ function injectPixel(dialog, campaignId) {
   target.insertAdjacentHTML('beforeend', pixelHtml);
 }
 
-// Pre-cache auth credentials on the toggle element so the click handler
-// can read them synchronously without awaiting chrome.storage
-async function cacheAuthOnToggle(toggle) {
-  try {
-    const stored = await chrome.storage.local.get(['lb_token', 'lb_user_id']);
-    console.log('[LB] Cache auth: token=' + (stored.lb_token ? 'yes' : 'no') +
-                ' userId=' + (stored.lb_user_id || 'none'));
-    if (stored.lb_token) toggle.dataset.lbToken = stored.lb_token;
-    if (stored.lb_user_id) toggle.dataset.lbUserId = stored.lb_user_id;
-  } catch (e) {
-    console.warn('[LB] Cache auth failed:', e.message);
-  }
-
-  // Re-cache whenever storage changes (e.g. after login or token refresh)
-  chrome.storage.onChanged.addListener((changes) => {
-    if (changes.lb_token) {
-      console.log('[LB] Token updated in storage');
-      toggle.dataset.lbToken = changes.lb_token.newValue || '';
-    }
-    if (changes.lb_user_id) {
-      console.log('[LB] User ID updated in storage');
-      toggle.dataset.lbUserId = changes.lb_user_id.newValue || '';
-    }
-  });
-}
-
 // Create campaign in Supabase after the email has already been sent.
 // We provide our own UUID so the tracking pixel (already injected) matches.
 async function createCampaignAsync(token, userId, campaignId, subject) {
@@ -237,6 +229,7 @@ async function createCampaignAsync(token, userId, campaignId, subject) {
 
     // If token expired, try refreshing and retry
     if (res.status === 401) {
+      console.warn('[LB] Token expired, refreshing...');
       const refreshed = await refreshToken();
       if (refreshed) {
         const updated = await chrome.storage.local.get(['lb_token']);
@@ -260,7 +253,7 @@ async function createCampaignAsync(token, userId, campaignId, subject) {
 
     if (!res.ok) {
       const body = await res.text().catch(() => '');
-      console.warn('[LB] Campaign creation failed: HTTP ' + res.status + ' — ' + body);
+      console.error('[LB] Campaign creation failed: HTTP ' + res.status + ' — ' + body);
     } else {
       const data = await res.json().catch(() => null);
       console.log('[LB] Campaign created successfully!', campaignId, data);
