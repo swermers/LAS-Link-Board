@@ -11,6 +11,9 @@
 <link rel="apple-touch-icon" href="/public/LAS-black-lettering.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -581,6 +584,92 @@ body {
   #printFrame { position: absolute; left: 0; top: 0; width: 100%; }
 }
 
+/* ═══ ANALYTICS DASHBOARD ═══ */
+.analytics-dash { padding: 1.5rem; max-width: 1100px; margin: 0 auto; }
+.analytics-dash h2 { font-family: 'Montserrat', sans-serif; font-size: 1.25rem; font-weight: 800; color: var(--navy); margin-bottom: 1rem; }
+.analytics-toolbar { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 1.25rem; }
+.analytics-toolbar .btn.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+.analytics-toolbar select { font-size: 0.78rem; padding: 0.35rem 0.5rem; border: 1.5px solid var(--border); border-radius: 6px; font-family: 'Inter', sans-serif; }
+.analytics-toolbar .date-range { display: flex; gap: 0.35rem; align-items: center; }
+.analytics-toolbar .date-range input { font-size: 0.76rem; padding: 0.3rem 0.4rem; border: 1.5px solid var(--border); border-radius: 6px; }
+
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem; }
+.kpi-card { background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 1rem; text-align: center; }
+.kpi-card .kpi-val { font-family: 'Montserrat', sans-serif; font-size: 1.6rem; font-weight: 800; color: var(--navy); }
+.kpi-card .kpi-label { font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 0.2rem; }
+.kpi-card .kpi-change { font-size: 0.7rem; font-weight: 700; margin-top: 0.25rem; }
+.kpi-card .kpi-change.up { color: #1A7A6D; }
+.kpi-card .kpi-change.down { color: var(--crimson); }
+.kpi-card .kpi-change.flat { color: var(--text-muted); }
+
+.chart-section { background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; }
+.chart-section h3 { font-family: 'Montserrat', sans-serif; font-size: 0.88rem; font-weight: 700; color: var(--navy); margin-bottom: 0.75rem; }
+.chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+@media (max-width: 700px) { .chart-grid { grid-template-columns: 1fr; } }
+.chart-section canvas { width: 100% !important; max-height: 280px; }
+
+.dash-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+.dash-table th { text-align: left; font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; padding: 0.5rem 0.75rem; border-bottom: 2px solid var(--border); cursor: pointer; }
+.dash-table th:hover { color: var(--navy); }
+.dash-table th .sort-arrow { font-size: 0.6rem; margin-left: 0.2rem; }
+.dash-table td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); color: var(--text); }
+.dash-table tr:hover td { background: var(--surface-alt); }
+.dash-table .sparkline { width: 60px; height: 20px; }
+
+.compare-section { background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; }
+.compare-section h3 { font-family: 'Montserrat', sans-serif; font-size: 0.88rem; font-weight: 700; color: var(--navy); margin-bottom: 0.75rem; }
+.compare-selectors { display: flex; gap: 0.75rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.compare-selectors select { flex: 1; min-width: 200px; font-size: 0.8rem; padding: 0.4rem 0.5rem; border: 1.5px solid var(--border); border-radius: 8px; font-family: 'Inter', sans-serif; }
+.compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+@media (max-width: 700px) { .compare-grid { grid-template-columns: 1fr; } }
+.compare-card { border: 1.5px solid var(--border); border-radius: 10px; padding: 1rem; }
+.compare-card h4 { font-family: 'Montserrat', sans-serif; font-size: 0.82rem; font-weight: 700; color: var(--navy); margin-bottom: 0.5rem; }
+.compare-stat { display: flex; justify-content: space-between; font-size: 0.8rem; padding: 0.3rem 0; border-bottom: 1px solid var(--border); }
+.compare-stat:last-child { border-bottom: none; }
+.compare-stat .delta { font-weight: 700; }
+.compare-stat .delta.positive { color: #1A7A6D; }
+.compare-stat .delta.negative { color: var(--crimson); }
+
+.goal-section { background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; }
+.goal-section h3 { font-family: 'Montserrat', sans-serif; font-size: 0.88rem; font-weight: 700; color: var(--navy); margin-bottom: 0.75rem; }
+.goal-card { border: 1.5px solid var(--border); border-radius: 10px; padding: 0.75rem 1rem; margin-bottom: 0.6rem; }
+.goal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; }
+.goal-header .goal-name { font-weight: 700; font-size: 0.82rem; color: var(--navy); }
+.goal-header .goal-status { font-size: 0.7rem; font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 20px; }
+.goal-header .goal-status.on-track { background: #E7F6F2; color: #1A7A6D; }
+.goal-header .goal-status.behind { background: var(--crimson-light); color: var(--crimson); }
+.goal-progress { height: 8px; background: var(--surface-alt); border-radius: 4px; overflow: hidden; margin-bottom: 0.3rem; }
+.goal-progress-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+.goal-progress-fill.on-track { background: #1A7A6D; }
+.goal-progress-fill.behind { background: var(--crimson); }
+.goal-meta { display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); }
+
+.funnel-section { background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; }
+.funnel-section h3 { font-family: 'Montserrat', sans-serif; font-size: 0.88rem; font-weight: 700; color: var(--navy); margin-bottom: 0.75rem; }
+.funnel-chart { display: flex; align-items: flex-end; justify-content: center; gap: 0; height: 200px; padding: 0 2rem; }
+.funnel-step { display: flex; flex-direction: column; align-items: center; flex: 1; }
+.funnel-bar { width: 100%; border-radius: 8px 8px 0 0; min-height: 20px; transition: height 0.4s ease; }
+.funnel-bar.sent { background: var(--navy); }
+.funnel-bar.opened { background: var(--teal); }
+.funnel-bar.clicked { background: var(--gold); }
+.funnel-label { font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-top: 0.5rem; }
+.funnel-value { font-family: 'Montserrat', sans-serif; font-size: 1.1rem; font-weight: 800; color: var(--navy); }
+.funnel-rate { font-size: 0.7rem; color: var(--text-muted); }
+.funnel-arrow { font-size: 1.5rem; color: var(--border); margin: 0 -0.5rem; align-self: center; }
+
+.export-bar { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; justify-content: flex-end; }
+
+.activity-feed { max-height: 300px; overflow-y: auto; }
+.activity-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border); font-size: 0.8rem; }
+.activity-icon { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; flex-shrink: 0; }
+.activity-icon.scan { background: var(--teal-light); color: var(--teal); }
+.activity-icon.open { background: var(--gold-light); color: var(--gold); }
+.activity-icon.click { background: var(--orange-light); color: var(--orange); }
+.activity-details { flex: 1; }
+.activity-details .activity-name { font-weight: 600; color: var(--navy); }
+.activity-details .activity-meta { font-size: 0.72rem; color: var(--text-muted); }
+.activity-time { font-size: 0.72rem; color: var(--text-muted); flex-shrink: 0; }
+
 /* ═══ TAB BAR ═══ */
 .tab-bar {
   display: flex; gap: 0; background: var(--surface); border-bottom: 2px solid var(--border);
@@ -770,6 +859,7 @@ body {
     <div class="tab-bar">
       <button class="tab active" id="tabLinks" onclick="switchTab('links')">Links</button>
       <button class="tab" id="tabCampaigns" onclick="switchTab('campaigns')">Campaigns</button>
+      <button class="tab" id="tabAnalytics" onclick="switchTab('analytics')">Analytics</button>
     </div>
     <div class="main" id="linksSection">
       <div class="stats">
@@ -822,6 +912,163 @@ body {
         <button class="btn btn-outline btn-sm" style="margin-top:0.75rem" onclick="openExtensionInstall()">Install Gmail Extension</button>
       </div>
       <div class="cards" id="campList"></div>
+    </div>
+
+    <!-- ═══ ANALYTICS DASHBOARD ═══ -->
+    <div class="analytics-dash" id="analyticsSection" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.25rem">
+        <h2>Analytics Dashboard</h2>
+        <div class="export-bar">
+          <button class="btn btn-soft btn-xs" onclick="exportCSV()">Export CSV</button>
+          <button class="btn btn-soft btn-xs" onclick="exportPDF()">Export PDF</button>
+          <button class="btn btn-soft btn-xs" onclick="copyDashboardSummary()">Copy Summary</button>
+        </div>
+      </div>
+      <div class="analytics-toolbar">
+        <button class="btn btn-soft btn-xs active" data-dash-period="7" onclick="setDashPeriod(7,this)">7 days</button>
+        <button class="btn btn-soft btn-xs" data-dash-period="30" onclick="setDashPeriod(30,this)">30 days</button>
+        <button class="btn btn-soft btn-xs" data-dash-period="90" onclick="setDashPeriod(90,this)">90 days</button>
+        <button class="btn btn-soft btn-xs" data-dash-period="0" onclick="setDashPeriod(0,this)">All time</button>
+        <div class="date-range">
+          <input type="date" id="dashDateFrom" onchange="applyCustomRange()">
+          <span style="font-size:0.75rem;color:var(--text-muted)">to</span>
+          <input type="date" id="dashDateTo" onchange="applyCustomRange()">
+        </div>
+      </div>
+
+      <!-- KPI Cards -->
+      <div class="kpi-grid" id="kpiGrid">
+        <div class="kpi-card"><div class="kpi-val" id="kpiScans">0</div><div class="kpi-label">Total Scans</div><div class="kpi-change flat" id="kpiScansChange">—</div></div>
+        <div class="kpi-card"><div class="kpi-val" id="kpiOpens">0</div><div class="kpi-label">Email Opens</div><div class="kpi-change flat" id="kpiOpensChange">—</div></div>
+        <div class="kpi-card"><div class="kpi-val" id="kpiUniqueOpens">0</div><div class="kpi-label">Unique Opens</div><div class="kpi-change flat" id="kpiUniqueChange">—</div></div>
+        <div class="kpi-card"><div class="kpi-val" id="kpiActiveQR">0</div><div class="kpi-label">Active QR Codes</div><div class="kpi-change flat" id="kpiQRChange">—</div></div>
+        <div class="kpi-card"><div class="kpi-val" id="kpiActiveCamp">0</div><div class="kpi-label">Campaigns</div><div class="kpi-change flat" id="kpiCampChange">—</div></div>
+      </div>
+
+      <!-- Time Series Charts -->
+      <div class="chart-grid">
+        <div class="chart-section">
+          <h3>QR Scans Over Time</h3>
+          <canvas id="dashScansChart"></canvas>
+        </div>
+        <div class="chart-section">
+          <h3>Email Opens Over Time</h3>
+          <canvas id="dashOpensChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Breakdown Charts -->
+      <div class="chart-grid">
+        <div class="chart-section">
+          <h3>Device Breakdown</h3>
+          <canvas id="dashDeviceChart"></canvas>
+        </div>
+        <div class="chart-section">
+          <h3>Browser / Email Client</h3>
+          <canvas id="dashBrowserChart"></canvas>
+        </div>
+      </div>
+      <div class="chart-grid">
+        <div class="chart-section">
+          <h3>Engagement by Day of Week</h3>
+          <canvas id="dashDayChart"></canvas>
+        </div>
+        <div class="chart-section">
+          <h3>Engagement by Hour of Day</h3>
+          <canvas id="dashHourChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Top Tables -->
+      <div class="chart-grid">
+        <div class="chart-section">
+          <h3>Top QR Codes</h3>
+          <table class="dash-table" id="topQRTable">
+            <thead><tr><th onclick="sortDashTable('topQR','name')">Name <span class="sort-arrow"></span></th><th onclick="sortDashTable('topQR','scans')">Scans <span class="sort-arrow"></span></th><th>Trend</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="chart-section">
+          <h3>Top Campaigns</h3>
+          <table class="dash-table" id="topCampTable">
+            <thead><tr><th onclick="sortDashTable('topCamp','name')">Name <span class="sort-arrow"></span></th><th onclick="sortDashTable('topCamp','opens')">Opens <span class="sort-arrow"></span></th><th onclick="sortDashTable('topCamp','unique')">Unique <span class="sort-arrow"></span></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Activity Feed -->
+      <div class="chart-section">
+        <h3>Recent Activity</h3>
+        <div class="activity-feed" id="activityFeed"></div>
+      </div>
+
+      <!-- Comparison Mode -->
+      <div class="compare-section">
+        <h3>Comparison Mode</h3>
+        <div class="compare-selectors">
+          <select id="compareType" onchange="updateCompareOptions()">
+            <option value="qr">Compare QR Codes</option>
+            <option value="campaign">Compare Campaigns</option>
+          </select>
+          <select id="compareA" onchange="runComparison()"><option value="">Select first...</option></select>
+          <select id="compareB" onchange="runComparison()"><option value="">Select second...</option></select>
+        </div>
+        <div class="compare-grid" id="compareResults" style="display:none">
+          <div class="compare-card" id="compareCardA"></div>
+          <div class="compare-card" id="compareCardB"></div>
+        </div>
+      </div>
+
+      <!-- Goal Tracking -->
+      <div class="goal-section">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.75rem">
+          <h3 style="margin-bottom:0">Goal Tracking</h3>
+          <button class="btn btn-soft btn-xs" onclick="openGoalModal()">+ Set Goal</button>
+        </div>
+        <div id="goalsList"><p style="font-size:0.82rem;color:var(--text-muted)">No goals set yet. Click "+ Set Goal" to set a KPI target.</p></div>
+      </div>
+
+      <!-- Funnel View -->
+      <div class="funnel-section">
+        <h3>Campaign Funnel</h3>
+        <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:1rem">Aggregated across all campaigns in the selected period.</p>
+        <div class="funnel-chart" id="funnelChart"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ GOAL MODAL ═══ -->
+  <div class="overlay" id="goalOverlay">
+    <div class="modal" style="max-width:440px">
+      <h3>Set KPI Goal</h3>
+      <div class="field">
+        <label>Goal Type</label>
+        <select id="goalType" onchange="updateGoalTargetOptions()" style="width:100%;padding:0.5rem;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem">
+          <option value="qr_scans">QR Code Scans</option>
+          <option value="campaign_opens">Campaign Opens</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Target Item</label>
+        <select id="goalTarget" style="width:100%;padding:0.5rem;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem"></select>
+      </div>
+      <div class="field">
+        <label>Target Number</label>
+        <input type="number" id="goalAmount" placeholder="e.g. 500" min="1">
+      </div>
+      <div class="field">
+        <label>Period</label>
+        <select id="goalPeriod" style="width:100%;padding:0.5rem;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem">
+          <option value="week">This Week</option>
+          <option value="month" selected>This Month</option>
+          <option value="quarter">This Quarter</option>
+        </select>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-outline" onclick="closeModal('goalOverlay')">Cancel</button>
+        <button class="btn btn-primary" onclick="saveGoal()">Save Goal</button>
+      </div>
     </div>
   </div>
 
@@ -2212,9 +2459,12 @@ const PIXEL_BASE = location.origin + '/api/t/';
 function switchTab(tab) {
   document.getElementById('tabLinks').classList.toggle('active', tab === 'links');
   document.getElementById('tabCampaigns').classList.toggle('active', tab === 'campaigns');
+  document.getElementById('tabAnalytics').classList.toggle('active', tab === 'analytics');
   document.getElementById('linksSection').style.display = tab === 'links' ? 'block' : 'none';
   document.getElementById('campaignsSection').style.display = tab === 'campaigns' ? 'block' : 'none';
+  document.getElementById('analyticsSection').style.display = tab === 'analytics' ? 'block' : 'none';
   if (tab === 'campaigns') loadCampaigns();
+  if (tab === 'analytics') loadAnalyticsDashboard();
 }
 
 async function loadCampaigns() {
@@ -2436,11 +2686,11 @@ function openExtensionInstall() {
 }
 
 async function downloadExtension() {
-  // Build a zip of the extension files using JSZip-like approach
-  // Since we don't have JSZip, link to the GitHub repo's extension folder
-  const repoUrl = 'https://github.com/swermers/LAS-Link-Board/archive/refs/heads/main.zip';
-  window.open(repoUrl, '_blank');
-  toast('Download started! Unzip and find the extension/ folder inside.', true);
+  const a = document.createElement('a');
+  a.href = '/extension.zip';
+  a.download = 'extension.zip';
+  a.click();
+  toast('Download started! Unzip and load in Chrome Extensions.', true);
 }
 
 async function deleteCampaign() {
@@ -2460,6 +2710,655 @@ async function deleteCampaign() {
   closeModal('campDetailOverlay');
   toast('Campaign deleted', true);
   await loadCampaigns();
+}
+
+// ─── Analytics Dashboard ───
+let dashPeriod = 7;
+let dashCustomFrom = null, dashCustomTo = null;
+let dashScanLogs = [], dashCampOpens = [], dashCampaignsData = [];
+let dashChartInstances = {};
+let dashGoals = [];
+let dashSortState = { topQR: { col: 'scans', asc: false }, topCamp: { col: 'opens', asc: false } };
+
+function setDashPeriod(days, btn) {
+  dashPeriod = days;
+  dashCustomFrom = null; dashCustomTo = null;
+  document.getElementById('dashDateFrom').value = '';
+  document.getElementById('dashDateTo').value = '';
+  document.querySelectorAll('.analytics-toolbar .btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderDashboard();
+}
+
+function applyCustomRange() {
+  const from = document.getElementById('dashDateFrom').value;
+  const to = document.getElementById('dashDateTo').value;
+  if (from && to) {
+    dashCustomFrom = new Date(from + 'T00:00:00');
+    dashCustomTo = new Date(to + 'T23:59:59');
+    dashPeriod = -1;
+    document.querySelectorAll('.analytics-toolbar .btn').forEach(b => b.classList.remove('active'));
+    renderDashboard();
+  }
+}
+
+function getDashDateRange() {
+  if (dashCustomFrom && dashCustomTo) return { from: dashCustomFrom, to: dashCustomTo };
+  if (dashPeriod === 0) return { from: null, to: null }; // all time
+  const to = new Date();
+  const from = new Date(); from.setDate(from.getDate() - dashPeriod);
+  return { from, to };
+}
+
+function filterByRange(items, dateField) {
+  const { from, to } = getDashDateRange();
+  if (!from) return items;
+  return items.filter(i => {
+    const d = new Date(i[dateField]);
+    return d >= from && d <= to;
+  });
+}
+
+async function loadAnalyticsDashboard() {
+  if (!currentUser) return;
+  const token = currentSession?.access_token || SUPABASE_ANON;
+  const headers = { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + token };
+
+  // Load all data in parallel
+  const [scanRes, campRes, opensRes, clickRes] = await Promise.all([
+    fetch(SUPABASE_URL + '/rest/v1/scan_logs?select=link_id,scanned_at,user_agent,referrer&order=scanned_at.desc&limit=10000', { headers }),
+    fetch(SUPABASE_URL + '/rest/v1/campaigns?user_id=eq.' + currentUser.id + '&order=created_at.desc', { headers }),
+    fetch(SUPABASE_URL + '/rest/v1/campaign_opens?select=campaign_id,opened_at,ip_hash,user_agent&order=opened_at.desc&limit=10000', { headers }),
+    fetch(SUPABASE_URL + '/rest/v1/campaign_clicks?select=campaign_id,clicked_at,link_url,ip_hash,user_agent&order=clicked_at.desc&limit=10000', { headers }).catch(() => ({ ok: false }))
+  ]);
+
+  if (scanRes.ok) dashScanLogs = await scanRes.json();
+  if (campRes.ok) dashCampaignsData = await campRes.json();
+  if (opensRes.ok) dashCampOpens = await opensRes.json();
+  // Filter scan logs to only user's links
+  const userLinkIds = new Set(myLinks.map(l => l.id));
+  dashScanLogs = dashScanLogs.filter(s => userLinkIds.has(s.link_id));
+  // Filter opens to user's campaigns
+  const userCampIds = new Set(dashCampaignsData.map(c => c.id));
+  dashCampOpens = dashCampOpens.filter(o => userCampIds.has(o.campaign_id));
+
+  // Load campaign clicks if table exists
+  if (clickRes.ok) {
+    window.dashCampClicks = await clickRes.json();
+    window.dashCampClicks = window.dashCampClicks.filter(c => userCampIds.has(c.campaign_id));
+  } else {
+    window.dashCampClicks = [];
+  }
+
+  // Load goals from localStorage
+  dashGoals = JSON.parse(localStorage.getItem('lb_goals_' + currentUser.id) || '[]');
+
+  renderDashboard();
+}
+
+function renderDashboard() {
+  renderKPICards();
+  renderTimeSeriesCharts();
+  renderBreakdownCharts();
+  renderTopTables();
+  renderActivityFeed();
+  updateCompareOptions();
+  renderGoals();
+  renderFunnel();
+}
+
+// ─── KPI Cards ───
+function renderKPICards() {
+  const { from, to } = getDashDateRange();
+  const scans = filterByRange(dashScanLogs, 'scanned_at');
+  const opens = filterByRange(dashCampOpens, 'opened_at');
+  const uniqueOpens = new Set(opens.map(o => o.ip_hash)).size;
+
+  document.getElementById('kpiScans').textContent = scans.length.toLocaleString();
+  document.getElementById('kpiOpens').textContent = opens.length.toLocaleString();
+  document.getElementById('kpiUniqueOpens').textContent = uniqueOpens.toLocaleString();
+  document.getElementById('kpiActiveQR').textContent = myLinks.filter(l => !l.expires_at || new Date(l.expires_at) > new Date()).length;
+  document.getElementById('kpiActiveCamp').textContent = dashCampaignsData.length;
+
+  // Calculate % change vs prior period
+  if (from && to) {
+    const span = to - from;
+    const priorFrom = new Date(from - span);
+    const priorScans = dashScanLogs.filter(s => { const d = new Date(s.scanned_at); return d >= priorFrom && d < from; });
+    const priorOpens = dashCampOpens.filter(o => { const d = new Date(o.opened_at); return d >= priorFrom && d < from; });
+    setKPIChange('kpiScansChange', scans.length, priorScans.length);
+    setKPIChange('kpiOpensChange', opens.length, priorOpens.length);
+    const priorUnique = new Set(priorOpens.map(o => o.ip_hash)).size;
+    setKPIChange('kpiUniqueChange', uniqueOpens, priorUnique);
+  }
+}
+
+function setKPIChange(elId, current, prior) {
+  const el = document.getElementById(elId);
+  if (prior === 0 && current === 0) { el.textContent = '—'; el.className = 'kpi-change flat'; return; }
+  if (prior === 0) { el.textContent = '+100%'; el.className = 'kpi-change up'; return; }
+  const pct = Math.round(((current - prior) / prior) * 100);
+  el.textContent = (pct >= 0 ? '+' : '') + pct + '%';
+  el.className = 'kpi-change ' + (pct > 0 ? 'up' : pct < 0 ? 'down' : 'flat');
+}
+
+// ─── Time Series Charts ───
+function renderTimeSeriesCharts() {
+  const scans = filterByRange(dashScanLogs, 'scanned_at');
+  const opens = filterByRange(dashCampOpens, 'opened_at');
+  const { from, to } = getDashDateRange();
+
+  // Group by date
+  const scansByDate = groupByDate(scans, 'scanned_at');
+  const opensByDate = groupByDate(opens, 'opened_at');
+
+  // Build date labels
+  const labels = buildDateLabels(from, to);
+
+  renderChartJS('dashScansChart', 'bar', labels, [{
+    label: 'Scans', data: labels.map(d => scansByDate[d] || 0),
+    backgroundColor: 'rgba(19,64,116,0.75)', borderRadius: 4, borderSkipped: false
+  }]);
+
+  renderChartJS('dashOpensChart', 'bar', labels, [{
+    label: 'Opens', data: labels.map(d => opensByDate[d] || 0),
+    backgroundColor: 'rgba(26,122,109,0.75)', borderRadius: 4, borderSkipped: false
+  }]);
+}
+
+function groupByDate(items, field) {
+  const map = {};
+  items.forEach(i => { const d = new Date(i[field]).toISOString().slice(0, 10); map[d] = (map[d] || 0) + 1; });
+  return map;
+}
+
+function buildDateLabels(from, to) {
+  const labels = [];
+  const end = to || new Date();
+  const start = from || new Date(Math.min(...dashScanLogs.map(s => new Date(s.scanned_at)), ...dashCampOpens.map(o => new Date(o.opened_at)), end));
+  const d = new Date(start);
+  while (d <= end) { labels.push(d.toISOString().slice(0, 10)); d.setDate(d.getDate() + 1); }
+  if (labels.length === 0) labels.push(new Date().toISOString().slice(0, 10));
+  return labels;
+}
+
+function renderChartJS(canvasId, type, labels, datasets) {
+  if (dashChartInstances[canvasId]) dashChartInstances[canvasId].destroy();
+  const ctx = document.getElementById(canvasId);
+  dashChartInstances[canvasId] = new Chart(ctx, {
+    type,
+    data: {
+      labels: labels.map(l => { const d = new Date(l + 'T12:00'); return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }),
+      datasets
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { precision: 0, font: { size: 10 } }, grid: { color: '#f0ede8' } },
+        x: { ticks: { font: { size: 9 }, maxRotation: 45 }, grid: { display: false } }
+      }
+    }
+  });
+}
+
+// ─── Breakdown Charts ───
+function renderBreakdownCharts() {
+  const scans = filterByRange(dashScanLogs, 'scanned_at');
+  const opens = filterByRange(dashCampOpens, 'opened_at');
+  const allItems = [
+    ...scans.map(s => ({ ua: s.user_agent || '', time: s.scanned_at })),
+    ...opens.map(o => ({ ua: o.user_agent || '', time: o.opened_at }))
+  ];
+
+  // Device breakdown
+  const devices = {};
+  allItems.forEach(i => { const d = parseDevice(i.ua); devices[d] = (devices[d] || 0) + 1; });
+  const deviceEntries = Object.entries(devices).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  renderDoughnutChart('dashDeviceChart', deviceEntries);
+
+  // Browser breakdown
+  const browsers = {};
+  allItems.forEach(i => { const b = parseBrowser(i.ua); browsers[b] = (browsers[b] || 0) + 1; });
+  const browserEntries = Object.entries(browsers).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  renderHorizontalBar('dashBrowserChart', browserEntries);
+
+  // Day of week
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const byDay = [0, 0, 0, 0, 0, 0, 0];
+  allItems.forEach(i => { byDay[new Date(i.time).getDay()]++; });
+  renderChartJS('dashDayChart', 'bar', dayNames, [{
+    label: 'Events', data: byDay,
+    backgroundColor: ['#C5963B', '#134074', '#134074', '#134074', '#134074', '#134074', '#C5963B'],
+    borderRadius: 4, borderSkipped: false
+  }]);
+
+  // Hour of day
+  const byHour = new Array(24).fill(0);
+  allItems.forEach(i => { byHour[new Date(i.time).getHours()]++; });
+  const hourLabels = byHour.map((_, i) => (i % 12 || 12) + (i >= 12 ? 'p' : 'a'));
+  renderChartJS('dashHourChart', 'bar', hourLabels, [{
+    label: 'Events', data: byHour,
+    backgroundColor: 'rgba(19,80,124,0.7)', borderRadius: 3, borderSkipped: false
+  }]);
+}
+
+function renderDoughnutChart(canvasId, entries) {
+  if (dashChartInstances[canvasId]) dashChartInstances[canvasId].destroy();
+  const colors = ['#134074', '#13507C', '#C5963B', '#a42547', '#ea6733', '#1A7A6D', '#8a8580'];
+  const ctx = document.getElementById(canvasId);
+  dashChartInstances[canvasId] = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels: entries.map(e => e[0]), datasets: [{ data: entries.map(e => e[1]), backgroundColor: colors.slice(0, entries.length), borderWidth: 2, borderColor: '#fff' }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { size: 10 }, boxWidth: 12 } } } }
+  });
+}
+
+function renderHorizontalBar(canvasId, entries) {
+  if (dashChartInstances[canvasId]) dashChartInstances[canvasId].destroy();
+  const ctx = document.getElementById(canvasId);
+  dashChartInstances[canvasId] = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: entries.map(e => e[0]),
+      datasets: [{ data: entries.map(e => e[1]), backgroundColor: 'rgba(19,64,116,0.75)', borderRadius: 4, borderSkipped: false }]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { x: { beginAtZero: true, ticks: { precision: 0, font: { size: 10 } } }, y: { ticks: { font: { size: 10 } } } }
+    }
+  });
+}
+
+// ─── Top Tables ───
+function renderTopTables() {
+  const scans = filterByRange(dashScanLogs, 'scanned_at');
+  const opens = filterByRange(dashCampOpens, 'opened_at');
+
+  // Top QR codes
+  const qrScans = {};
+  scans.forEach(s => { qrScans[s.link_id] = (qrScans[s.link_id] || 0) + 1; });
+  let qrData = myLinks.map(l => ({ id: l.id, name: l.label, scans: qrScans[l.id] || 0 }));
+  const qrSort = dashSortState.topQR;
+  qrData.sort((a, b) => qrSort.asc ? (a[qrSort.col] > b[qrSort.col] ? 1 : -1) : (b[qrSort.col] > a[qrSort.col] ? 1 : -1));
+  document.querySelector('#topQRTable tbody').innerHTML = qrData.slice(0, 10).map(q =>
+    `<tr><td>${esc(q.name)}</td><td><strong>${q.scans}</strong></td><td>${miniSparkline(scans.filter(s => s.link_id === q.id), 'scanned_at')}</td></tr>`
+  ).join('') || '<tr><td colspan="3" style="color:var(--text-muted)">No data</td></tr>';
+
+  // Top campaigns
+  const campOpens = {}, campUnique = {};
+  opens.forEach(o => {
+    campOpens[o.campaign_id] = (campOpens[o.campaign_id] || 0) + 1;
+    if (!campUnique[o.campaign_id]) campUnique[o.campaign_id] = new Set();
+    campUnique[o.campaign_id].add(o.ip_hash);
+  });
+  let campData = dashCampaignsData.map(c => ({ id: c.id, name: c.name, opens: campOpens[c.id] || 0, unique: campUnique[c.id] ? campUnique[c.id].size : 0 }));
+  const campSort = dashSortState.topCamp;
+  campData.sort((a, b) => campSort.asc ? (a[campSort.col] > b[campSort.col] ? 1 : -1) : (b[campSort.col] > a[campSort.col] ? 1 : -1));
+  document.querySelector('#topCampTable tbody').innerHTML = campData.slice(0, 10).map(c =>
+    `<tr><td>${esc(c.name)}</td><td><strong>${c.opens}</strong></td><td>${c.unique}</td></tr>`
+  ).join('') || '<tr><td colspan="3" style="color:var(--text-muted)">No data</td></tr>';
+}
+
+function sortDashTable(table, col) {
+  if (dashSortState[table].col === col) dashSortState[table].asc = !dashSortState[table].asc;
+  else { dashSortState[table].col = col; dashSortState[table].asc = false; }
+  renderTopTables();
+}
+
+function miniSparkline(items, field) {
+  // Generate inline SVG sparkline for last 7 days
+  const days = 7;
+  const now = new Date();
+  const counts = new Array(days).fill(0);
+  items.forEach(i => {
+    const ago = Math.floor((now - new Date(i[field])) / 86400000);
+    if (ago >= 0 && ago < days) counts[days - 1 - ago]++;
+  });
+  const max = Math.max(1, ...counts);
+  const w = 60, h = 20;
+  const pts = counts.map((c, i) => `${(i / (days - 1)) * w},${h - (c / max) * h}`).join(' ');
+  return `<svg width="${w}" height="${h}" class="sparkline"><polyline points="${pts}" fill="none" stroke="#134074" stroke-width="1.5"/></svg>`;
+}
+
+// ─── Activity Feed ───
+function renderActivityFeed() {
+  const scans = filterByRange(dashScanLogs, 'scanned_at').map(s => ({
+    type: 'scan', time: s.scanned_at, ua: s.user_agent,
+    name: (myLinks.find(l => l.id === s.link_id) || {}).label || 'Unknown'
+  }));
+  const opens = filterByRange(dashCampOpens, 'opened_at').map(o => ({
+    type: 'open', time: o.opened_at, ua: o.user_agent,
+    name: (dashCampaignsData.find(c => c.id === o.campaign_id) || {}).name || 'Unknown'
+  }));
+  const clicks = (window.dashCampClicks || []).filter(c => {
+    const { from, to } = getDashDateRange();
+    if (!from) return true;
+    const d = new Date(c.clicked_at);
+    return d >= from && d <= to;
+  }).map(c => ({
+    type: 'click', time: c.clicked_at, ua: c.user_agent,
+    name: (dashCampaignsData.find(camp => camp.id === c.campaign_id) || {}).name || 'Unknown'
+  }));
+
+  const all = [...scans, ...opens, ...clicks].sort((a, b) => new Date(b.time) - new Date(a.time)).slice(0, 50);
+  const feed = document.getElementById('activityFeed');
+  if (all.length === 0) {
+    feed.innerHTML = '<p style="font-size:0.82rem;color:var(--text-muted);padding:0.5rem 0">No activity in this period.</p>';
+    return;
+  }
+  feed.innerHTML = all.map(a => {
+    const icon = a.type === 'scan' ? 'scan' : a.type === 'open' ? 'open' : 'click';
+    const emoji = a.type === 'scan' ? '&#9900;' : a.type === 'open' ? '&#9993;' : '&#8599;';
+    const verb = a.type === 'scan' ? 'QR Scan' : a.type === 'open' ? 'Email Open' : 'Link Click';
+    return `<div class="activity-item">
+      <div class="activity-icon ${icon}">${emoji}</div>
+      <div class="activity-details"><span class="activity-name">${esc(a.name)}</span><span class="activity-meta">${verb} &middot; ${parseDevice(a.ua || '')} &middot; ${parseBrowser(a.ua || '')}</span></div>
+      <span class="activity-time">${timeAgo(a.time)}</span>
+    </div>`;
+  }).join('');
+}
+
+// ─── Comparison Mode ───
+function updateCompareOptions() {
+  const type = document.getElementById('compareType').value;
+  const items = type === 'qr' ? myLinks.map(l => ({ id: l.id, name: l.label })) : dashCampaignsData.map(c => ({ id: c.id, name: c.name }));
+  const opts = '<option value="">Select...</option>' + items.map(i => `<option value="${i.id}">${esc(i.name)}</option>`).join('');
+  document.getElementById('compareA').innerHTML = opts;
+  document.getElementById('compareB').innerHTML = opts;
+  document.getElementById('compareResults').style.display = 'none';
+}
+
+function runComparison() {
+  const type = document.getElementById('compareType').value;
+  const aId = document.getElementById('compareA').value;
+  const bId = document.getElementById('compareB').value;
+  if (!aId || !bId || aId === bId) { document.getElementById('compareResults').style.display = 'none'; return; }
+
+  document.getElementById('compareResults').style.display = 'grid';
+
+  if (type === 'qr') {
+    const aLink = myLinks.find(l => l.id === aId);
+    const bLink = myLinks.find(l => l.id === bId);
+    const aScans = filterByRange(dashScanLogs.filter(s => s.link_id === aId), 'scanned_at');
+    const bScans = filterByRange(dashScanLogs.filter(s => s.link_id === bId), 'scanned_at');
+    renderCompareCard('compareCardA', aLink.label, [
+      { label: 'Total Scans', value: aScans.length },
+      { label: 'Top Device', value: topItem(aScans.map(s => parseDevice(s.user_agent || ''))) },
+      { label: 'Top Browser', value: topItem(aScans.map(s => parseBrowser(s.user_agent || ''))) },
+      { label: 'Peak Hour', value: peakHour(aScans, 'scanned_at') }
+    ]);
+    renderCompareCard('compareCardB', bLink.label, [
+      { label: 'Total Scans', value: bScans.length },
+      { label: 'Top Device', value: topItem(bScans.map(s => parseDevice(s.user_agent || ''))) },
+      { label: 'Top Browser', value: topItem(bScans.map(s => parseBrowser(s.user_agent || ''))) },
+      { label: 'Peak Hour', value: peakHour(bScans, 'scanned_at') }
+    ], aScans.length);
+  } else {
+    const aCamp = dashCampaignsData.find(c => c.id === aId);
+    const bCamp = dashCampaignsData.find(c => c.id === bId);
+    const aOpens = filterByRange(dashCampOpens.filter(o => o.campaign_id === aId), 'opened_at');
+    const bOpens = filterByRange(dashCampOpens.filter(o => o.campaign_id === bId), 'opened_at');
+    const aUnique = new Set(aOpens.map(o => o.ip_hash)).size;
+    const bUnique = new Set(bOpens.map(o => o.ip_hash)).size;
+    renderCompareCard('compareCardA', aCamp.name, [
+      { label: 'Total Opens', value: aOpens.length },
+      { label: 'Unique Opens', value: aUnique },
+      { label: 'Top Client', value: topItem(aOpens.map(o => parseEmailClient(o.user_agent || ''))) },
+      { label: 'Peak Hour', value: peakHour(aOpens, 'opened_at') }
+    ]);
+    renderCompareCard('compareCardB', bCamp.name, [
+      { label: 'Total Opens', value: bOpens.length },
+      { label: 'Unique Opens', value: bUnique },
+      { label: 'Top Client', value: topItem(bOpens.map(o => parseEmailClient(o.user_agent || ''))) },
+      { label: 'Peak Hour', value: peakHour(bOpens, 'opened_at') }
+    ], aOpens.length);
+  }
+}
+
+function parseEmailClient(ua) {
+  if (/Thunderbird/i.test(ua)) return 'Thunderbird';
+  if (/Outlook/i.test(ua)) return 'Outlook';
+  if (/Apple Mail|CFNetwork/i.test(ua)) return 'Apple Mail';
+  if (/GoogleImageProxy/i.test(ua)) return 'Gmail';
+  return parseBrowser(ua);
+}
+
+function renderCompareCard(elId, title, stats, compareBase) {
+  const el = document.getElementById(elId);
+  el.innerHTML = `<h4>${esc(title)}</h4>` + stats.map(s => {
+    let delta = '';
+    if (compareBase !== undefined && typeof s.value === 'number') {
+      const diff = s.value - compareBase;
+      if (diff !== 0) delta = `<span class="delta ${diff > 0 ? 'positive' : 'negative'}">${diff > 0 ? '+' : ''}${diff}</span>`;
+    }
+    return `<div class="compare-stat"><span>${s.label}</span><span><strong>${s.value}</strong> ${delta}</span></div>`;
+  }).join('');
+}
+
+function topItem(arr) {
+  if (!arr.length) return '—';
+  const counts = {};
+  arr.forEach(i => { counts[i] = (counts[i] || 0) + 1; });
+  return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+}
+
+function peakHour(items, field) {
+  if (!items.length) return '—';
+  const hours = new Array(24).fill(0);
+  items.forEach(i => { hours[new Date(i[field]).getHours()]++; });
+  const peak = hours.indexOf(Math.max(...hours));
+  return (peak % 12 || 12) + (peak >= 12 ? 'pm' : 'am');
+}
+
+// ─── Goal Tracking ───
+function openGoalModal() {
+  updateGoalTargetOptions();
+  document.getElementById('goalAmount').value = '';
+  openModal('goalOverlay');
+}
+
+function updateGoalTargetOptions() {
+  const type = document.getElementById('goalType').value;
+  const select = document.getElementById('goalTarget');
+  if (type === 'qr_scans') {
+    select.innerHTML = '<option value="all">All QR Codes</option>' + myLinks.map(l => `<option value="${l.id}">${esc(l.label)}</option>`).join('');
+  } else {
+    select.innerHTML = '<option value="all">All Campaigns</option>' + dashCampaignsData.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  }
+}
+
+function saveGoal() {
+  const type = document.getElementById('goalType').value;
+  const target = document.getElementById('goalTarget').value;
+  const amount = parseInt(document.getElementById('goalAmount').value);
+  const period = document.getElementById('goalPeriod').value;
+  if (!amount || amount < 1) { toast('Please enter a target number'); return; }
+
+  const targetName = document.getElementById('goalTarget').selectedOptions[0].textContent;
+  dashGoals.push({ id: Date.now().toString(36), type, target, targetName, amount, period, created: new Date().toISOString() });
+  localStorage.setItem('lb_goals_' + currentUser.id, JSON.stringify(dashGoals));
+  closeModal('goalOverlay');
+  toast('Goal saved!', true);
+  renderGoals();
+}
+
+function deleteGoal(id) {
+  dashGoals = dashGoals.filter(g => g.id !== id);
+  localStorage.setItem('lb_goals_' + currentUser.id, JSON.stringify(dashGoals));
+  renderGoals();
+}
+
+function renderGoals() {
+  const el = document.getElementById('goalsList');
+  if (dashGoals.length === 0) {
+    el.innerHTML = '<p style="font-size:0.82rem;color:var(--text-muted)">No goals set yet. Click "+ Set Goal" to set a KPI target.</p>';
+    return;
+  }
+
+  el.innerHTML = dashGoals.map(g => {
+    const { start, end } = getPeriodRange(g.period);
+    let current = 0;
+    if (g.type === 'qr_scans') {
+      const scans = dashScanLogs.filter(s => { const d = new Date(s.scanned_at); return d >= start && d <= end && (g.target === 'all' || s.link_id === g.target); });
+      current = scans.length;
+    } else {
+      const opens = dashCampOpens.filter(o => { const d = new Date(o.opened_at); return d >= start && d <= end && (g.target === 'all' || o.campaign_id === g.target); });
+      current = opens.length;
+    }
+    const pct = Math.min(100, Math.round((current / g.amount) * 100));
+    const elapsed = (new Date() - start) / (end - start);
+    const expectedPct = Math.round(elapsed * 100);
+    const onTrack = pct >= expectedPct * 0.8;
+    const periodLabel = g.period === 'week' ? 'This Week' : g.period === 'month' ? 'This Month' : 'This Quarter';
+
+    return `<div class="goal-card">
+      <div class="goal-header">
+        <span class="goal-name">${esc(g.targetName)} — ${g.type === 'qr_scans' ? 'Scans' : 'Opens'}</span>
+        <span style="display:flex;gap:0.4rem;align-items:center">
+          <span class="goal-status ${onTrack ? 'on-track' : 'behind'}">${onTrack ? 'On Track' : 'Behind'}</span>
+          <button class="btn btn-danger-ghost btn-xs" onclick="deleteGoal('${g.id}')" style="padding:0.1rem 0.3rem;font-size:0.65rem">&times;</button>
+        </span>
+      </div>
+      <div class="goal-progress"><div class="goal-progress-fill ${onTrack ? 'on-track' : 'behind'}" style="width:${pct}%"></div></div>
+      <div class="goal-meta"><span>${current.toLocaleString()} / ${g.amount.toLocaleString()} (${pct}%)</span><span>${periodLabel}</span></div>
+    </div>`;
+  }).join('');
+}
+
+function getPeriodRange(period) {
+  const now = new Date();
+  let start, end;
+  if (period === 'week') {
+    start = new Date(now); start.setDate(now.getDate() - now.getDay());
+    start.setHours(0, 0, 0, 0);
+    end = new Date(start); end.setDate(start.getDate() + 6); end.setHours(23, 59, 59, 999);
+  } else if (period === 'month') {
+    start = new Date(now.getFullYear(), now.getMonth(), 1);
+    end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+  } else { // quarter
+    const q = Math.floor(now.getMonth() / 3) * 3;
+    start = new Date(now.getFullYear(), q, 1);
+    end = new Date(now.getFullYear(), q + 3, 0, 23, 59, 59, 999);
+  }
+  return { start, end };
+}
+
+// ─── Funnel View ───
+function renderFunnel() {
+  const opens = filterByRange(dashCampOpens, 'opened_at');
+  const clicks = (window.dashCampClicks || []).filter(c => {
+    const { from, to } = getDashDateRange();
+    if (!from) return true;
+    const d = new Date(c.clicked_at);
+    return d >= from && d <= to;
+  });
+  const campaigns = dashCampaignsData.length;
+  const totalOpens = opens.length;
+  const totalClicks = clicks.length;
+  const maxVal = Math.max(campaigns, totalOpens, totalClicks, 1);
+
+  const chart = document.getElementById('funnelChart');
+  const funnelData = [
+    { label: 'Campaigns Sent', value: campaigns, cls: 'sent' },
+    { label: 'Opened', value: totalOpens, cls: 'opened' },
+    { label: 'Clicked', value: totalClicks, cls: 'clicked' }
+  ];
+
+  chart.innerHTML = funnelData.map((f, i) => {
+    const height = Math.max(20, (f.value / maxVal) * 180);
+    const rate = i === 0 ? '' : (funnelData[i - 1].value > 0 ? Math.round((f.value / funnelData[i - 1].value) * 100) + '%' : '0%');
+    return `${i > 0 ? '<div class="funnel-arrow">&#8594;</div>' : ''}
+      <div class="funnel-step">
+        <div class="funnel-value">${f.value.toLocaleString()}</div>
+        <div class="funnel-bar ${f.cls}" style="height:${height}px"></div>
+        <div class="funnel-label">${f.label}</div>
+        ${rate ? `<div class="funnel-rate">${rate} conversion</div>` : ''}
+      </div>`;
+  }).join('');
+}
+
+// ─── Export: CSV ───
+function exportCSV() {
+  const scans = filterByRange(dashScanLogs, 'scanned_at');
+  const opens = filterByRange(dashCampOpens, 'opened_at');
+
+  let csv = 'Type,Name,Date,Device,Browser\n';
+  scans.forEach(s => {
+    const name = (myLinks.find(l => l.id === s.link_id) || {}).label || 'Unknown';
+    csv += `QR Scan,"${name}",${s.scanned_at},${parseDevice(s.user_agent || '')},${parseBrowser(s.user_agent || '')}\n`;
+  });
+  opens.forEach(o => {
+    const name = (dashCampaignsData.find(c => c.id === o.campaign_id) || {}).name || 'Unknown';
+    csv += `Email Open,"${name}",${o.opened_at},${parseDevice(o.user_agent || '')},${parseEmailClient(o.user_agent || '')}\n`;
+  });
+
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'linkboard-analytics-' + new Date().toISOString().slice(0, 10) + '.csv';
+  a.click();
+  toast('CSV exported!', true);
+}
+
+// ─── Export: Copy Summary ───
+function copyDashboardSummary() {
+  const scans = filterByRange(dashScanLogs, 'scanned_at');
+  const opens = filterByRange(dashCampOpens, 'opened_at');
+  const uniqueOpens = new Set(opens.map(o => o.ip_hash)).size;
+  const { from, to } = getDashDateRange();
+  const period = from ? `${from.toLocaleDateString()} - ${(to || new Date()).toLocaleDateString()}` : 'All Time';
+
+  const summary = `LAS LinkBoard Analytics Report
+Period: ${period}
+Generated: ${new Date().toLocaleString()}
+
+KPI Summary:
+- Total QR Scans: ${scans.length.toLocaleString()}
+- Email Opens: ${opens.length.toLocaleString()}
+- Unique Opens: ${uniqueOpens.toLocaleString()}
+- Active QR Codes: ${myLinks.filter(l => !l.expires_at || new Date(l.expires_at) > new Date()).length}
+- Campaigns: ${dashCampaignsData.length}
+
+Top QR Codes:
+${myLinks.sort((a, b) => (b.scans || 0) - (a.scans || 0)).slice(0, 5).map(l => `  - ${l.label}: ${l.scans || 0} scans`).join('\n')}
+
+Top Campaigns:
+${dashCampaignsData.slice(0, 5).map(c => {
+  const count = opens.filter(o => o.campaign_id === c.id).length;
+  return `  - ${c.name}: ${count} opens`;
+}).join('\n')}`;
+
+  navigator.clipboard.writeText(summary).then(() => toast('Summary copied to clipboard!', true));
+}
+
+// ─── Export: PDF ───
+async function exportPDF() {
+  toast('Generating PDF...');
+  try {
+    const dashEl = document.getElementById('analyticsSection');
+    const canvas = await html2canvas(dashEl, { scale: 1.5, useCORS: true, backgroundColor: '#F8F9FA' });
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const imgW = 210;
+    const imgH = (canvas.height * imgW) / canvas.width;
+    let yPos = 0;
+    const pageH = 297;
+
+    // Add pages as needed
+    while (yPos < imgH) {
+      if (yPos > 0) pdf.addPage();
+      pdf.addImage(canvas, 'PNG', 0, -yPos, imgW, imgH);
+      yPos += pageH;
+    }
+
+    pdf.save('linkboard-analytics-' + new Date().toISOString().slice(0, 10) + '.pdf');
+    toast('PDF exported!', true);
+  } catch (e) {
+    console.error('PDF export error:', e);
+    toast('PDF export failed — try Copy Summary instead');
+  }
 }
 
 // ─── Redirect (public — no auth needed) ───

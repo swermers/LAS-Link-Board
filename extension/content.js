@@ -5,6 +5,7 @@
 const SUPABASE_URL = 'https://pmhoeqxuamvqlwsatozu.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBtaG9lcXh1YW12cWx3c2F0b3p1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MTY2NDYsImV4cCI6MjA4ODM5MjY0Nn0.ktaozIz1XrIUeUrPjtKp3VZ92BptG8xehOFsv_ny12w';
 const PIXEL_BASE = 'https://las-link-board.vercel.app/api/t/';
+const CLICK_BASE = 'https://las-link-board.vercel.app/api/c/';
 
 // Track which compose windows already have our toggle
 const injected = new WeakSet();
@@ -162,6 +163,16 @@ function injectPixel(dialog, campaignId) {
 
   const target = body || document.querySelector('div[role="textbox"][g_editable="true"], div.Am.Al.editable');
   if (!target) return;
+
+  // Wrap links for click tracking — rewrite href to go through our redirect endpoint
+  const links = target.querySelectorAll('a[href]');
+  links.forEach(a => {
+    const href = a.getAttribute('href');
+    if (href && href.startsWith('http') && !href.includes('las-link-board.vercel.app/api/')) {
+      const trackUrl = CLICK_BASE + campaignId + '?u=' + encodeURIComponent(href);
+      a.setAttribute('href', trackUrl);
+    }
+  });
 
   // Use raw HTML insertion so Gmail includes it in the sent email HTML.
   // Avoid opacity:0/display:none — Gmail strips hidden elements.
