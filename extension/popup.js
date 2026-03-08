@@ -18,7 +18,7 @@ async function init() {
   } else if (stored.lb_auth_pending) {
     // OAuth is still in progress in the background worker
     document.getElementById('loginSection').style.display = 'block';
-    document.getElementById('googleBtn').textContent = 'Signing in…';
+    document.getElementById('googleBtn').textContent = 'Signing in...';
     document.getElementById('googleBtn').disabled = true;
     pollForAuth();
   } else {
@@ -64,7 +64,7 @@ function pollForAuth() {
 // ── Google OAuth — trigger background worker and poll for completion ──
 document.getElementById('googleBtn').addEventListener('click', () => {
   document.getElementById('loginError').style.display = 'none';
-  document.getElementById('googleBtn').textContent = 'Signing in…';
+  document.getElementById('googleBtn').textContent = 'Signing in...';
   document.getElementById('googleBtn').disabled = true;
   chrome.runtime.sendMessage({ action: 'googleSignIn' });
   pollForAuth();
