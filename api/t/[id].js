@@ -1,10 +1,6 @@
-// Tracking pixel endpoint — serves a 1x1 transparent GIF and logs the open
-// Deduplicates by ip_hash within a 30-second window to prevent email client
-// prefetch/proxy from inflating open counts (was causing 4:1 ratio).
-//
-// IMPORTANT: Set SUPABASE_SERVICE_ROLE_KEY in Vercel Environment Variables.
-// The service role key bypasses RLS so the serverless function can insert
-// tracking rows without needing a user JWT. The anon key is used as fallback.
+// Tracking pixel endpoint — serves a 1x1 transparent GIF and logs the open.
+// Deduplicates: skips if ANY open was logged for this campaign in last 60 seconds.
+// This catches Gmail proxy, virus scanners, and email client prefetch.
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://pmhoeqxuamvqlwsatozu.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBtaG9lcXh1YW12cWx3c2F0b3p1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MTY2NDYsImV4cCI6MjA4ODM5MjY0Nn0.ktaozIz1XrIUeUrPjtKp3VZ92BptG8xehOFsv_ny12w';
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || SUPABASE_ANON;
@@ -15,7 +11,7 @@ const PIXEL = Buffer.from(
   'base64'
 );
 
-// Only filter actual search engine crawlers (NOT email proxies)
+// Only filter actual search engine crawlers
 const BOT_PATTERNS = [
   'spider', 'crawler', 'Slurp', 'Baiduspider', 'bingbot',
   'Googlebot', 'AhrefsBot', 'SemrushBot', 'DotBot', 'MJ12bot',
@@ -28,72 +24,75 @@ function isBot(ua) {
 }
 
 module.exports = async function handler(req, res) {
-  const { id } = req.query;
-
-  if (id) {
-    const ua = req.headers['user-agent'] || '';
-    const ip = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || '';
-    const ipHash = simpleHash(ip);
-
-    if (!isBot(ua)) {
-      // Deduplicate: check if same ip_hash opened this campaign in last 30 seconds.
-      // Email clients (Gmail proxy, virus scanners) fire multiple requests per open.
-      try {
-        const cutoff = new Date(Date.now() - 30000).toISOString();
-        const checkRes = await fetch(
-          SUPABASE_URL + '/rest/v1/campaign_opens?campaign_id=eq.' + id +
-          '&ip_hash=eq.' + encodeURIComponent(ipHash) +
-          '&opened_at=gte.' + encodeURIComponent(cutoff) +
-          '&select=id&limit=1',
-          {
-            headers: {
-              'apikey': SUPABASE_ANON,
-              'Authorization': 'Bearer ' + SUPABASE_KEY
-            }
-          }
-        );
-
-        let isDuplicate = false;
-        if (checkRes.ok) {
-          const existing = await checkRes.json();
-          isDuplicate = existing.length > 0;
-        }
-
-        if (!isDuplicate) {
-          const insertRes = await fetch(SUPABASE_URL + '/rest/v1/campaign_opens', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'apikey': SUPABASE_ANON,
-              'Authorization': 'Bearer ' + SUPABASE_KEY,
-              'Prefer': 'return=minimal'
-            },
-            body: JSON.stringify({
-              campaign_id: id,
-              user_agent: ua,
-              ip_hash: ipHash,
-              opened_at: new Date().toISOString()
-            })
-          });
-
-          if (!insertRes.ok) {
-            const errText = await insertRes.text();
-            console.error('campaign_opens insert failed:', insertRes.status, errText);
-          }
-        }
-      } catch (e) {
-        console.error('campaign_opens error:', e.message);
-      }
-    }
-  }
-
-  // Always serve the pixel regardless of logging outcome
+  // ALWAYS serve the pixel first — fast response regardless of logging
   res.setHeader('Content-Type', 'image/gif');
   res.setHeader('Content-Length', PIXEL.length);
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
   res.status(200).end(PIXEL);
+
+  // Log the open after pixel is served
+  const { id } = req.query;
+  if (!id) return;
+
+  const ua = req.headers['user-agent'] || '';
+  if (isBot(ua)) return;
+
+  const ip = req.headers['x-forwarded-for'] || req.headers['x-real-ip'] || '';
+  const ipHash = simpleHash(ip);
+
+  try {
+    // Deduplicate: skip if ANY open for this campaign in last 60 seconds.
+    // Gmail proxy, virus scanners, and prefetch all fire within seconds of each
+    // other. A real "second open" from a human will be >60s later.
+    // We check by campaign_id (not ip_hash) because Gmail's image proxy uses
+    // different IPs than the sender/recipient, making ip_hash unreliable.
+    const cutoff = new Date(Date.now() - 60000).toISOString();
+    const checkRes = await fetch(
+      SUPABASE_URL + '/rest/v1/campaign_opens?campaign_id=eq.' + id +
+      '&opened_at=gte.' + encodeURIComponent(cutoff) +
+      '&select=id&limit=1',
+      {
+        headers: {
+          'apikey': SUPABASE_ANON,
+          'Authorization': 'Bearer ' + SUPABASE_KEY
+        }
+      }
+    );
+
+    if (checkRes.ok) {
+      const existing = await checkRes.json();
+      if (existing.length > 0) {
+        // Already logged a recent open — skip to prevent inflation
+        return;
+      }
+    }
+
+    // No recent open — log this one
+    const insertRes = await fetch(SUPABASE_URL + '/rest/v1/campaign_opens', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON,
+        'Authorization': 'Bearer ' + SUPABASE_KEY,
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({
+        campaign_id: id,
+        user_agent: ua,
+        ip_hash: ipHash,
+        opened_at: new Date().toISOString()
+      })
+    });
+
+    if (!insertRes.ok) {
+      const errText = await insertRes.text();
+      console.error('[pixel] insert failed:', insertRes.status, errText);
+    }
+  } catch (e) {
+    console.error('[pixel] error:', e.message);
+  }
 };
 
 function simpleHash(str) {
