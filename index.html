@@ -2686,11 +2686,11 @@ function openExtensionInstall() {
 }
 
 async function downloadExtension() {
-  // Build a zip of the extension files using JSZip-like approach
-  // Since we don't have JSZip, link to the GitHub repo's extension folder
-  const repoUrl = 'https://github.com/swermers/LAS-Link-Board/archive/refs/heads/main.zip';
-  window.open(repoUrl, '_blank');
-  toast('Download started! Unzip and find the extension/ folder inside.', true);
+  const a = document.createElement('a');
+  a.href = '/extension.zip';
+  a.download = 'extension.zip';
+  a.click();
+  toast('Download started! Unzip and load in Chrome Extensions.', true);
 }
 
 async function deleteCampaign() {
