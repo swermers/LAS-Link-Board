@@ -1,8 +1,13 @@
 // Tracking pixel endpoint — serves a 1x1 transparent GIF and logs the open
 // Deduplicates by ip_hash within a 30-second window to prevent email client
 // prefetch/proxy from inflating open counts (was causing 4:1 ratio).
-const SUPABASE_URL = 'https://pmhoeqxuamvqlwsatozu.supabase.co';
+//
+// IMPORTANT: Set SUPABASE_SERVICE_ROLE_KEY in Vercel Environment Variables.
+// The service role key bypasses RLS so the serverless function can insert
+// tracking rows without needing a user JWT. The anon key is used as fallback.
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://pmhoeqxuamvqlwsatozu.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBtaG9lcXh1YW12cWx3c2F0b3p1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MTY2NDYsImV4cCI6MjA4ODM5MjY0Nn0.ktaozIz1XrIUeUrPjtKp3VZ92BptG8xehOFsv_ny12w';
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || SUPABASE_ANON;
 
 // 1x1 transparent GIF (43 bytes)
 const PIXEL = Buffer.from(
@@ -43,7 +48,7 @@ module.exports = async function handler(req, res) {
           {
             headers: {
               'apikey': SUPABASE_ANON,
-              'Authorization': 'Bearer ' + SUPABASE_ANON
+              'Authorization': 'Bearer ' + SUPABASE_KEY
             }
           }
         );
@@ -60,7 +65,7 @@ module.exports = async function handler(req, res) {
             headers: {
               'Content-Type': 'application/json',
               'apikey': SUPABASE_ANON,
-              'Authorization': 'Bearer ' + SUPABASE_ANON,
+              'Authorization': 'Bearer ' + SUPABASE_KEY,
               'Prefer': 'return=minimal'
             },
             body: JSON.stringify({
