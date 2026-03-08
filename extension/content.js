@@ -1,8 +1,7 @@
-// LAS LinkBoard Tracker — Gmail content script v1.5
+// LAS LinkBoard Tracker — Gmail content script v1.6
 // Adds a Mailsuite-style tracking toggle next to Send in Gmail compose windows
-// Tracking default is controlled by lb_track_default setting (off by default)
 
-console.log('[LB] Content script v1.5 loaded');
+console.log('[LB] Content script v1.6 loaded');
 
 const SUPABASE_URL = 'https://pmhoeqxuamvqlwsatozu.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBtaG9lcXh1YW12cWx3c2F0b3p1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MTY2NDYsImV4cCI6MjA4ODM5MjY0Nn0.ktaozIz1XrIUeUrPjtKp3VZ92BptG8xehOFsv_ny12w';
@@ -12,28 +11,90 @@ const CLICK_BASE = 'https://las-link-board.vercel.app/api/c/';
 // Track which compose windows already have our toggle
 const injected = new WeakSet();
 
-// Global auth cache — single source of truth, no per-toggle listeners
+// ─── Global auth cache ───
+// Everything is cached in memory so we NEVER need chrome.storage during send.
+// After Gmail sends, the extension context can be invalidated, so any
+// chrome.storage calls in async code will throw "Extension context invalidated".
 let cachedToken = '';
+let cachedRefreshToken = '';
 let cachedUserId = '';
 
 // Load auth once at startup
-chrome.storage.local.get(['lb_token', 'lb_user_id'], (stored) => {
-  cachedToken = stored.lb_token || '';
-  cachedUserId = stored.lb_user_id || '';
-  console.log('[LB] Auth loaded: token=' + (cachedToken ? 'yes' : 'no') + ' userId=' + (cachedUserId || 'none'));
-});
+try {
+  chrome.storage.local.get(['lb_token', 'lb_refresh', 'lb_user_id'], (stored) => {
+    cachedToken = stored.lb_token || '';
+    cachedRefreshToken = stored.lb_refresh || '';
+    cachedUserId = stored.lb_user_id || '';
+    console.log('[LB] Auth loaded: token=' + (cachedToken ? 'yes' : 'no') +
+                ' refresh=' + (cachedRefreshToken ? 'yes' : 'no') +
+                ' userId=' + (cachedUserId || 'none'));
+
+    // Proactively refresh token if we have one (it may already be expired)
+    if (cachedToken && cachedRefreshToken) {
+      refreshTokenNow();
+    }
+  });
+} catch (e) {
+  console.warn('[LB] Could not load auth from storage:', e.message);
+}
 
 // Single global listener for auth changes (not per-toggle)
-chrome.storage.onChanged.addListener((changes) => {
-  if (changes.lb_token) {
-    cachedToken = changes.lb_token.newValue || '';
-    console.log('[LB] Token updated globally');
+try {
+  chrome.storage.onChanged.addListener((changes) => {
+    if (changes.lb_token) {
+      cachedToken = changes.lb_token.newValue || '';
+    }
+    if (changes.lb_refresh) {
+      cachedRefreshToken = changes.lb_refresh.newValue || '';
+    }
+    if (changes.lb_user_id) {
+      cachedUserId = changes.lb_user_id.newValue || '';
+    }
+  });
+} catch (e) {
+  // Extension context may already be invalid
+}
+
+// Proactively refresh the token every 45 minutes (Supabase JWTs expire in 1 hour)
+setInterval(() => {
+  if (cachedRefreshToken) {
+    refreshTokenNow();
   }
-  if (changes.lb_user_id) {
-    cachedUserId = changes.lb_user_id.newValue || '';
-    console.log('[LB] User ID updated globally');
+}, 45 * 60 * 1000);
+
+// Refresh token using only in-memory values — no chrome.storage reads
+async function refreshTokenNow() {
+  if (!cachedRefreshToken) return false;
+  try {
+    const res = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON },
+      body: JSON.stringify({ refresh_token: cachedRefreshToken })
+    });
+    const data = await res.json();
+    if (data.access_token) {
+      // Update in-memory cache immediately
+      cachedToken = data.access_token;
+      cachedRefreshToken = data.refresh_token;
+      console.log('[LB] Token refreshed successfully');
+
+      // Try to persist to storage (may fail if context is invalidated, that's OK)
+      try {
+        chrome.storage.local.set({
+          lb_token: data.access_token,
+          lb_refresh: data.refresh_token
+        });
+      } catch (e) {
+        // Context invalidated — in-memory cache is still good for this page
+      }
+      return true;
+    }
+    console.warn('[LB] Token refresh returned no access_token');
+  } catch (e) {
+    console.warn('[LB] Token refresh failed:', e.message);
   }
-});
+  return false;
+}
 
 function observeCompose() {
   const observer = new MutationObserver(() => {
@@ -50,16 +111,12 @@ function observeCompose() {
 }
 
 async function injectToggle(toolbar, sendBtn) {
-  // Read default tracking preference from storage (default: off)
   let defaultOn = false;
   try {
     const stored = await chrome.storage.local.get(['lb_track_default']);
     defaultOn = stored.lb_track_default === true;
-  } catch (e) {
-    // Extension context may be invalidated after reload — use default
-  }
+  } catch (e) {}
 
-  // Create the toggle element
   const toggle = document.createElement('div');
   toggle.className = 'lb-track-toggle';
   toggle.dataset.tracking = defaultOn ? 'on' : 'off';
@@ -71,7 +128,6 @@ async function injectToggle(toolbar, sendBtn) {
     <span class="lb-recipient"></span>
   `;
 
-  // Watch the To field and show recipient next to Track
   const dialog = sendBtn.closest('div[role="dialog"]') || sendBtn.closest('.AD');
   if (dialog) {
     const updateRecipient = () => {
@@ -90,11 +146,9 @@ async function injectToggle(toolbar, sendBtn) {
     if (toContainer) {
       new MutationObserver(updateRecipient).observe(toContainer, { childList: true, subtree: true });
     }
-    // Initial check after short delay (Gmail populates async)
     setTimeout(updateRecipient, 500);
   }
 
-  // Toggle on/off when clicked
   toggle.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -102,7 +156,6 @@ async function injectToggle(toolbar, sendBtn) {
     toggle.dataset.tracking = toggle.dataset.tracking === 'on' ? 'off' : 'on';
   });
 
-  // Insert between the scheduled-send dropdown and the next toolbar section
   const sendTd = sendBtn.closest('td');
   if (sendTd && sendTd.nextElementSibling) {
     sendTd.parentElement.insertBefore(toggle, sendTd.nextElementSibling);
@@ -110,26 +163,17 @@ async function injectToggle(toolbar, sendBtn) {
     sendBtn.parentElement.appendChild(toggle);
   }
 
-  // Intercept Send: inject pixel SYNCHRONOUSLY, never block the click.
-  // Campaign creation happens async after the email sends.
+  // Intercept Send click in capture phase — inject pixel synchronously, never block.
   sendBtn.addEventListener('click', (e) => {
     console.log('[LB] Send clicked. tracking=' + toggle.dataset.tracking + ' sent=' + toggle.dataset.sent);
 
-    if (toggle.dataset.tracking !== 'on') {
-      console.log('[LB] Tracking off, letting send proceed');
-      return; // Not tracking — let Gmail send normally
-    }
-    if (toggle.dataset.sent === 'true') {
-      console.log('[LB] Already injected, letting send proceed');
-      return; // Already injected — let Gmail send normally
-    }
+    if (toggle.dataset.tracking !== 'on') return;
+    if (toggle.dataset.sent === 'true') return;
 
-    // Check auth BEFORE setting sent flag — if no auth, let them retry
+    // Snapshot auth from in-memory cache (never read chrome.storage here)
     const token = cachedToken;
     const userId = cachedUserId;
-
-    console.log('[LB] Auth: token=' + (token ? 'yes(' + token.substring(0, 20) + '...)' : 'NO') +
-                ' userId=' + (userId || 'NO'));
+    const refreshTok = cachedRefreshToken;
 
     if (!token || !userId) {
       console.warn('[LB] No auth credentials — skipping tracking');
@@ -139,25 +183,20 @@ async function injectToggle(toolbar, sendBtn) {
         toggle.classList.remove('lb-no-auth');
         toggle.querySelector('.lb-label').textContent = 'Track';
       }, 3000);
-      // Don't set sent='true' — allow retry after signing in
-      return; // Let click through, but don't track
+      return;
     }
 
-    // Auth is good — mark sent to prevent double-injection
     toggle.dataset.sent = 'true';
 
     try {
-      // Generate campaign ID client-side so we can inject pixel synchronously
       const campaignId = crypto.randomUUID();
-      console.log('[LB] Generated campaign ID: ' + campaignId);
+      console.log('[LB] Campaign ID: ' + campaignId);
 
       const composeDialog = sendBtn.closest('div[role="dialog"]') || sendBtn.closest('.AD');
 
-      // Inject tracking pixel into email body SYNCHRONOUSLY before Gmail sends
+      // Inject tracking pixel SYNCHRONOUSLY
       injectPixel(composeDialog, campaignId);
-      console.log('[LB] Pixel injected into email body');
 
-      // Get subject for campaign name
       let subject = 'Email Campaign';
       if (composeDialog) {
         const subjectInput = composeDialog.querySelector('input[name="subjectbox"]');
@@ -165,52 +204,49 @@ async function injectToggle(toolbar, sendBtn) {
           subject = subjectInput.value.trim();
         }
       }
-      console.log('[LB] Subject: ' + subject);
 
-      // Create campaign in Supabase ASYNC — fire and forget
-      createCampaignAsync(token, userId, campaignId, subject);
+      // Create campaign ASYNC using only in-memory values
+      // Pass everything needed — no chrome.storage calls allowed after this point
+      createCampaignAsync(token, refreshTok, userId, campaignId, subject);
 
     } catch (err) {
       console.error('[LB] Tracking failed:', err);
     }
-
-    // Click is NEVER blocked — Gmail sends normally
-    console.log('[LB] Click passing through to Gmail send handler');
-  }, true); // Use capture phase to run BEFORE Gmail's send handler
+  }, true);
 }
 
 function injectPixel(dialog, campaignId) {
   const body = dialog
     ? dialog.querySelector('div[role="textbox"][aria-label*="Body"], div[role="textbox"][g_editable="true"], div.Am.Al.editable')
     : null;
-
   const target = body || document.querySelector('div[role="textbox"][g_editable="true"], div.Am.Al.editable');
   if (!target) return;
 
-  // Wrap links for click tracking — rewrite href to go through our redirect endpoint
-  // Uses path-based base64url encoding (no query params) to prevent Gmail URL mangling
   const links = target.querySelectorAll('a[href]');
   links.forEach(a => {
     const href = a.getAttribute('href');
     if (href && href.startsWith('http') && !href.includes('las-link-board.vercel.app/api/')) {
       const b64 = btoa(href).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-      const trackUrl = CLICK_BASE + campaignId + '/' + b64;
-      a.setAttribute('href', trackUrl);
+      a.setAttribute('href', CLICK_BASE + campaignId + '/' + b64);
     }
   });
 
-  // Use raw HTML insertion so Gmail includes it in the sent email HTML.
-  // Avoid opacity:0/display:none — Gmail strips hidden elements.
-  const pixelUrl = PIXEL_BASE + campaignId;
-  const pixelHtml = '<img src="' + pixelUrl + '" width="1" height="1" style="width:1px;height:1px;max-height:1px;overflow:hidden;" alt="" />';
+  const pixelHtml = '<img src="' + PIXEL_BASE + campaignId + '" width="1" height="1" style="width:1px;height:1px;max-height:1px;overflow:hidden;" alt="" />';
   target.insertAdjacentHTML('beforeend', pixelHtml);
 }
 
-// Create campaign in Supabase after the email has already been sent.
-// We provide our own UUID so the tracking pixel (already injected) matches.
-async function createCampaignAsync(token, userId, campaignId, subject) {
+// Create campaign in Supabase using ONLY the values passed in.
+// This function MUST NOT call chrome.storage — the extension context
+// may be invalidated after Gmail sends the email.
+async function createCampaignAsync(token, refreshTok, userId, campaignId, subject) {
+  const payload = JSON.stringify({
+    id: campaignId,
+    user_id: userId,
+    name: subject,
+    notes: 'Created via Gmail extension'
+  });
+
   try {
-    // Try with current token first
     let res = await fetch(SUPABASE_URL + '/rest/v1/campaigns', {
       method: 'POST',
       headers: {
@@ -219,70 +255,54 @@ async function createCampaignAsync(token, userId, campaignId, subject) {
         'Authorization': 'Bearer ' + token,
         'Prefer': 'return=representation'
       },
-      body: JSON.stringify({
-        id: campaignId,
-        user_id: userId,
-        name: subject,
-        notes: 'Created via Gmail extension'
-      })
+      body: payload
     });
 
-    // If token expired, try refreshing and retry
-    if (res.status === 401) {
-      console.warn('[LB] Token expired, refreshing...');
-      const refreshed = await refreshToken();
-      if (refreshed) {
-        const updated = await chrome.storage.local.get(['lb_token']);
-        res = await fetch(SUPABASE_URL + '/rest/v1/campaigns', {
+    // If token expired, refresh using in-memory refresh token and retry
+    if (res.status === 401 && refreshTok) {
+      console.warn('[LB] Token expired, refreshing with in-memory refresh token...');
+      try {
+        const refreshRes = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': SUPABASE_ANON,
-            'Authorization': 'Bearer ' + updated.lb_token,
-            'Prefer': 'return=representation'
-          },
-          body: JSON.stringify({
-            id: campaignId,
-            user_id: userId,
-            name: subject,
-            notes: 'Created via Gmail extension'
-          })
+          headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON },
+          body: JSON.stringify({ refresh_token: refreshTok })
         });
+        const refreshData = await refreshRes.json();
+        if (refreshData.access_token) {
+          // Update in-memory cache
+          cachedToken = refreshData.access_token;
+          cachedRefreshToken = refreshData.refresh_token;
+          console.log('[LB] Token refreshed, retrying campaign creation...');
+
+          // Persist to storage (best effort — may fail if context invalidated)
+          try { chrome.storage.local.set({ lb_token: refreshData.access_token, lb_refresh: refreshData.refresh_token }); } catch (e) {}
+
+          // Retry with fresh token
+          res = await fetch(SUPABASE_URL + '/rest/v1/campaigns', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': SUPABASE_ANON,
+              'Authorization': 'Bearer ' + refreshData.access_token,
+              'Prefer': 'return=representation'
+            },
+            body: payload
+          });
+        }
+      } catch (refreshErr) {
+        console.error('[LB] Token refresh failed:', refreshErr.message);
       }
     }
 
     if (!res.ok) {
-      const body = await res.text().catch(() => '');
-      console.error('[LB] Campaign creation failed: HTTP ' + res.status + ' — ' + body);
+      const errBody = await res.text().catch(() => '');
+      console.error('[LB] Campaign creation failed: HTTP ' + res.status + ' — ' + errBody);
     } else {
-      const data = await res.json().catch(() => null);
-      console.log('[LB] Campaign created successfully!', campaignId, data);
+      console.log('[LB] Campaign created successfully! ID=' + campaignId);
     }
   } catch (err) {
-    console.error('[LB] Async campaign creation error:', err);
+    console.error('[LB] Campaign creation error:', err.message);
   }
 }
 
-async function refreshToken() {
-  const stored = await chrome.storage.local.get(['lb_refresh']);
-  if (!stored.lb_refresh) return false;
-  try {
-    const res = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON },
-      body: JSON.stringify({ refresh_token: stored.lb_refresh })
-    });
-    const data = await res.json();
-    if (data.access_token) {
-      await chrome.storage.local.set({
-        lb_token: data.access_token,
-        lb_refresh: data.refresh_token
-      });
-      return true;
-    }
-  } catch (e) {}
-  return false;
-}
-
-// Start observing
 observeCompose();
