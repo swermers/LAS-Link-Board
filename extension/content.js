@@ -100,7 +100,16 @@ async function injectToggle(toolbar, sendBtn) {
 
     try {
       // Check auth
-      const stored = await chrome.storage.local.get(['lb_token', 'lb_user_id']);
+      let stored;
+      try {
+        stored = await chrome.storage.local.get(['lb_token', 'lb_user_id']);
+      } catch (storageErr) {
+        console.warn('LinkBoard: storage unavailable, skipping tracking');
+        toggle.dataset.sent = 'true';
+        sendBtn.click();
+        return;
+      }
+
       if (!stored.lb_token) {
         toggle.classList.add('lb-no-auth');
         toggle.querySelector('.lb-label').textContent = 'Sign in';
@@ -142,9 +151,18 @@ async function injectToggle(toolbar, sendBtn) {
         });
 
         if (res.ok) {
-          const [camp] = await res.json();
-          injectPixel(composeDialog, camp.id);
+          const data = await res.json();
+          const camp = Array.isArray(data) ? data[0] : data;
+          if (camp && camp.id) {
+            injectPixel(composeDialog, camp.id);
+          } else {
+            console.warn('LinkBoard: campaign created but no ID returned', data);
+          }
+        } else {
+          console.warn('LinkBoard: campaign creation failed', res.status, await res.text().catch(() => ''));
         }
+      } else {
+        console.warn('LinkBoard: no valid token, skipping tracking');
       }
     } catch (err) {
       console.error('LinkBoard: tracking failed', err);
