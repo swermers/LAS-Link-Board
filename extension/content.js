@@ -1,7 +1,7 @@
-// LAS LinkBoard Tracker — Gmail content script v1.6
+// LAS LinkBoard Tracker — Gmail content script v1.7
 // Adds a Mailsuite-style tracking toggle next to Send in Gmail compose windows
 
-console.log('[LB] Content script v1.6 loaded');
+console.log('[LB] Content script v1.7 loaded');
 
 const SUPABASE_URL = 'https://pmhoeqxuamvqlwsatozu.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBtaG9lcXh1YW12cWx3c2F0b3p1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MTY2NDYsImV4cCI6MjA4ODM5MjY0Nn0.ktaozIz1XrIUeUrPjtKp3VZ92BptG8xehOFsv_ny12w';
@@ -238,6 +238,7 @@ function injectPixel(dialog, campaignId) {
 // Create campaign in Supabase using ONLY the values passed in.
 // This function MUST NOT call chrome.storage — the extension context
 // may be invalidated after Gmail sends the email.
+// Retries up to 3 times with exponential backoff for reliability.
 async function createCampaignAsync(token, refreshTok, userId, campaignId, subject) {
   const payload = JSON.stringify({
     id: campaignId,
@@ -246,63 +247,79 @@ async function createCampaignAsync(token, refreshTok, userId, campaignId, subjec
     notes: 'Created via Gmail extension'
   });
 
-  try {
-    let res = await fetch(SUPABASE_URL + '/rest/v1/campaigns', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': SUPABASE_ANON,
-        'Authorization': 'Bearer ' + token,
-        'Prefer': 'return=representation'
-      },
-      body: payload
-    });
+  let currentToken = token;
 
-    // If token expired, refresh using in-memory refresh token and retry
-    if (res.status === 401 && refreshTok) {
-      console.warn('[LB] Token expired, refreshing with in-memory refresh token...');
-      try {
-        const refreshRes = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON },
-          body: JSON.stringify({ refresh_token: refreshTok })
-        });
-        const refreshData = await refreshRes.json();
-        if (refreshData.access_token) {
-          // Update in-memory cache
-          cachedToken = refreshData.access_token;
-          cachedRefreshToken = refreshData.refresh_token;
-          console.log('[LB] Token refreshed, retrying campaign creation...');
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      let res = await fetch(SUPABASE_URL + '/rest/v1/campaigns', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_ANON,
+          'Authorization': 'Bearer ' + currentToken,
+          'Prefer': 'return=representation'
+        },
+        body: payload
+      });
 
-          // Persist to storage (best effort — may fail if context invalidated)
-          try { chrome.storage.local.set({ lb_token: refreshData.access_token, lb_refresh: refreshData.refresh_token }); } catch (e) {}
-
-          // Retry with fresh token
-          res = await fetch(SUPABASE_URL + '/rest/v1/campaigns', {
+      // If token expired, refresh and retry immediately
+      if (res.status === 401 && refreshTok) {
+        console.warn('[LB] Token expired, refreshing...');
+        try {
+          const refreshRes = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'apikey': SUPABASE_ANON,
-              'Authorization': 'Bearer ' + refreshData.access_token,
-              'Prefer': 'return=representation'
-            },
-            body: payload
+            headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON },
+            body: JSON.stringify({ refresh_token: refreshTok })
           });
+          const refreshData = await refreshRes.json();
+          if (refreshData.access_token) {
+            cachedToken = refreshData.access_token;
+            cachedRefreshToken = refreshData.refresh_token;
+            currentToken = refreshData.access_token;
+            console.log('[LB] Token refreshed, retrying...');
+            try { chrome.storage.local.set({ lb_token: refreshData.access_token, lb_refresh: refreshData.refresh_token }); } catch (e) {}
+
+            res = await fetch(SUPABASE_URL + '/rest/v1/campaigns', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'apikey': SUPABASE_ANON,
+                'Authorization': 'Bearer ' + refreshData.access_token,
+                'Prefer': 'return=representation'
+              },
+              body: payload
+            });
+          }
+        } catch (refreshErr) {
+          console.error('[LB] Token refresh failed:', refreshErr.message);
         }
-      } catch (refreshErr) {
-        console.error('[LB] Token refresh failed:', refreshErr.message);
       }
+
+      if (res.ok) {
+        console.log('[LB] Campaign created successfully! ID=' + campaignId);
+        return; // Success — done
+      }
+
+      // 409 = already exists (duplicate send click) — treat as success
+      if (res.status === 409) {
+        console.log('[LB] Campaign already exists, ID=' + campaignId);
+        return;
+      }
+
+      const errBody = await res.text().catch(() => '');
+      console.error('[LB] Campaign creation attempt ' + (attempt + 1) + ' failed: HTTP ' + res.status + ' — ' + errBody);
+
+    } catch (err) {
+      console.error('[LB] Campaign creation attempt ' + (attempt + 1) + ' error:', err.message);
     }
 
-    if (!res.ok) {
-      const errBody = await res.text().catch(() => '');
-      console.error('[LB] Campaign creation failed: HTTP ' + res.status + ' — ' + errBody);
-    } else {
-      console.log('[LB] Campaign created successfully! ID=' + campaignId);
+    // Wait before retrying (2s, 4s)
+    if (attempt < 2) {
+      await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
     }
-  } catch (err) {
-    console.error('[LB] Campaign creation error:', err.message);
   }
+
+  console.error('[LB] Campaign creation failed after 3 attempts. ID=' + campaignId);
 }
 
 observeCompose();

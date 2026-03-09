@@ -3,6 +3,14 @@
 -- Run this in your Supabase SQL Editor (Dashboard > SQL Editor > New query)
 -- ═══════════════════════════════════════════════════════════════════
 
+-- ─── 0. MIGRATION: Drop FK constraints on tracking tables ───
+-- FK constraints cause tracking events to be silently lost when the
+-- campaign record hasn't been created yet (race condition).
+-- The dashboard joins by campaign_id so data integrity is preserved.
+-- Run this ONCE if you have an existing database:
+ALTER TABLE IF EXISTS campaign_opens DROP CONSTRAINT IF EXISTS campaign_opens_campaign_id_fkey;
+ALTER TABLE IF EXISTS campaign_clicks DROP CONSTRAINT IF EXISTS campaign_clicks_campaign_id_fkey;
+
 -- ─── 1. Create tables (if they don't exist) ───
 
 CREATE TABLE IF NOT EXISTS campaigns (
@@ -15,7 +23,7 @@ CREATE TABLE IF NOT EXISTS campaigns (
 
 CREATE TABLE IF NOT EXISTS campaign_opens (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  campaign_id UUID NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+  campaign_id UUID NOT NULL,
   opened_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   user_agent TEXT DEFAULT '',
   ip_hash TEXT DEFAULT ''
@@ -23,7 +31,7 @@ CREATE TABLE IF NOT EXISTS campaign_opens (
 
 CREATE TABLE IF NOT EXISTS campaign_clicks (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  campaign_id UUID NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+  campaign_id UUID NOT NULL,
   link_url TEXT DEFAULT '',
   clicked_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   user_agent TEXT DEFAULT '',
