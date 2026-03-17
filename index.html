@@ -4299,9 +4299,9 @@ async function detectVtOS() {
   }
 
   const status = document.getElementById('vtDownloadStatus');
-  if (vtReleaseData && vtReleaseData.assets) {
+  if (vtReleaseData && vtReleaseData.assets && vtReleaseData.assets.length > 0) {
     // Mac: prefer .zip (portable), fall back to .dmg
-    const macZip = vtReleaseData.assets.find(a => a.name.endsWith('-mac.zip'));
+    const macZip = vtReleaseData.assets.find(a => a.name.endsWith('-mac.zip') || a.name.endsWith('.zip'));
     const dmg = vtReleaseData.assets.find(a => a.name.endsWith('.dmg'));
     const macAsset = macZip || dmg;
     // Windows: prefer portable .exe, fall back to any .exe
@@ -4319,7 +4319,20 @@ async function detectVtOS() {
     }
     status.textContent = 'Latest version: ' + vtReleaseData.tag_name.replace('voicetype-v', 'v');
   } else {
-    status.innerHTML = 'Coming soon — the first release is being prepared.';
+    // No release yet — link to GitHub Actions artifacts as fallback
+    const macBtn = document.getElementById('vtDownloadMacBtn');
+    const winBtn = document.getElementById('vtDownloadWinBtn');
+    const actionsUrl = 'https://github.com/las-swermers/LAS-Link-Board/actions/workflows/voicetype-release.yml';
+    const releasesUrl = 'https://github.com/las-swermers/LAS-Link-Board/releases';
+    macBtn.href = releasesUrl;
+    macBtn.target = '_blank';
+    macBtn.onclick = null;
+    macBtn.textContent = 'Get for Mac';
+    winBtn.href = releasesUrl;
+    winBtn.target = '_blank';
+    winBtn.onclick = null;
+    winBtn.textContent = 'Get for Windows';
+    status.innerHTML = 'No release published yet. <a href="' + releasesUrl + '" target="_blank" style="color:var(--gold)">Check GitHub Releases</a> or <a href="' + actionsUrl + '" target="_blank" style="color:var(--gold)">download from Actions</a>.';
   }
 }
 
@@ -4337,7 +4350,8 @@ function downloadVt(os) {
       return;
     }
   }
-  toast('Download not available yet — check back soon!');
+  window.open('https://github.com/las-swermers/LAS-Link-Board/releases', '_blank');
+  toast('Redirecting to GitHub — download the latest release from there.');
 }
 
 // ─── Redirect (public — no auth needed) ───
