@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  ═══════════════════════════════════════════════════════
+  VoiceType — PPPC Profile for Jamf / MDM Deployment
+  ═══════════════════════════════════════════════════════
+
+  This profile pre-approves Microphone and Accessibility
+  permissions so users don't need admin approval.
+
+  HOW TO USE:
+  1. Replace TEAM_ID_HERE with your actual Apple Developer Team ID
+     (found at https://developer.apple.com/account → Membership)
+  2. Upload this profile to Jamf Pro:
+     Computers > Configuration Profiles > New > Upload
+  3. Scope it to the same Smart Group as the VoiceType Self Service policy
+
+  IMPORTANT: The app MUST be signed with a Developer ID certificate
+  from the same team for this profile to work.
+-->
+<plist version="1.0">
+<dict>
+  <key>PayloadContent</key>
+  <array>
+    <!-- Privacy Preferences Policy Control -->
+    <dict>
+      <key>PayloadType</key>
+      <string>com.apple.TCC.configuration-profile-policy</string>
+      <key>PayloadUUID</key>
+      <string>A1B2C3D4-E5F6-7890-ABCD-EF1234567890</string>
+      <key>PayloadIdentifier</key>
+      <string>com.las.voicetype.pppc</string>
+      <key>PayloadVersion</key>
+      <integer>1</integer>
+      <key>PayloadEnabled</key>
+      <true/>
+      <key>PayloadDisplayName</key>
+      <string>VoiceType Permissions</string>
+
+      <key>Services</key>
+      <dict>
+        <!-- Accessibility — required for text injection (simulating Cmd+V) -->
+        <key>Accessibility</key>
+        <array>
+          <dict>
+            <key>Identifier</key>
+            <string>com.las.voicetype</string>
+            <key>IdentifierType</key>
+            <string>bundleID</string>
+            <key>CodeRequirement</key>
+            <string>identifier "com.las.voicetype" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = "TEAM_ID_HERE"</string>
+            <key>Allowed</key>
+            <true/>
+            <key>Comment</key>
+            <string>Allow VoiceType to simulate keyboard paste for text injection</string>
+          </dict>
+        </array>
+
+        <!-- Microphone — required for voice recording -->
+        <key>Microphone</key>
+        <array>
+          <dict>
+            <key>Identifier</key>
+            <string>com.las.voicetype</string>
+            <key>IdentifierType</key>
+            <string>bundleID</string>
+            <key>CodeRequirement</key>
+            <string>identifier "com.las.voicetype" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = "TEAM_ID_HERE"</string>
+            <key>Allowed</key>
+            <true/>
+            <key>Comment</key>
+            <string>Allow VoiceType to access the microphone for voice transcription</string>
+          </dict>
+        </array>
+
+        <!-- Apple Events — required for osascript keystroke simulation -->
+        <key>AppleEvents</key>
+        <array>
+          <dict>
+            <key>Identifier</key>
+            <string>com.las.voicetype</string>
+            <key>IdentifierType</key>
+            <string>bundleID</string>
+            <key>CodeRequirement</key>
+            <string>identifier "com.las.voicetype" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = "TEAM_ID_HERE"</string>
+            <key>Allowed</key>
+            <true/>
+            <key>AEReceiverIdentifier</key>
+            <string>com.apple.systemevents</string>
+            <key>AEReceiverIdentifierType</key>
+            <string>bundleID</string>
+            <key>AEReceiverCodeRequirement</key>
+            <string>identifier "com.apple.systemevents" and anchor apple</string>
+            <key>Comment</key>
+            <string>Allow VoiceType to send keystrokes to System Events for text paste</string>
+          </dict>
+        </array>
+      </dict>
+    </dict>
+  </array>
+
+  <!-- Profile Metadata -->
+  <key>PayloadDisplayName</key>
+  <string>VoiceType — Permissions</string>
+  <key>PayloadDescription</key>
+  <string>Pre-approves Microphone, Accessibility, and Apple Events permissions for the VoiceType desktop app.</string>
+  <key>PayloadIdentifier</key>
+  <string>com.las.voicetype.pppc.profile</string>
+  <key>PayloadOrganization</key>
+  <string>LAS</string>
+  <key>PayloadType</key>
+  <string>Configuration</string>
+  <key>PayloadUUID</key>
+  <string>F1E2D3C4-B5A6-7890-1234-567890ABCDEF</string>
+  <key>PayloadVersion</key>
+  <integer>1</integer>
+  <key>PayloadScope</key>
+  <string>System</string>
+</dict>
+</plist>

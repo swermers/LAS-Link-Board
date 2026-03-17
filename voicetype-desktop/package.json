@@ -8,10 +8,12 @@
     "dev": "electron . --dev",
     "build:mac": "electron-builder --mac",
     "build:mac-zip": "electron-builder --mac --config.mac.target=zip",
+    "build:mac-signed": "CSC_LINK=$APPLE_CERT_P12 CSC_KEY_PASSWORD=$APPLE_CERT_PASSWORD electron-builder --mac",
     "build:win": "electron-builder --win",
     "build:win-portable": "electron-builder --win --config.win.target=portable",
     "build:win-zip": "electron-builder --win --config.win.target=zip",
-    "build": "electron-builder --mac --win"
+    "build": "electron-builder --mac --win",
+    "notarize": "node scripts/notarize.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.30.0",
@@ -23,6 +25,7 @@
     "openai": "^4.58.0"
   },
   "devDependencies": {
+    "@electron/notarize": "^2.3.0",
     "electron": "^31.0.0",
     "electron-builder": "^24.13.0"
   },
@@ -33,10 +36,17 @@
       "category": "public.app-category.productivity",
       "icon": "assets/icon.png",
       "target": ["dmg", "zip"],
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "entitlements.mac.plist",
+      "entitlementsInherit": "entitlements.mac.plist",
+      "notarize": false,
       "extendInfo": {
-        "NSMicrophoneUsageDescription": "VoiceType needs microphone access to record your voice for transcription."
+        "NSMicrophoneUsageDescription": "VoiceType needs microphone access to record your voice for transcription.",
+        "NSAppleEventsUsageDescription": "VoiceType uses Apple Events to paste transcribed text at your cursor."
       }
     },
+    "afterSign": "scripts/notarize.js",
     "win": {
       "icon": "assets/icon.ico",
       "target": ["nsis"]
