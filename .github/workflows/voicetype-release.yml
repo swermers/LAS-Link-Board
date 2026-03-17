@@ -42,6 +42,10 @@ jobs:
           fi
         shell: bash
 
+      - name: Copy fix script to dist (macOS)
+        if: runner.os == 'macOS'
+        run: cp "voicetype-desktop/Fix VoiceType.command" "voicetype-desktop/dist/Fix VoiceType.command"
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -51,6 +55,7 @@ jobs:
             voicetype-desktop/dist/*.zip
             voicetype-desktop/dist/*.exe
             voicetype-desktop/dist/*.yml
+            voicetype-desktop/dist/*.command
 
   release:
     needs: build
@@ -77,7 +82,12 @@ jobs:
 
             ### macOS: First Launch
             Since VoiceType is not yet signed with an Apple Developer certificate, macOS may show
-            **"VoiceType is damaged and can't be opened"**. To fix this, open Terminal and run:
+            **"VoiceType is damaged and can't be opened"**. To fix this:
+
+            **Option 1 (easiest):** Download the `Fix.VoiceType.command` file from this release,
+            double-click it, and it will fix the issue automatically.
+
+            **Option 2:** Open Terminal (search "Terminal" in Spotlight) and run:
             ```
             xattr -cr ~/Applications/VoiceType.app
             ```
@@ -94,3 +104,4 @@ jobs:
             artifacts/**/*.dmg
             artifacts/**/*.zip
             artifacts/**/*.exe
+            artifacts/**/*.command
