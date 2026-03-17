@@ -15,43 +15,47 @@ const { clipboard } = require('electron');
 /**
  * Inject text into the currently focused input field.
  *
- * 1. Save current clipboard contents
- * 2. Write transcribed text to clipboard
- * 3. Simulate Cmd/Ctrl+V paste
- * 4. Optionally simulate Enter key
- * 5. Restore original clipboard
+ * 1. Write transcribed text to clipboard
+ * 2. Attempt Cmd/Ctrl+V paste at cursor (may need Accessibility on macOS)
+ * 3. Optionally simulate Enter key
+ * 4. Text remains on clipboard as fallback (user can Cmd+V manually)
  *
  * @param {string} text - Text to inject
  * @param {boolean} autoSubmit - If true, simulate Enter after paste
  */
 async function injectText(text, autoSubmit = false) {
-  // Save current clipboard
-  const previousClipboard = clipboard.readText();
-
-  // Write transcription to clipboard
+  // Write transcription to clipboard (always available as fallback)
   clipboard.writeText(text);
 
   // Small delay to ensure clipboard is ready
   await sleep(50);
 
-  // Simulate paste via platform-specific key combo
-  if (process.platform === 'darwin') {
-    await simulateKeyMac('v', ['command']);
-    if (autoSubmit) {
-      await sleep(100);
-      await simulateKeyMac('return', []);
+  // Attempt paste via platform-specific key combo
+  // If Accessibility permission is missing on macOS, this fails silently
+  // and the user can just Cmd+V manually (text is already on clipboard)
+  try {
+    if (process.platform === 'darwin') {
+      await simulateKeyMac('v', ['command']);
+      if (autoSubmit) {
+        await sleep(100);
+        await simulateKeyMac('return', []);
+      }
+    } else {
+      await simulateKeyWindows('v', ['control']);
+      if (autoSubmit) {
+        await sleep(100);
+        await simulateKeyWindows('Return', []);
+      }
     }
-  } else {
-    await simulateKeyWindows('v', ['control']);
-    if (autoSubmit) {
-      await sleep(100);
-      await simulateKeyWindows('Return', []);
-    }
+  } catch (e) {
+    // Injection failed (likely missing Accessibility permission)
+    // Text is still on clipboard — user can paste manually
+    console.log('Auto-paste failed (text copied to clipboard):', e.message);
   }
 
-  // Wait for paste to complete, then restore clipboard
-  await sleep(300);
-  clipboard.writeText(previousClipboard);
+  // Note: We intentionally do NOT restore the old clipboard.
+  // The transcribed/formatted text stays on clipboard so the user
+  // can paste it again or use it as a fallback if injection failed.
 }
 
 /**

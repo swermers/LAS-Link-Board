@@ -1,0 +1,8 @@
+const { contextBridge, ipcRenderer } = require('electron');
+
+contextBridge.exposeInMainWorld('dashboard', {
+  openLinkBoard: () => ipcRenderer.send('dashboard-open-linkboard'),
+  refreshSettings: () => ipcRenderer.send('dashboard-refresh-settings'),
+  toggleAutoSubmit: (on) => ipcRenderer.send('dashboard-toggle-autosubmit', on),
+  selectSkill: (idx) => ipcRenderer.send('dashboard-select-skill', idx)
+});
