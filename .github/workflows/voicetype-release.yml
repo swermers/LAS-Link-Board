@@ -34,13 +34,11 @@ jobs:
 
       - name: Build Electron app
         working-directory: voicetype-desktop
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ "$RUNNER_OS" = "macOS" ]; then
-            npx electron-builder --mac --publish always
+            npx electron-builder --mac --publish never
           else
-            npx electron-builder --win --publish always
+            npx electron-builder --win --publish never
           fi
         shell: bash
 
@@ -53,3 +51,37 @@ jobs:
             voicetype-desktop/dist/*.zip
             voicetype-desktop/dist/*.exe
             voicetype-desktop/dist/*.yml
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f | head -30
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "VoiceType ${{ github.ref_name }}"
+          body: |
+            ## VoiceType Desktop ${{ github.ref_name }}
+
+            ### Downloads
+            - **macOS**: Download the `.zip` file, unzip, and move VoiceType.app to Applications
+            - **Windows**: Download the `.exe` installer and run it
+
+            ### Getting Started
+            1. Open VoiceType — on Mac, right-click and choose Open on first launch
+            2. Sign in with your LinkBoard account
+            3. Hold the hotkey to record, release to transcribe
+          draft: false
+          prerelease: false
+          files: |
+            artifacts/**/*.dmg
+            artifacts/**/*.zip
+            artifacts/**/*.exe
