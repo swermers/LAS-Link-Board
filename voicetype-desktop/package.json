@@ -33,9 +33,6 @@
       "category": "public.app-category.productivity",
       "icon": "assets/icon.png",
       "target": ["dmg", "zip"],
-      "entitlements": "entitlements.mac.plist",
-      "hardenedRuntime": true,
-      "gatekeeperAssess": false,
       "extendInfo": {
         "NSMicrophoneUsageDescription": "VoiceType needs microphone access to record your voice for transcription."
       }

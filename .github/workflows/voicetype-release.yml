@@ -75,10 +75,19 @@ jobs:
             - **macOS**: Download the `.zip` file, unzip, and move VoiceType.app to Applications
             - **Windows**: Download the `.exe` installer and run it
 
+            ### macOS: First Launch
+            Since VoiceType is not yet signed with an Apple Developer certificate, macOS may show
+            **"VoiceType is damaged and can't be opened"**. To fix this, open Terminal and run:
+            ```
+            xattr -cr ~/Applications/VoiceType.app
+            ```
+            (Adjust the path if you placed VoiceType.app elsewhere, e.g. `~/Documents/VoiceType.app`)
+
+            Then double-click VoiceType to open it.
+
             ### Getting Started
-            1. Open VoiceType — on Mac, right-click and choose Open on first launch
-            2. Sign in with your LinkBoard account
-            3. Hold the hotkey to record, release to transcribe
+            1. Sign in with your LinkBoard account
+            2. Hold the hotkey to record, release to transcribe
           draft: false
           prerelease: false
           files: |
