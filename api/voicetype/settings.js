@@ -105,40 +105,36 @@ module.exports = async (req, res) => {
         updated_at: new Date().toISOString()
       };
 
-      let r;
-      if (existing.length > 0) {
-        r = await fetch(
-          SUPABASE_URL + '/rest/v1/voicetype_settings?id=eq.' + existing[0].id,
-          {
-            method: 'PATCH',
-            headers: {
-              'apikey': apikey,
-              'Authorization': 'Bearer ' + apikey,
-              'Content-Type': 'application/json',
-              'Prefer': 'return=representation'
-            },
-            body: JSON.stringify(payload)
-          }
-        );
-      } else {
-        r = await fetch(
-          SUPABASE_URL + '/rest/v1/voicetype_settings',
-          {
-            method: 'POST',
-            headers: {
-              'apikey': apikey,
-              'Authorization': 'Bearer ' + apikey,
-              'Content-Type': 'application/json',
-              'Prefer': 'return=representation'
-            },
-            body: JSON.stringify(payload)
-          }
-        );
+      // Helper to upsert settings, with fallback if active_skill_id column missing
+      async function upsertSettings(data) {
+        const url = existing.length > 0
+          ? SUPABASE_URL + '/rest/v1/voicetype_settings?id=eq.' + existing[0].id
+          : SUPABASE_URL + '/rest/v1/voicetype_settings';
+        return fetch(url, {
+          method: existing.length > 0 ? 'PATCH' : 'POST',
+          headers: {
+            'apikey': apikey,
+            'Authorization': 'Bearer ' + apikey,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=representation'
+          },
+          body: JSON.stringify(data)
+        });
       }
 
+      let r = await upsertSettings(payload);
+
+      // If save failed, retry without active_skill_id (column may not exist yet)
       if (!r.ok) {
-        const err = await r.text();
-        return res.status(500).json({ error: 'Failed to save: ' + err });
+        const errText = await r.text();
+        if (errText.includes('active_skill_id') || errText.includes('skill')) {
+          const { active_skill_id: _skip, ...fallbackPayload } = payload;
+          r = await upsertSettings(fallbackPayload);
+        }
+        if (!r.ok) {
+          const err2 = await r.text().catch(() => errText);
+          return res.status(500).json({ error: 'Failed to save: ' + err2 });
+        }
       }
 
       const saved = await r.json();
