@@ -4292,8 +4292,9 @@ async function detectVtOS() {
       const res = await fetch('https://api.github.com/repos/las-swermers/LAS-Link-Board/releases?per_page=10');
       if (res.ok) {
         const releases = await res.json();
-        // Find latest voicetype release
-        vtReleaseData = releases.find(r => r.tag_name && r.tag_name.startsWith('voicetype-v'));
+        // Find latest voicetype release (tags: voicetype-v*, v*, or has VoiceType assets)
+        vtReleaseData = releases.find(r => r.tag_name && r.tag_name.startsWith('voicetype-v'))
+          || releases.find(r => r.tag_name && r.tag_name.startsWith('v') && r.assets && r.assets.some(a => a.name.toLowerCase().includes('voicetype')));
       }
     } catch (e) { console.warn('Could not fetch releases:', e); }
   }
@@ -4322,9 +4323,9 @@ async function detectVtOS() {
     // Fallback: direct download links to known build assets
     const macBtn = document.getElementById('vtDownloadMacBtn');
     const winBtn = document.getElementById('vtDownloadWinBtn');
-    macBtn.href = 'https://github.com/las-swermers/LAS-Link-Board/releases/download/untagged-d7c1c838eec539694c34/VoiceType-0.1.0-arm64-mac.zip';
+    macBtn.href = 'https://github.com/las-swermers/LAS-Link-Board/releases/download/v0.1.0/VoiceType-0.1.0-arm64-mac.zip';
     macBtn.onclick = null;
-    winBtn.href = 'https://github.com/las-swermers/LAS-Link-Board/releases/download/untagged-d7c1c838eec539694c34/VoiceType-Setup-0.1.0.exe';
+    winBtn.href = 'https://github.com/las-swermers/LAS-Link-Board/releases/download/v0.1.0/VoiceType-Setup-0.1.0.exe';
     winBtn.onclick = null;
     status.textContent = 'Latest version: v0.1.0';
   }
@@ -4346,8 +4347,8 @@ function downloadVt(os) {
   }
   // Fallback: direct download links to known build
   const fallbackUrls = {
-    mac: 'https://github.com/las-swermers/LAS-Link-Board/releases/download/untagged-d7c1c838eec539694c34/VoiceType-0.1.0-arm64-mac.zip',
-    win: 'https://github.com/las-swermers/LAS-Link-Board/releases/download/untagged-d7c1c838eec539694c34/VoiceType-Setup-0.1.0.exe'
+    mac: 'https://github.com/las-swermers/LAS-Link-Board/releases/download/v0.1.0/VoiceType-0.1.0-arm64-mac.zip',
+    win: 'https://github.com/las-swermers/LAS-Link-Board/releases/download/v0.1.0/VoiceType-Setup-0.1.0.exe'
   };
   if (fallbackUrls[os]) {
     window.open(fallbackUrls[os], '_blank');
