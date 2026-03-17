@@ -5,6 +5,7 @@
   "rewrites": [
     { "source": "/api/t/:id", "destination": "/api/t/[id]" },
     { "source": "/api/c/:path*", "destination": "/api/c/[...params]" },
+    { "source": "/api/voicetype/settings", "destination": "/api/voicetype/settings" },
     { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]

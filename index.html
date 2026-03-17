@@ -733,6 +733,116 @@ body {
   font-weight: 700; border-radius: 8px; padding: 0.5rem 1.2rem;
   cursor: pointer; font-size: 0.82rem;
 }
+
+/* ═══ VOICETYPE ═══ */
+.vt-section { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+.vt-section h2 { font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 1.25rem; margin-bottom: 0.25rem; }
+.vt-section .vt-subtitle { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.5rem; }
+
+.vt-tabs { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 1.5rem; }
+.vt-tab {
+  padding: 0.55rem 1.2rem; font-family: 'Montserrat', sans-serif;
+  font-size: 0.78rem; font-weight: 700; color: var(--text-muted);
+  background: none; border: none; cursor: pointer;
+  border-bottom: 3px solid transparent; margin-bottom: -2px;
+  transition: color 0.2s, border-color 0.2s;
+}
+.vt-tab:hover { color: var(--navy); }
+.vt-tab.active { color: var(--navy); border-bottom-color: var(--gold); }
+
+.vt-panel { display: none; }
+.vt-panel.active { display: block; }
+
+.vt-card {
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 14px; padding: 1.5rem; margin-bottom: 1rem;
+  box-shadow: var(--shadow);
+}
+.vt-card h4 {
+  font-family: 'Montserrat', sans-serif; font-size: 0.85rem;
+  font-weight: 700; margin-bottom: 1rem; color: var(--navy);
+}
+
+.vt-field { margin-bottom: 1rem; }
+.vt-field label {
+  display: block; font-family: 'Montserrat', sans-serif;
+  font-size: 0.72rem; font-weight: 700; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.35rem;
+}
+.vt-field input, .vt-field select {
+  width: 100%; padding: 0.65rem 0.85rem;
+  background: var(--surface-alt); border: 1.5px solid var(--border);
+  border-radius: 9px; color: var(--text);
+  font-family: inherit; font-size: 0.92rem; transition: all 0.2s;
+}
+.vt-field input:focus, .vt-field select:focus {
+  outline: none; border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(197,150,59,0.15); background: var(--surface);
+}
+.vt-field .vt-hint { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem; }
+
+.vt-toggle-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0.75rem 0; border-bottom: 1px solid var(--border);
+}
+.vt-toggle-row:last-child { border-bottom: none; }
+.vt-toggle-label { font-size: 0.85rem; font-weight: 600; }
+.vt-toggle-desc { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.15rem; }
+
+.vt-switch {
+  position: relative; width: 44px; height: 24px; flex-shrink: 0;
+}
+.vt-switch input { opacity: 0; width: 0; height: 0; }
+.vt-switch .vt-slider {
+  position: absolute; inset: 0; background: var(--border);
+  border-radius: 24px; cursor: pointer; transition: 0.2s;
+}
+.vt-switch .vt-slider::before {
+  content: ''; position: absolute; width: 18px; height: 18px;
+  left: 3px; bottom: 3px; background: #fff;
+  border-radius: 50%; transition: 0.2s;
+}
+.vt-switch input:checked + .vt-slider { background: var(--gold); }
+.vt-switch input:checked + .vt-slider::before { transform: translateX(20px); }
+
+.vt-download-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.vt-download-card {
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 14px; padding: 1.5rem; text-align: center;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.vt-download-card:hover { border-color: var(--gold); box-shadow: var(--shadow-lg); }
+.vt-download-card .vt-os-icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+.vt-download-card .vt-os-name { font-family: 'Montserrat', sans-serif; font-weight: 700; font-size: 0.95rem; margin-bottom: 0.25rem; }
+.vt-download-card .vt-os-desc { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 1rem; }
+.vt-download-card.vt-recommended { border-color: var(--gold); background: var(--gold-light); }
+
+.vt-steps { counter-reset: vt-step; margin-top: 1.5rem; }
+.vt-steps li {
+  counter-increment: vt-step; list-style: none; position: relative;
+  padding-left: 2.5rem; margin-bottom: 1rem; font-size: 0.85rem;
+  line-height: 1.5;
+}
+.vt-steps li::before {
+  content: counter(vt-step); position: absolute; left: 0; top: 0;
+  width: 1.75rem; height: 1.75rem; border-radius: 50%;
+  background: var(--navy); color: #fff; font-family: 'Montserrat', sans-serif;
+  font-size: 0.75rem; font-weight: 700; display: flex;
+  align-items: center; justify-content: center;
+}
+
+.vt-usage-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem; }
+
+.vt-api-key-wrap {
+  display: flex; gap: 0.5rem; align-items: center;
+}
+.vt-api-key-wrap input { flex: 1; font-family: monospace; font-size: 0.82rem; letter-spacing: 0.02em; }
+.vt-api-key-wrap button { flex-shrink: 0; }
+
+@media (max-width: 600px) {
+  .vt-download-grid { grid-template-columns: 1fr; }
+  .vt-section { padding: 1.5rem 1rem; }
+}
 .btn-danger:hover { opacity: 0.9; }
 
 /* ═══ TOAST ═══ */
@@ -860,6 +970,7 @@ body {
       <button class="tab active" id="tabLinks" onclick="switchTab('links')">Links</button>
       <button class="tab" id="tabCampaigns" onclick="switchTab('campaigns')">Campaigns</button>
       <button class="tab" id="tabAnalytics" onclick="switchTab('analytics')">Analytics</button>
+      <button class="tab" id="tabVoicetype" onclick="switchTab('voicetype')">VoiceType</button>
     </div>
     <div class="main" id="linksSection">
       <div class="stats">
@@ -1037,6 +1148,141 @@ body {
       </div>
     </div>
   </div>
+
+    <!-- ═══ VOICETYPE SECTION ═══ -->
+    <div id="voicetypeSection" style="display:none">
+      <div class="vt-section">
+        <h2>VoiceType</h2>
+        <p class="vt-subtitle">Press a hotkey, speak, and text appears wherever your cursor is. Powered by OpenAI Whisper.</p>
+
+        <div class="stats" style="grid-template-columns: repeat(4, 1fr);">
+          <div class="stat"><div class="stat-label">Status</div><div class="stat-val" id="vtStatus" style="font-size:1rem;color:var(--text-muted)">Not configured</div></div>
+          <div class="stat"><div class="stat-label">Transcriptions</div><div class="stat-val" id="vtTranscriptions">0</div></div>
+          <div class="stat"><div class="stat-label">Minutes Used</div><div class="stat-val" id="vtMinutes">0</div></div>
+          <div class="stat"><div class="stat-label">Est. Cost</div><div class="stat-val" id="vtCost">$0.00</div></div>
+        </div>
+
+        <div class="vt-tabs">
+          <button class="vt-tab active" onclick="switchVtTab('settings')">Settings</button>
+          <button class="vt-tab" onclick="switchVtTab('download')">Download</button>
+          <button class="vt-tab" onclick="switchVtTab('usage')">Usage</button>
+        </div>
+
+        <!-- Settings Panel -->
+        <div class="vt-panel active" id="vtPanelSettings">
+          <div class="vt-card">
+            <h4>OpenAI API Key</h4>
+            <div class="vt-field">
+              <label>API Key</label>
+              <div class="vt-api-key-wrap">
+                <input type="password" id="vtApiKey" placeholder="sk-..." autocomplete="off">
+                <button class="btn btn-soft btn-sm" onclick="toggleVtKeyVisibility()" id="vtKeyToggle">Show</button>
+              </div>
+              <div class="vt-hint">Your key is encrypted and stored securely. Get one at <a href="https://platform.openai.com/api-keys" target="_blank" style="color:var(--gold);font-weight:600">platform.openai.com</a></div>
+            </div>
+          </div>
+
+          <div class="vt-card">
+            <h4>Preferences</h4>
+            <div class="vt-field">
+              <label>Global Hotkey</label>
+              <select id="vtHotkey">
+                <option value="CommandOrControl+Shift+Space">Ctrl/Cmd + Shift + Space</option>
+                <option value="CommandOrControl+Shift+V">Ctrl/Cmd + Shift + V</option>
+                <option value="F9">F9</option>
+                <option value="F10">F10</option>
+              </select>
+            </div>
+            <div class="vt-field">
+              <label>Language</label>
+              <select id="vtLanguage">
+                <option value="en">English</option>
+                <option value="es">Spanish</option>
+                <option value="fr">French</option>
+                <option value="de">German</option>
+                <option value="it">Italian</option>
+                <option value="pt">Portuguese</option>
+                <option value="zh">Chinese</option>
+                <option value="ja">Japanese</option>
+                <option value="ko">Korean</option>
+                <option value="ar">Arabic</option>
+              </select>
+            </div>
+            <div class="vt-toggle-row">
+              <div>
+                <div class="vt-toggle-label">Auto-submit after transcription</div>
+                <div class="vt-toggle-desc">Simulate Enter key after injecting text — useful for chatbot windows</div>
+              </div>
+              <label class="vt-switch">
+                <input type="checkbox" id="vtAutoSubmit">
+                <span class="vt-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem">
+            <button class="btn btn-outline btn-sm" onclick="loadVtSettings()">Reset</button>
+            <button class="btn btn-gold" onclick="saveVtSettings()">Save Settings</button>
+          </div>
+        </div>
+
+        <!-- Download Panel -->
+        <div class="vt-panel" id="vtPanelDownload">
+          <div class="vt-card">
+            <h4>Download VoiceType Desktop</h4>
+            <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:1.25rem">
+              VoiceType runs silently in your system tray. Press the hotkey to record, release to transcribe, and text appears wherever your cursor is.
+            </p>
+            <div class="vt-download-grid">
+              <div class="vt-download-card" id="vtDownloadMac">
+                <div class="vt-os-icon">&#63743;</div>
+                <div class="vt-os-name">macOS</div>
+                <div class="vt-os-desc">Apple Silicon &amp; Intel</div>
+                <a class="btn btn-gold btn-sm" id="vtDownloadMacBtn" href="#" onclick="downloadVt('mac')">Download .dmg</a>
+              </div>
+              <div class="vt-download-card" id="vtDownloadWin">
+                <div class="vt-os-icon">&#8862;</div>
+                <div class="vt-os-name">Windows</div>
+                <div class="vt-os-desc">Windows 10+</div>
+                <a class="btn btn-gold btn-sm" id="vtDownloadWinBtn" href="#" onclick="downloadVt('win')">Download .exe</a>
+              </div>
+            </div>
+            <p id="vtDownloadStatus" style="font-size:0.78rem;color:var(--text-muted);text-align:center;margin-top:1rem">Installers will be available once the desktop app is built.</p>
+          </div>
+
+          <div class="vt-card">
+            <h4>Getting Started</h4>
+            <ol class="vt-steps">
+              <li>Download and install VoiceType for your operating system</li>
+              <li>Launch VoiceType — it will appear in your system tray / menu bar</li>
+              <li>Sign in with your LinkBoard account (same email/password)</li>
+              <li>Press <strong id="vtHotkeyDisplay">Ctrl/Cmd + Shift + Space</strong> to start recording, release to transcribe</li>
+              <li>Text is automatically typed into whatever app has focus</li>
+            </ol>
+          </div>
+        </div>
+
+        <!-- Usage Panel -->
+        <div class="vt-panel" id="vtPanelUsage">
+          <div class="vt-usage-grid">
+            <div class="kpi-card"><div class="kpi-val" id="vtKpiTranscriptions">0</div><div class="kpi-label">Transcriptions</div></div>
+            <div class="kpi-card"><div class="kpi-val" id="vtKpiMinutes">0</div><div class="kpi-label">Total Minutes</div></div>
+            <div class="kpi-card"><div class="kpi-val" id="vtKpiCost">$0.00</div><div class="kpi-label">Est. Cost</div></div>
+            <div class="kpi-card"><div class="kpi-val" id="vtKpiAvgLen">0s</div><div class="kpi-label">Avg Length</div></div>
+          </div>
+
+          <div class="vt-card">
+            <h4>Usage Over Time</h4>
+            <canvas id="vtUsageChart" height="200"></canvas>
+          </div>
+
+          <div class="vt-card">
+            <h4>Recent Transcriptions</h4>
+            <div id="vtUsageList" style="font-size:0.82rem;color:var(--text-muted)">No usage data yet. Start using VoiceType to see your history here.</div>
+          </div>
+        </div>
+      </div>
+    </div>
 
   <!-- ═══ GOAL MODAL ═══ -->
   <div class="overlay" id="goalOverlay">
@@ -2460,11 +2706,14 @@ function switchTab(tab) {
   document.getElementById('tabLinks').classList.toggle('active', tab === 'links');
   document.getElementById('tabCampaigns').classList.toggle('active', tab === 'campaigns');
   document.getElementById('tabAnalytics').classList.toggle('active', tab === 'analytics');
+  document.getElementById('tabVoicetype').classList.toggle('active', tab === 'voicetype');
   document.getElementById('linksSection').style.display = tab === 'links' ? 'block' : 'none';
   document.getElementById('campaignsSection').style.display = tab === 'campaigns' ? 'block' : 'none';
   document.getElementById('analyticsSection').style.display = tab === 'analytics' ? 'block' : 'none';
+  document.getElementById('voicetypeSection').style.display = tab === 'voicetype' ? 'block' : 'none';
   if (tab === 'campaigns') loadCampaigns();
   if (tab === 'analytics') loadAnalyticsDashboard();
+  if (tab === 'voicetype') loadVtSettings();
 }
 
 async function loadCampaigns() {
@@ -3359,6 +3608,235 @@ async function exportPDF() {
     console.error('PDF export error:', e);
     toast('PDF export failed — try Copy Summary instead');
   }
+}
+
+// ═══════════════════════════════════════
+//  VoiceType — Settings, Usage, Download
+// ═══════════════════════════════════════
+
+let vtSettings = null;
+let vtUsageData = [];
+let vtUsageChart = null;
+
+function switchVtTab(panel) {
+  document.querySelectorAll('.vt-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.vt-panel').forEach(p => p.classList.remove('active'));
+  const btn = [...document.querySelectorAll('.vt-tab')].find(t => t.textContent.toLowerCase().includes(panel));
+  if (btn) btn.classList.add('active');
+  const el = document.getElementById('vtPanel' + panel.charAt(0).toUpperCase() + panel.slice(1));
+  if (el) el.classList.add('active');
+  if (panel === 'usage') loadVtUsage();
+  if (panel === 'download') detectVtOS();
+}
+
+async function loadVtSettings() {
+  if (!currentUser) return;
+  const token = currentSession?.access_token || SUPABASE_ANON;
+  try {
+    const res = await fetch(SUPABASE_URL + '/rest/v1/voicetype_settings?user_id=eq.' + currentUser.id + '&limit=1', {
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + token }
+    });
+    if (res.ok) {
+      const rows = await res.json();
+      vtSettings = rows[0] || null;
+    }
+  } catch (e) { console.error('VoiceType settings load error:', e); }
+
+  if (vtSettings) {
+    document.getElementById('vtApiKey').value = vtSettings.openai_api_key || '';
+    document.getElementById('vtHotkey').value = vtSettings.hotkey || 'CommandOrControl+Shift+Space';
+    document.getElementById('vtLanguage').value = vtSettings.language || 'en';
+    document.getElementById('vtAutoSubmit').checked = !!vtSettings.auto_submit;
+    document.getElementById('vtStatus').textContent = vtSettings.openai_api_key ? 'Active' : 'No API key';
+    document.getElementById('vtStatus').style.color = vtSettings.openai_api_key ? '#1A7A6D' : 'var(--text-muted)';
+  } else {
+    document.getElementById('vtApiKey').value = '';
+    document.getElementById('vtHotkey').value = 'CommandOrControl+Shift+Space';
+    document.getElementById('vtLanguage').value = 'en';
+    document.getElementById('vtAutoSubmit').checked = false;
+    document.getElementById('vtStatus').textContent = 'Not configured';
+    document.getElementById('vtStatus').style.color = 'var(--text-muted)';
+  }
+
+  updateVtHotkeyDisplay();
+  loadVtUsageSummary();
+}
+
+function updateVtHotkeyDisplay() {
+  const val = document.getElementById('vtHotkey').value;
+  const display = val.replace('CommandOrControl', 'Ctrl/Cmd').replace(/\+/g, ' + ');
+  document.getElementById('vtHotkeyDisplay').innerHTML = '<strong>' + display + '</strong>';
+}
+
+async function saveVtSettings() {
+  if (!currentUser) return;
+  const token = currentSession?.access_token || SUPABASE_ANON;
+  const payload = {
+    user_id: currentUser.id,
+    openai_api_key: document.getElementById('vtApiKey').value.trim(),
+    hotkey: document.getElementById('vtHotkey').value,
+    language: document.getElementById('vtLanguage').value,
+    auto_submit: document.getElementById('vtAutoSubmit').checked
+  };
+
+  try {
+    let res;
+    if (vtSettings && vtSettings.id) {
+      // Update existing
+      res = await fetch(SUPABASE_URL + '/rest/v1/voicetype_settings?id=eq.' + vtSettings.id, {
+        method: 'PATCH',
+        headers: {
+          'apikey': SUPABASE_ANON,
+          'Authorization': 'Bearer ' + token,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify({ ...payload, updated_at: new Date().toISOString() })
+      });
+    } else {
+      // Insert new
+      res = await fetch(SUPABASE_URL + '/rest/v1/voicetype_settings', {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_ANON,
+          'Authorization': 'Bearer ' + token,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify(payload)
+      });
+    }
+    if (res.ok) {
+      const rows = await res.json();
+      vtSettings = rows[0] || vtSettings;
+      toast('VoiceType settings saved!', true);
+      loadVtSettings();
+    } else {
+      const err = await res.text();
+      toast('Failed to save settings: ' + err);
+    }
+  } catch (e) {
+    toast('Error saving settings: ' + e.message);
+  }
+}
+
+function toggleVtKeyVisibility() {
+  const inp = document.getElementById('vtApiKey');
+  const btn = document.getElementById('vtKeyToggle');
+  if (inp.type === 'password') {
+    inp.type = 'text';
+    btn.textContent = 'Hide';
+  } else {
+    inp.type = 'password';
+    btn.textContent = 'Show';
+  }
+}
+
+async function loadVtUsageSummary() {
+  if (!currentUser) return;
+  const token = currentSession?.access_token || SUPABASE_ANON;
+  try {
+    const res = await fetch(SUPABASE_URL + '/rest/v1/voicetype_usage?user_id=eq.' + currentUser.id + '&order=created_at.desc', {
+      headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + token }
+    });
+    if (res.ok) {
+      vtUsageData = await res.json();
+    } else {
+      vtUsageData = [];
+    }
+  } catch (e) { vtUsageData = []; }
+
+  const totalTranscriptions = vtUsageData.length;
+  const totalSeconds = vtUsageData.reduce((s, u) => s + (u.duration_seconds || 0), 0);
+  const totalMinutes = (totalSeconds / 60).toFixed(1);
+  const totalCost = vtUsageData.reduce((s, u) => s + parseFloat(u.cost_usd || 0), 0);
+
+  document.getElementById('vtTranscriptions').textContent = totalTranscriptions;
+  document.getElementById('vtMinutes').textContent = totalMinutes;
+  document.getElementById('vtCost').textContent = '$' + totalCost.toFixed(2);
+}
+
+async function loadVtUsage() {
+  if (!currentUser) return;
+  await loadVtUsageSummary();
+
+  // Update KPI cards
+  const totalTranscriptions = vtUsageData.length;
+  const totalSeconds = vtUsageData.reduce((s, u) => s + (u.duration_seconds || 0), 0);
+  const totalMinutes = (totalSeconds / 60).toFixed(1);
+  const totalCost = vtUsageData.reduce((s, u) => s + parseFloat(u.cost_usd || 0), 0);
+  const avgLen = totalTranscriptions > 0 ? Math.round(totalSeconds / totalTranscriptions) : 0;
+
+  document.getElementById('vtKpiTranscriptions').textContent = totalTranscriptions;
+  document.getElementById('vtKpiMinutes').textContent = totalMinutes;
+  document.getElementById('vtKpiCost').textContent = '$' + totalCost.toFixed(2);
+  document.getElementById('vtKpiAvgLen').textContent = avgLen + 's';
+
+  // Build usage chart (last 30 days)
+  const now = new Date();
+  const labels = [];
+  const data = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    labels.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+    const dayUsage = vtUsageData.filter(u => u.created_at && u.created_at.slice(0, 10) === key);
+    data.push(dayUsage.length);
+  }
+
+  const ctx = document.getElementById('vtUsageChart');
+  if (vtUsageChart) vtUsageChart.destroy();
+  vtUsageChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Transcriptions',
+        data,
+        backgroundColor: 'rgba(197,150,59,0.3)',
+        borderColor: 'var(--gold)',
+        borderWidth: 1,
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { stepSize: 1 } },
+        x: { ticks: { maxTicksLimit: 10, font: { size: 10 } } }
+      }
+    }
+  });
+
+  // Recent usage list
+  const listEl = document.getElementById('vtUsageList');
+  if (vtUsageData.length === 0) {
+    listEl.innerHTML = '<p style="color:var(--text-muted)">No usage data yet. Start using VoiceType to see your history here.</p>';
+    return;
+  }
+  const recent = vtUsageData.slice(0, 20);
+  listEl.innerHTML = '<table class="dash-table"><thead><tr><th>Date</th><th>Duration</th><th>Cost</th></tr></thead><tbody>' +
+    recent.map(u => {
+      const d = new Date(u.created_at);
+      return '<tr><td>' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) +
+        '</td><td>' + (u.duration_seconds || 0) + 's</td><td>$' + parseFloat(u.cost_usd || 0).toFixed(4) + '</td></tr>';
+    }).join('') + '</tbody></table>';
+}
+
+function detectVtOS() {
+  const ua = navigator.userAgent;
+  const isMac = /Mac|iPhone|iPad/.test(ua);
+  const macCard = document.getElementById('vtDownloadMac');
+  const winCard = document.getElementById('vtDownloadWin');
+  macCard.classList.toggle('vt-recommended', isMac);
+  winCard.classList.toggle('vt-recommended', !isMac);
+}
+
+function downloadVt(os) {
+  // Placeholder — will link to GitHub Releases once desktop app is built
+  toast('Desktop app coming soon! The installer will be available here once Phase 1-2 are complete.');
 }
 
 // ─── Redirect (public — no auth needed) ───
