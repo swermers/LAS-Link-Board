@@ -10,6 +10,8 @@
 // Auth: Bearer token from Supabase session
 // Response: { text: "transcribed text" }
 
+const { decrypt } = require('./crypto');
+
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://pmhoeqxuamvqlwsatozu.supabase.co';
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
@@ -50,7 +52,7 @@ module.exports = async (req, res) => {
     );
     if (!r.ok) return res.status(500).json({ error: 'Failed to fetch settings' });
     const rows = await r.json();
-    openaiKey = rows[0]?.openai_api_key;
+    openaiKey = decrypt(rows[0]?.openai_api_key || '');
   } catch (e) {
     return res.status(500).json({ error: 'Failed to fetch API key' });
   }
@@ -100,11 +102,20 @@ module.exports = async (req, res) => {
       'text\r\n'
     );
 
+    // Determine file extension and content type from request
+    const incomingType = req.headers['content-type'] || 'audio/wav';
+    let ext = 'wav';
+    let mimeType = 'audio/wav';
+    if (incomingType.includes('webm')) { ext = 'webm'; mimeType = 'audio/webm'; }
+    else if (incomingType.includes('mp4')) { ext = 'mp4'; mimeType = 'audio/mp4'; }
+    else if (incomingType.includes('ogg')) { ext = 'ogg'; mimeType = 'audio/ogg'; }
+    else if (incomingType.includes('mpeg') || incomingType.includes('mp3')) { ext = 'mp3'; mimeType = 'audio/mpeg'; }
+
     // audio file field
     const fileHeader =
       '--' + boundary + '\r\n' +
-      'Content-Disposition: form-data; name="file"; filename="recording.wav"\r\n' +
-      'Content-Type: audio/wav\r\n\r\n';
+      'Content-Disposition: form-data; name="file"; filename="recording.' + ext + '"\r\n' +
+      'Content-Type: ' + mimeType + '\r\n\r\n';
 
     const ending = '\r\n--' + boundary + '--\r\n';
 

@@ -2,7 +2,13 @@
 // VoiceType Settings API — GET / PUT
 // Called by the desktop Electron app on launch
 // Auth: Bearer token from Supabase session
+//
+// API keys are encrypted with AES-256-GCM before
+// being stored in Supabase. Only this server-side
+// code can decrypt them.
 // ═══════════════════════════════════════════════════
+
+const { encrypt, decrypt } = require('./crypto');
 
 const SUPABASE_URL = process.env.SUPABASE_URL || 'https://pmhoeqxuamvqlwsatozu.supabase.co';
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -59,7 +65,8 @@ module.exports = async (req, res) => {
         hotkey: s.hotkey,
         language: s.language,
         auto_submit: s.auto_submit,
-        openai_api_key: s.openai_api_key || ''
+        // Decrypt the API key before returning
+        openai_api_key: decrypt(s.openai_api_key || '')
       });
     } catch (e) {
       return res.status(500).json({ error: 'Internal error' });
@@ -83,7 +90,8 @@ module.exports = async (req, res) => {
         hotkey: hotkey || 'CommandOrControl+Shift+Space',
         language: language || 'en',
         auto_submit: !!auto_submit,
-        openai_api_key: openai_api_key || '',
+        // Encrypt the API key before storing
+        openai_api_key: encrypt(openai_api_key || ''),
         updated_at: new Date().toISOString()
       };
 

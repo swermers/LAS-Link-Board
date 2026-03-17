@@ -839,6 +839,18 @@ body {
 .vt-api-key-wrap input { flex: 1; font-family: monospace; font-size: 0.82rem; letter-spacing: 0.02em; }
 .vt-api-key-wrap button { flex-shrink: 0; }
 
+#vtRecordBtn.recording {
+  background: var(--crimson); animation: vt-pulse-btn 1.5s ease-in-out infinite;
+}
+#vtRecordBtn.recording #vtRecordIcon {
+  border-radius: 3px; width: 16px; height: 16px;
+}
+@keyframes vt-pulse-btn {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(164,37,71,0.4); }
+  50% { box-shadow: 0 0 0 12px rgba(164,37,71,0); }
+}
+#vtRecordBtn.transcribing { background: var(--navy); pointer-events: none; }
+
 @media (max-width: 600px) {
   .vt-download-grid { grid-template-columns: 1fr; }
   .vt-section { padding: 1.5rem 1rem; }
@@ -1170,6 +1182,25 @@ body {
 
         <!-- Settings Panel -->
         <div class="vt-panel active" id="vtPanelSettings">
+          <!-- Browser Voice Recorder -->
+          <div class="vt-card" style="text-align:center;padding:2rem 1.5rem">
+            <h4 style="margin-bottom:0.25rem">Quick Voice-to-Text</h4>
+            <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:1.25rem">Click to record, click again to stop. Transcription is copied to your clipboard.</p>
+            <button class="btn btn-gold" id="vtRecordBtn" onclick="toggleVtRecording()" style="width:180px;height:48px;font-size:0.95rem;border-radius:24px;position:relative">
+              <span id="vtRecordIcon" style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#fff;margin-right:8px;vertical-align:middle"></span>
+              <span id="vtRecordLabel">Record</span>
+            </button>
+            <div id="vtRecordTimer" style="font-family:Montserrat,sans-serif;font-size:1.5rem;font-weight:800;color:var(--navy);margin-top:0.75rem;display:none">0:00</div>
+            <div id="vtRecordStatus" style="font-size:0.82rem;color:var(--text-muted);margin-top:0.5rem;min-height:1.2em"></div>
+            <div id="vtTranscriptResult" style="display:none;margin-top:1rem;text-align:left">
+              <label style="display:block;font-family:Montserrat,sans-serif;font-size:0.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.35rem">Transcription</label>
+              <div id="vtTranscriptText" style="background:var(--surface-alt);border:1.5px solid var(--border);border-radius:9px;padding:0.75rem;font-size:0.9rem;line-height:1.5;max-height:200px;overflow-y:auto"></div>
+              <div style="display:flex;gap:0.5rem;margin-top:0.75rem;justify-content:flex-end">
+                <button class="btn btn-soft btn-sm" onclick="copyVtTranscript()">Copy to Clipboard</button>
+              </div>
+            </div>
+          </div>
+
           <div class="vt-card">
             <h4>OpenAI API Key</h4>
             <div class="vt-field">
@@ -3632,17 +3663,20 @@ function switchVtTab(panel) {
 async function loadVtSettings() {
   if (!currentUser) return;
   const token = currentSession?.access_token || SUPABASE_ANON;
+
+  // Load via server API route (handles decryption of API key)
   try {
-    const res = await fetch(SUPABASE_URL + '/rest/v1/voicetype_settings?user_id=eq.' + currentUser.id + '&limit=1', {
-      headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + token }
+    const res = await fetch('/api/voicetype/settings', {
+      headers: { 'Authorization': 'Bearer ' + token }
     });
     if (res.ok) {
-      const rows = await res.json();
-      vtSettings = rows[0] || null;
+      vtSettings = await res.json();
+    } else {
+      vtSettings = null;
     }
-  } catch (e) { console.error('VoiceType settings load error:', e); }
+  } catch (e) { console.error('VoiceType settings load error:', e); vtSettings = null; }
 
-  if (vtSettings) {
+  if (vtSettings && (vtSettings.openai_api_key || vtSettings.hotkey)) {
     document.getElementById('vtApiKey').value = vtSettings.openai_api_key || '';
     document.getElementById('vtHotkey').value = vtSettings.hotkey || 'CommandOrControl+Shift+Space';
     document.getElementById('vtLanguage').value = vtSettings.language || 'en';
@@ -3672,43 +3706,23 @@ async function saveVtSettings() {
   if (!currentUser) return;
   const token = currentSession?.access_token || SUPABASE_ANON;
   const payload = {
-    user_id: currentUser.id,
     openai_api_key: document.getElementById('vtApiKey').value.trim(),
     hotkey: document.getElementById('vtHotkey').value,
     language: document.getElementById('vtLanguage').value,
     auto_submit: document.getElementById('vtAutoSubmit').checked
   };
 
+  // Save via server API route (handles encryption of API key)
   try {
-    let res;
-    if (vtSettings && vtSettings.id) {
-      // Update existing
-      res = await fetch(SUPABASE_URL + '/rest/v1/voicetype_settings?id=eq.' + vtSettings.id, {
-        method: 'PATCH',
-        headers: {
-          'apikey': SUPABASE_ANON,
-          'Authorization': 'Bearer ' + token,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=representation'
-        },
-        body: JSON.stringify({ ...payload, updated_at: new Date().toISOString() })
-      });
-    } else {
-      // Insert new
-      res = await fetch(SUPABASE_URL + '/rest/v1/voicetype_settings', {
-        method: 'POST',
-        headers: {
-          'apikey': SUPABASE_ANON,
-          'Authorization': 'Bearer ' + token,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=representation'
-        },
-        body: JSON.stringify(payload)
-      });
-    }
+    const res = await fetch('/api/voicetype/settings', {
+      method: 'PUT',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
     if (res.ok) {
-      const rows = await res.json();
-      vtSettings = rows[0] || vtSettings;
       toast('VoiceType settings saved!', true);
       loadVtSettings();
     } else {
@@ -3718,6 +3732,145 @@ async function saveVtSettings() {
   } catch (e) {
     toast('Error saving settings: ' + e.message);
   }
+}
+
+// ─── Browser Voice Recording ───
+
+let vtMediaRecorder = null;
+let vtAudioChunks = [];
+let vtRecordingTimer = null;
+let vtRecordingSeconds = 0;
+
+async function toggleVtRecording() {
+  const btn = document.getElementById('vtRecordBtn');
+  if (vtMediaRecorder && vtMediaRecorder.state === 'recording') {
+    // Stop recording
+    vtMediaRecorder.stop();
+    btn.classList.remove('recording');
+    btn.classList.add('transcribing');
+    document.getElementById('vtRecordLabel').textContent = 'Transcribing...';
+    document.getElementById('vtRecordIcon').style.display = 'none';
+    clearInterval(vtRecordingTimer);
+    return;
+  }
+
+  // Start recording
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    vtAudioChunks = [];
+    vtRecordingSeconds = 0;
+
+    vtMediaRecorder = new MediaRecorder(stream, { mimeType: getMimeType() });
+
+    vtMediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) vtAudioChunks.push(e.data);
+    };
+
+    vtMediaRecorder.onstop = async () => {
+      // Stop all tracks to release the mic
+      stream.getTracks().forEach(t => t.stop());
+      document.getElementById('vtRecordTimer').style.display = 'none';
+
+      if (vtAudioChunks.length === 0) {
+        resetVtRecordBtn();
+        return;
+      }
+
+      const blob = new Blob(vtAudioChunks, { type: vtMediaRecorder.mimeType });
+      document.getElementById('vtRecordStatus').textContent = 'Sending to Whisper API...';
+
+      try {
+        const text = await sendVtAudioToProxy(blob);
+        document.getElementById('vtTranscriptText').textContent = text;
+        document.getElementById('vtTranscriptResult').style.display = 'block';
+        document.getElementById('vtRecordStatus').textContent = 'Done! Transcription ready.';
+
+        // Auto-copy to clipboard
+        try {
+          await navigator.clipboard.writeText(text);
+          document.getElementById('vtRecordStatus').textContent = 'Copied to clipboard!';
+        } catch (clipErr) {
+          // Clipboard API may not work in all browsers
+        }
+      } catch (e) {
+        document.getElementById('vtRecordStatus').textContent = 'Error: ' + e.message;
+        document.getElementById('vtTranscriptResult').style.display = 'none';
+      }
+
+      resetVtRecordBtn();
+    };
+
+    vtMediaRecorder.start(250); // Collect chunks every 250ms
+    btn.classList.add('recording');
+    document.getElementById('vtRecordLabel').textContent = 'Stop';
+    document.getElementById('vtRecordIcon').style.display = 'inline-block';
+    document.getElementById('vtRecordStatus').textContent = 'Listening...';
+    document.getElementById('vtTranscriptResult').style.display = 'none';
+    document.getElementById('vtRecordTimer').style.display = 'block';
+    document.getElementById('vtRecordTimer').textContent = '0:00';
+
+    vtRecordingTimer = setInterval(() => {
+      vtRecordingSeconds++;
+      const m = Math.floor(vtRecordingSeconds / 60);
+      const s = vtRecordingSeconds % 60;
+      document.getElementById('vtRecordTimer').textContent = m + ':' + String(s).padStart(2, '0');
+    }, 1000);
+
+  } catch (e) {
+    if (e.name === 'NotAllowedError') {
+      document.getElementById('vtRecordStatus').textContent = 'Microphone access denied. Please allow microphone access in your browser settings.';
+    } else {
+      document.getElementById('vtRecordStatus').textContent = 'Mic error: ' + e.message;
+    }
+  }
+}
+
+function getMimeType() {
+  // Prefer webm/opus, fallback to mp4/ogg
+  if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) return 'audio/webm;codecs=opus';
+  if (MediaRecorder.isTypeSupported('audio/webm')) return 'audio/webm';
+  if (MediaRecorder.isTypeSupported('audio/mp4')) return 'audio/mp4';
+  if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) return 'audio/ogg;codecs=opus';
+  return '';
+}
+
+function resetVtRecordBtn() {
+  const btn = document.getElementById('vtRecordBtn');
+  btn.classList.remove('recording', 'transcribing');
+  document.getElementById('vtRecordLabel').textContent = 'Record';
+  document.getElementById('vtRecordIcon').style.display = 'inline-block';
+  document.getElementById('vtRecordIcon').style.borderRadius = '50%';
+}
+
+async function sendVtAudioToProxy(blob) {
+  const token = currentSession?.access_token || SUPABASE_ANON;
+  const language = document.getElementById('vtLanguage')?.value || 'en';
+
+  const res = await fetch('/api/voicetype/transcribe?language=' + encodeURIComponent(language), {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + token,
+      'Content-Type': blob.type || 'audio/webm'
+    },
+    body: blob
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Server error ' + res.status }));
+    throw new Error(err.error || 'Transcription failed');
+  }
+
+  const data = await res.json();
+  return data.text || '';
+}
+
+function copyVtTranscript() {
+  const text = document.getElementById('vtTranscriptText').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    toast('Copied to clipboard!', true);
+  }).catch(() => {
+    toast('Failed to copy — select and copy manually');
+  });
 }
 
 function toggleVtKeyVisibility() {
