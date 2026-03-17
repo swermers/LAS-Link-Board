@@ -1194,8 +1194,9 @@ body {
             <div id="vtRecordStatus" style="font-size:0.82rem;color:var(--text-muted);margin-top:0.5rem;min-height:1.2em"></div>
             <div id="vtTranscriptResult" style="display:none;margin-top:1rem;text-align:left">
               <label style="display:block;font-family:Montserrat,sans-serif;font-size:0.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.35rem">Transcription</label>
-              <div id="vtTranscriptText" style="background:var(--surface-alt);border:1.5px solid var(--border);border-radius:9px;padding:0.75rem;font-size:0.9rem;line-height:1.5;max-height:200px;overflow-y:auto"></div>
+              <div id="vtTranscriptText" contenteditable="true" style="background:var(--surface-alt);border:1.5px solid var(--border);border-radius:9px;padding:0.75rem;font-size:0.9rem;line-height:1.5;max-height:200px;overflow-y:auto;outline:none;cursor:text"></div>
               <div style="display:flex;gap:0.5rem;margin-top:0.75rem;justify-content:flex-end">
+                <button class="btn btn-soft btn-sm" onclick="clearVtTranscript()" style="color:var(--text-muted)">Clear</button>
                 <button class="btn btn-soft btn-sm" onclick="copyVtTranscript()">Copy to Clipboard</button>
               </div>
             </div>
@@ -4144,12 +4145,18 @@ async function sendVtAudioToProxy(blob) {
 }
 
 function copyVtTranscript() {
-  const text = document.getElementById('vtTranscriptText').textContent;
+  const text = document.getElementById('vtTranscriptText').innerText;
   navigator.clipboard.writeText(text).then(() => {
     toast('Copied to clipboard!', true);
   }).catch(() => {
     toast('Failed to copy — select and copy manually');
   });
+}
+
+function clearVtTranscript() {
+  document.getElementById('vtTranscriptText').textContent = '';
+  document.getElementById('vtTranscriptResult').style.display = 'none';
+  document.getElementById('vtRecordStatus').textContent = '';
 }
 
 async function deleteVtApiKey() {
