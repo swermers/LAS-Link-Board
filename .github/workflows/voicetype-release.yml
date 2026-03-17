@@ -1,0 +1,51 @@
+name: VoiceType Desktop — Build & Release
+
+on:
+  push:
+    tags:
+      - 'voicetype-v*'   # e.g. voicetype-v0.1.0
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install SoX (macOS)
+        if: runner.os == 'macOS'
+        run: brew install sox
+
+      - name: Install dependencies
+        working-directory: voicetype-desktop
+        run: npm ci || npm install
+
+      - name: Build Electron app
+        working-directory: voicetype-desktop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            npx electron-builder --mac --publish always
+          else
+            npx electron-builder --win --publish always
+          fi
+        shell: bash
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: voicetype-${{ matrix.os }}
+          path: |
+            voicetype-desktop/dist/*.dmg
+            voicetype-desktop/dist/*.exe
+            voicetype-desktop/dist/*.yml

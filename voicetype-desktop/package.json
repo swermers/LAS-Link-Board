@@ -1,0 +1,53 @@
+{
+  "name": "voicetype",
+  "version": "0.1.0",
+  "description": "VoiceType — system-wide voice-to-text via OpenAI Whisper, distributed through LinkBoard",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build:mac": "electron-builder --mac",
+    "build:win": "electron-builder --win",
+    "build": "electron-builder --mac --win"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.30.0",
+    "@supabase/supabase-js": "^2.45.0",
+    "electron-store": "^8.2.0",
+    "form-data": "^4.0.0",
+    "node-record-lpcm16": "^1.0.1",
+    "openai": "^4.58.0"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.0"
+  },
+  "build": {
+    "appId": "com.las.voicetype",
+    "productName": "VoiceType",
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "assets/icon.icns",
+      "target": ["dmg"],
+      "entitlements": "entitlements.mac.plist",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "VoiceType needs microphone access to record your voice for transcription."
+      }
+    },
+    "win": {
+      "icon": "assets/icon.ico",
+      "target": ["nsis"]
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*"
+    ],
+    "publish": {
+      "provider": "github",
+      "owner": "las-swermers",
+      "repo": "LAS-Link-Board"
+    }
+  }
+}
