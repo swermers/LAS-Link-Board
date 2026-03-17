@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.30.0",
+    "@huggingface/transformers": "^3.0.0",
     "@supabase/supabase-js": "^2.45.0",
     "electron-store": "^8.2.0",
     "form-data": "^4.0.0",

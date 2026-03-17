@@ -1202,12 +1202,25 @@ body {
           </div>
 
           <div class="vt-card">
+            <h4>Transcription Mode</h4>
+            <div class="vt-field">
+              <label>Processing</label>
+              <select id="vtTranscriptionMode" onchange="onVtModeChange()">
+                <option value="cloud">Cloud — OpenAI Whisper API (requires API key)</option>
+                <option value="local">Local — On-device (HIPAA-safe, no data leaves machine)</option>
+              </select>
+              <div id="vtModeHint" class="vt-hint"></div>
+            </div>
+          </div>
+
+          <div class="vt-card" id="vtApiKeyCard">
             <h4>OpenAI API Key</h4>
             <div class="vt-field">
               <label>API Key</label>
               <div class="vt-api-key-wrap">
                 <input type="password" id="vtApiKey" placeholder="sk-..." autocomplete="off">
                 <button class="btn btn-soft btn-sm" onclick="toggleVtKeyVisibility()" id="vtKeyToggle">Show</button>
+                <button class="btn btn-danger-ghost btn-sm" onclick="deleteVtApiKey()" title="Remove API key">Delete</button>
               </div>
               <div class="vt-hint">Your key is encrypted and stored securely. Get one at <a href="https://platform.openai.com/api-keys" target="_blank" style="color:var(--gold);font-weight:600">platform.openai.com</a></div>
             </div>
@@ -1248,6 +1261,77 @@ body {
                 <input type="checkbox" id="vtAutoSubmit">
                 <span class="vt-slider"></span>
               </label>
+            </div>
+          </div>
+
+          <div class="vt-card" id="vtSkillsCard">
+            <h4 style="display:flex;align-items:center;justify-content:space-between">
+              Skills
+              <button class="btn btn-soft btn-sm" onclick="openSkillEditor()" style="font-size:0.72rem">+ New Skill</button>
+            </h4>
+            <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:1rem">
+              Skills transform your raw dictation into polished output — emails, clinical notes, chat messages, and more. Just start talking naturally (e.g. "writing an email to a parent...") and the right skill activates automatically. Default is raw transcript.
+            </p>
+            <div id="vtSkillsList" style="display:flex;flex-direction:column;gap:0.5rem">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+
+          <div class="vt-card" id="vtAnthropicCard" style="display:none">
+            <h4>Anthropic API Key</h4>
+            <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:0.75rem">Required for any skill other than Raw Transcript. Powers the AI formatting via Claude.</p>
+            <div class="vt-field">
+              <label>API Key</label>
+              <div class="vt-api-key-wrap">
+                <input type="password" id="vtAnthropicKey" placeholder="sk-ant-..." autocomplete="off">
+                <button class="btn btn-soft btn-sm" onclick="toggleVtAnthropicKeyVisibility()" id="vtAnthropicKeyToggle">Show</button>
+              </div>
+              <div class="vt-hint">Get one at <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--gold);font-weight:600">console.anthropic.com</a></div>
+            </div>
+            <div class="vt-field">
+              <label>API Base URL <span style="color:var(--text-muted);font-weight:400">(optional)</span></label>
+              <input type="text" id="vtAnthropicBaseUrl" placeholder="https://api.anthropic.com (default)" autocomplete="off">
+              <div class="vt-hint">For HIPAA compliance, use an AWS Bedrock or Azure endpoint with a BAA.</div>
+            </div>
+          </div>
+
+          <!-- Skill Editor Modal (hidden by default) -->
+          <div id="vtSkillEditorOverlay" class="overlay" style="display:none">
+            <div class="modal" style="max-width:560px">
+              <h3 id="vtSkillEditorTitle">Edit Skill</h3>
+              <input type="hidden" id="vtSkillEditId">
+              <div class="field" style="margin-bottom:0.75rem">
+                <label>Skill Name</label>
+                <input type="text" id="vtSkillEditName" placeholder="e.g. Parent Email">
+              </div>
+              <div class="field" style="margin-bottom:0.75rem">
+                <label>Category</label>
+                <select id="vtSkillEditCategory">
+                  <option value="email">Email</option>
+                  <option value="clinical">Clinical</option>
+                  <option value="chat">Chat / Messaging</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </div>
+              <div class="field" style="margin-bottom:0.75rem">
+                <label>System Prompt <span style="color:var(--text-muted);font-weight:400">— instructions for how to format the transcription</span></label>
+                <textarea id="vtSkillEditPrompt" rows="8" style="font-size:0.85rem;font-family:monospace;line-height:1.5" placeholder="You are a professional writing assistant..."></textarea>
+              </div>
+              <div class="field" style="margin-bottom:0.75rem">
+                <label>Trigger Phrases <span style="color:var(--text-muted);font-weight:400">— comma-separated words that auto-activate this skill</span></label>
+                <input type="text" id="vtSkillEditTriggers" placeholder="e.g. email to parent, parent email, letter to guardian">
+              </div>
+              <div id="vtSkillEditExamples" style="margin-bottom:0.75rem;display:none">
+                <label style="display:block;font-family:Montserrat,sans-serif;font-size:0.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.35rem">
+                  Learned Style Examples (<span id="vtSkillExampleCount">0</span>)
+                </label>
+                <p style="font-size:0.78rem;color:var(--text-muted)">This skill has learned from your usage. Examples are used to match your preferred tone and style.</p>
+              </div>
+              <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem">
+                <button class="btn btn-outline btn-sm" onclick="closeSkillEditor()">Cancel</button>
+                <button class="btn btn-danger-ghost btn-sm" id="vtSkillDeleteBtn" onclick="deleteSkill()" style="display:none">Delete</button>
+                <button class="btn btn-gold" onclick="saveSkill()">Save Skill</button>
+              </div>
             </div>
           </div>
 
@@ -3648,6 +3732,7 @@ async function exportPDF() {
 let vtSettings = null;
 let vtUsageData = [];
 let vtUsageChart = null;
+let vtSkills = [];
 
 function switchVtTab(panel) {
   document.querySelectorAll('.vt-tab').forEach(t => t.classList.remove('active'));
@@ -3676,24 +3761,211 @@ async function loadVtSettings() {
     }
   } catch (e) { console.error('VoiceType settings load error:', e); vtSettings = null; }
 
-  if (vtSettings && (vtSettings.openai_api_key || vtSettings.hotkey)) {
+  if (vtSettings && (vtSettings.openai_api_key || vtSettings.hotkey || vtSettings.transcription_mode)) {
     document.getElementById('vtApiKey').value = vtSettings.openai_api_key || '';
     document.getElementById('vtHotkey').value = vtSettings.hotkey || 'CommandOrControl+Shift+Space';
     document.getElementById('vtLanguage').value = vtSettings.language || 'en';
     document.getElementById('vtAutoSubmit').checked = !!vtSettings.auto_submit;
-    document.getElementById('vtStatus').textContent = vtSettings.openai_api_key ? 'Active' : 'No API key';
-    document.getElementById('vtStatus').style.color = vtSettings.openai_api_key ? '#1A7A6D' : 'var(--text-muted)';
+    document.getElementById('vtTranscriptionMode').value = vtSettings.transcription_mode || 'cloud';
+    document.getElementById('vtAnthropicKey').value = vtSettings.anthropic_api_key || '';
+    document.getElementById('vtAnthropicBaseUrl').value = vtSettings.anthropic_base_url || '';
+    const isLocal = vtSettings.transcription_mode === 'local';
+    const isActive = isLocal || vtSettings.openai_api_key;
+    document.getElementById('vtStatus').textContent = isLocal ? 'Active (Local)' : (vtSettings.openai_api_key ? 'Active' : 'No API key');
+    document.getElementById('vtStatus').style.color = isActive ? '#1A7A6D' : 'var(--text-muted)';
   } else {
     document.getElementById('vtApiKey').value = '';
     document.getElementById('vtHotkey').value = 'CommandOrControl+Shift+Space';
     document.getElementById('vtLanguage').value = 'en';
     document.getElementById('vtAutoSubmit').checked = false;
+    document.getElementById('vtTranscriptionMode').value = 'cloud';
+    document.getElementById('vtAnthropicKey').value = '';
+    document.getElementById('vtAnthropicBaseUrl').value = '';
     document.getElementById('vtStatus').textContent = 'Not configured';
     document.getElementById('vtStatus').style.color = 'var(--text-muted)';
   }
+  onVtModeChange();
+
+  // Load skills
+  loadVtSkills();
 
   updateVtHotkeyDisplay();
   loadVtUsageSummary();
+}
+
+// ─── Skills Management ───
+
+async function loadVtSkills() {
+  if (!currentUser) return;
+  const token = currentSession?.access_token || SUPABASE_ANON;
+  try {
+    const res = await fetch('/api/voicetype/skills', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    if (res.ok) {
+      vtSkills = await res.json();
+    } else {
+      vtSkills = [];
+    }
+  } catch (e) { console.error('Failed to load skills:', e); vtSkills = []; }
+  renderSkillsList();
+  // Show Anthropic key section if user has any non-raw skills
+  const hasFormatSkills = vtSkills.some(s => s.category !== 'raw' && s.system_prompt);
+  document.getElementById('vtAnthropicCard').style.display = hasFormatSkills ? '' : 'none';
+}
+
+function renderSkillsList() {
+  const el = document.getElementById('vtSkillsList');
+  if (!vtSkills || vtSkills.length === 0) {
+    el.innerHTML = '<p style="color:var(--text-muted);font-size:0.82rem">Loading skills...</p>';
+    return;
+  }
+
+  const categoryIcons = { raw: '📝', email: '✉️', clinical: '🏥', chat: '💬', custom: '⚙️' };
+
+  el.innerHTML = vtSkills.map(s => {
+    const icon = categoryIcons[s.category] || '⚙️';
+    const isRaw = s.category === 'raw';
+    const defaultBadge = s.is_default ? '<span style="font-size:0.68rem;background:var(--gold);color:#fff;border-radius:3px;padding:1px 6px;margin-left:6px;font-weight:700">DEFAULT</span>' : '';
+    const learnBadge = (s.style_examples && s.style_examples.length > 0) ? '<span style="font-size:0.68rem;background:rgba(26,122,109,0.2);color:#1A7A6D;border-radius:3px;padding:1px 6px;margin-left:4px">learned</span>' : '';
+    const usageText = s.use_count > 0 ? `<span style="font-size:0.72rem;color:var(--text-muted);margin-left:8px">${s.use_count} uses</span>` : '';
+    const triggers = (s.trigger_phrases && s.trigger_phrases.length > 0) ? '<div style="font-size:0.72rem;color:var(--text-muted);margin-top:2px">Triggers: "' + s.trigger_phrases.slice(0, 3).join('", "') + '"</div>' : '';
+
+    return `<div style="display:flex;align-items:center;gap:0.75rem;padding:0.65rem 0.75rem;background:var(--surface-alt);border:1.5px solid var(--border);border-radius:9px;cursor:pointer;transition:border-color 0.15s" onclick="openSkillEditor('${s.id}')">
+      <span style="font-size:1.2rem">${icon}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:0.88rem">${s.name}${defaultBadge}${learnBadge}${usageText}</div>
+        ${triggers}
+      </div>
+      <div style="display:flex;gap:0.35rem;align-items:center;flex-shrink:0">
+        ${!isRaw && !s.is_default ? '<button class="btn btn-soft btn-sm" style="font-size:0.68rem;padding:2px 8px" onclick="event.stopPropagation();setDefaultSkill(\'' + s.id + '\')">Set Default</button>' : ''}
+        <span style="color:var(--text-muted);font-size:0.8rem">›</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function setDefaultSkill(skillId) {
+  if (!currentUser) return;
+  const token = currentSession?.access_token || SUPABASE_ANON;
+  try {
+    await fetch('/api/voicetype/skills', {
+      method: 'PUT',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: skillId, is_default: true })
+    });
+    toast('Default skill updated!', true);
+    loadVtSkills();
+  } catch (e) { toast('Failed to set default: ' + e.message); }
+}
+
+function openSkillEditor(skillId) {
+  const overlay = document.getElementById('vtSkillEditorOverlay');
+  const titleEl = document.getElementById('vtSkillEditorTitle');
+  const deleteBtn = document.getElementById('vtSkillDeleteBtn');
+  const examplesSection = document.getElementById('vtSkillEditExamples');
+
+  if (skillId) {
+    const skill = vtSkills.find(s => s.id === skillId);
+    if (!skill) return;
+    titleEl.textContent = 'Edit Skill';
+    document.getElementById('vtSkillEditId').value = skill.id;
+    document.getElementById('vtSkillEditName').value = skill.name;
+    document.getElementById('vtSkillEditCategory').value = skill.category || 'custom';
+    document.getElementById('vtSkillEditPrompt').value = skill.system_prompt || '';
+    document.getElementById('vtSkillEditTriggers').value = (skill.trigger_phrases || []).join(', ');
+    deleteBtn.style.display = (skill.category === 'raw') ? 'none' : '';
+    // Show learned examples count
+    const examples = skill.style_examples || [];
+    if (examples.length > 0) {
+      examplesSection.style.display = '';
+      document.getElementById('vtSkillExampleCount').textContent = examples.length;
+    } else {
+      examplesSection.style.display = 'none';
+    }
+  } else {
+    titleEl.textContent = 'New Skill';
+    document.getElementById('vtSkillEditId').value = '';
+    document.getElementById('vtSkillEditName').value = '';
+    document.getElementById('vtSkillEditCategory').value = 'custom';
+    document.getElementById('vtSkillEditPrompt').value = '';
+    document.getElementById('vtSkillEditTriggers').value = '';
+    deleteBtn.style.display = 'none';
+    examplesSection.style.display = 'none';
+  }
+  overlay.style.display = 'flex';
+}
+
+function closeSkillEditor() {
+  document.getElementById('vtSkillEditorOverlay').style.display = 'none';
+}
+
+async function saveSkill() {
+  if (!currentUser) return;
+  const token = currentSession?.access_token || SUPABASE_ANON;
+  const id = document.getElementById('vtSkillEditId').value;
+  const name = document.getElementById('vtSkillEditName').value.trim();
+  const category = document.getElementById('vtSkillEditCategory').value;
+  const system_prompt = document.getElementById('vtSkillEditPrompt').value;
+  const triggers = document.getElementById('vtSkillEditTriggers').value;
+  const trigger_phrases = triggers ? triggers.split(',').map(t => t.trim()).filter(Boolean) : [];
+
+  if (!name) { toast('Skill name is required'); return; }
+
+  try {
+    if (id) {
+      await fetch('/api/voicetype/skills', {
+        method: 'PUT',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, name, category, system_prompt, trigger_phrases })
+      });
+    } else {
+      await fetch('/api/voicetype/skills', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, category, system_prompt, trigger_phrases })
+      });
+    }
+    toast('Skill saved!', true);
+    closeSkillEditor();
+    loadVtSkills();
+  } catch (e) { toast('Failed to save skill: ' + e.message); }
+}
+
+async function deleteSkill() {
+  const id = document.getElementById('vtSkillEditId').value;
+  if (!id) return;
+  if (!confirm('Delete this skill? This cannot be undone.')) return;
+  const token = currentSession?.access_token || SUPABASE_ANON;
+  try {
+    await fetch('/api/voicetype/skills?id=' + id, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+    toast('Skill deleted', true);
+    closeSkillEditor();
+    loadVtSkills();
+  } catch (e) { toast('Failed to delete: ' + e.message); }
+}
+
+function toggleVtAnthropicKeyVisibility() {
+  const inp = document.getElementById('vtAnthropicKey');
+  const btn = document.getElementById('vtAnthropicKeyToggle');
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = 'Hide'; }
+  else { inp.type = 'password'; btn.textContent = 'Show'; }
+}
+
+function onVtModeChange() {
+  const mode = document.getElementById('vtTranscriptionMode').value;
+  const apiKeyCard = document.getElementById('vtApiKeyCard');
+  const hint = document.getElementById('vtModeHint');
+  if (mode === 'local') {
+    apiKeyCard.style.display = 'none';
+    hint.innerHTML = '<strong style="color:#1A7A6D">HIPAA-safe:</strong> Audio is processed entirely on-device using a local Whisper model (~150 MB download on first use). No audio data is sent to any server. Requires the desktop app.';
+  } else {
+    apiKeyCard.style.display = '';
+    hint.textContent = 'Audio is sent to OpenAI\'s Whisper API for transcription. Requires an API key.';
+  }
 }
 
 function updateVtHotkeyDisplay() {
@@ -3705,11 +3977,18 @@ function updateVtHotkeyDisplay() {
 async function saveVtSettings() {
   if (!currentUser) return;
   const token = currentSession?.access_token || SUPABASE_ANON;
+  // Find the default skill ID
+  const defaultSkill = vtSkills.find(s => s.is_default);
   const payload = {
     openai_api_key: document.getElementById('vtApiKey').value.trim(),
     hotkey: document.getElementById('vtHotkey').value,
     language: document.getElementById('vtLanguage').value,
-    auto_submit: document.getElementById('vtAutoSubmit').checked
+    auto_submit: document.getElementById('vtAutoSubmit').checked,
+    transcription_mode: document.getElementById('vtTranscriptionMode').value,
+    soap_notes: false, // deprecated — skills replace this
+    active_skill_id: defaultSkill ? defaultSkill.id : null,
+    anthropic_api_key: document.getElementById('vtAnthropicKey').value.trim(),
+    anthropic_base_url: document.getElementById('vtAnthropicBaseUrl').value.trim()
   };
 
   // Save via server API route (handles encryption of API key)
@@ -3871,6 +4150,12 @@ function copyVtTranscript() {
   }).catch(() => {
     toast('Failed to copy — select and copy manually');
   });
+}
+
+async function deleteVtApiKey() {
+  if (!confirm('Remove your OpenAI API key? VoiceType will stop working until you add a new one.')) return;
+  document.getElementById('vtApiKey').value = '';
+  await saveVtSettings();
 }
 
 function toggleVtKeyVisibility() {

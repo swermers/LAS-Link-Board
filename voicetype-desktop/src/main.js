@@ -10,6 +10,8 @@ const { startRecording, stopRecording } = require('./recorder');
 const { transcribe } = require('./whisper');
 const { injectText } = require('./injector');
 const { showLoginWindow } = require('./login');
+const localWhisper = require('./local-whisper');
+const { processTranscription, PRESET_SKILLS } = require('./skill-formatter');
 const Store = require('electron-store');
 
 const store = new Store({ name: 'voicetype-config' });
@@ -17,6 +19,8 @@ let tray = null;
 let indicatorWindow = null;
 let isRecording = false;
 let settings = null;
+let userSkills = [];       // user's skill list from Supabase
+let selectedSkillIdx = 0;  // index into userSkills for the indicator selector
 
 // Prevent multiple instances
 const gotLock = app.requestSingleInstanceLock();
@@ -44,7 +48,7 @@ app.on('ready', async () => {
     }
   }
 
-  // Load settings from Supabase (or local cache)
+  // Load settings and skills from Supabase (or local cache)
   try {
     settings = await syncSettings(store);
     if (settings && settings.hotkey) {
@@ -52,6 +56,8 @@ app.on('ready', async () => {
     } else {
       registerHotkey('CommandOrControl+Shift+Space', onHotkeyDown, onHotkeyUp);
     }
+    // Sync skills
+    await syncSkills();
     updateTrayMenu('Ready');
   } catch (e) {
     console.error('Failed to load settings:', e.message);
@@ -96,6 +102,7 @@ function updateTrayMenu(statusText) {
       click: async () => {
         try {
           settings = await syncSettings(store);
+          await syncSkills();
           unregisterAll();
           registerHotkey(settings?.hotkey || 'CommandOrControl+Shift+Space', onHotkeyDown, onHotkeyUp);
           updateTrayMenu('Ready');
@@ -104,6 +111,32 @@ function updateTrayMenu(statusText) {
         }
       }
     },
+    {
+      label: 'Mode: ' + (settings?.transcription_mode === 'local' ? 'Local (HIPAA)' : 'Cloud'),
+      enabled: false
+    },
+    {
+      label: localWhisper.isModelDownloaded()
+        ? 'Local Model: Downloaded (' + localWhisper.getModelSize() + ' MB)'
+        : 'Download Local Model (~150 MB)',
+      click: async () => {
+        if (localWhisper.isModelDownloaded()) return;
+        updateTrayMenu('Downloading model...');
+        try {
+          localWhisper.onProgress((data) => {
+            if (data.status === 'progress' && data.progress) {
+              updateTrayMenu('Model: ' + Math.round(data.progress) + '%');
+            }
+          });
+          await localWhisper.loadPipeline();
+          updateTrayMenu('Ready');
+        } catch (e) {
+          console.error('Model download failed:', e);
+          updateTrayMenu('Download failed');
+        }
+      }
+    },
+    { type: 'separator' },
     {
       label: 'Open LinkBoard',
       click: () => {
@@ -124,6 +157,7 @@ function updateTrayMenu(statusText) {
             const auth = await showLoginWindow();
             storeAuth(store, auth);
             settings = await syncSettings(store);
+            await syncSkills();
             unregisterAll();
             registerHotkey(settings?.hotkey || 'CommandOrControl+Shift+Space', onHotkeyDown, onHotkeyUp);
             updateTrayMenu('Ready');
@@ -149,8 +183,8 @@ function formatHotkey(key) {
 
 function createIndicatorWindow() {
   indicatorWindow = new BrowserWindow({
-    width: 200,
-    height: 60,
+    width: 320,
+    height: 56,
     show: false,
     frame: false,
     transparent: true,
@@ -158,30 +192,102 @@ function createIndicatorWindow() {
     skipTaskbar: true,
     resizable: false,
     hasShadow: true,
-    webPreferences: { nodeIntegration: false, contextIsolation: true }
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'indicator-preload.js')
+    }
   });
 
   indicatorWindow.loadURL('data:text/html,' + encodeURIComponent(`
     <!DOCTYPE html>
     <html>
     <head><style>
+      * { box-sizing: border-box; }
       body {
-        margin: 0; display: flex; align-items: center; justify-content: center;
+        margin: 0; display: flex; align-items: center;
         height: 100vh; font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-        background: rgba(11,37,69,0.92); color: #fff; border-radius: 12px;
-        -webkit-app-region: drag; user-select: none;
+        background: rgba(11,37,69,0.95); color: #fff; border-radius: 14px;
+        -webkit-app-region: drag; user-select: none; padding: 0 16px;
       }
       .dot {
-        width: 12px; height: 12px; border-radius: 50%;
-        background: #e74c3c; margin-right: 10px;
+        width: 10px; height: 10px; border-radius: 50%;
+        background: #e74c3c; margin-right: 10px; flex-shrink: 0;
         animation: pulse 1s ease-in-out infinite;
       }
+      .dot.done { background: #1A7A6D; animation: none; }
       @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
-      .label { font-size: 13px; font-weight: 600; letter-spacing: 0.02em; }
+      .label { font-size: 13px; font-weight: 600; letter-spacing: 0.02em; flex: 1; }
+      .divider { width: 1px; height: 24px; background: rgba(255,255,255,0.2); margin: 0 12px; }
+      .skill-btn {
+        -webkit-app-region: no-drag;
+        display: flex; align-items: center; gap: 6px;
+        background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 8px; padding: 4px 10px; cursor: pointer;
+        font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.7);
+        transition: all 0.15s ease; white-space: nowrap; max-width: 140px;
+        overflow: hidden; text-overflow: ellipsis;
+      }
+      .skill-btn:hover { background: rgba(255,255,255,0.18); color: #fff; }
+      .skill-btn.active { background: rgba(26,122,109,0.5); border-color: #1A7A6D; color: #5CEAD8; }
+      .skill-pip {
+        width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+        background: rgba(255,255,255,0.3); transition: background 0.15s;
+      }
+      .skill-btn.active .skill-pip { background: #5CEAD8; }
+      .skill-btn.hidden { display: none; }
+      .auto-badge {
+        font-size: 8px; background: rgba(197,150,59,0.5); color: #fff;
+        border-radius: 3px; padding: 1px 4px; margin-left: 2px; letter-spacing: 0.03em;
+      }
     </style></head>
     <body>
-      <div class="dot"></div>
+      <div class="dot" id="dot"></div>
       <div class="label" id="label">Recording...</div>
+      <div class="divider" id="divider"></div>
+      <button class="skill-btn" id="skillBtn" onclick="cycleSkill()">
+        <div class="skill-pip" id="skillPip"></div>
+        <span id="skillName">Raw</span>
+      </button>
+      <script>
+        let skills = [];
+        let currentIdx = 0;
+
+        function setSkills(list, activeIdx) {
+          skills = list || [];
+          currentIdx = activeIdx || 0;
+          updateBtn();
+        }
+
+        function cycleSkill() {
+          if (skills.length < 2) return;
+          currentIdx = (currentIdx + 1) % skills.length;
+          updateBtn();
+          if (window.voicetype) window.voicetype.setSkill(currentIdx);
+        }
+
+        function updateBtn() {
+          const btn = document.getElementById('skillBtn');
+          const name = document.getElementById('skillName');
+          const skill = skills[currentIdx];
+          if (!skill) { name.textContent = 'Raw'; btn.classList.remove('active'); return; }
+          name.textContent = skill.name || 'Raw';
+          const isRaw = skill.category === 'raw' || !skill.system_prompt;
+          btn.classList.toggle('active', !isRaw);
+        }
+
+        function setRecording(isRec) {
+          document.getElementById('dot').classList.toggle('done', !isRec);
+        }
+        function hideControls() {
+          document.getElementById('skillBtn').classList.add('hidden');
+          document.getElementById('divider').style.display = 'none';
+        }
+        function showControls() {
+          document.getElementById('skillBtn').classList.remove('hidden');
+          document.getElementById('divider').style.display = '';
+        }
+      </script>
     </body>
     </html>
   `));
@@ -189,16 +295,24 @@ function createIndicatorWindow() {
   // Position at top-center of primary display
   const { screen } = require('electron');
   const display = screen.getPrimaryDisplay();
-  const x = Math.round(display.bounds.x + display.bounds.width / 2 - 100);
+  const x = Math.round(display.bounds.x + display.bounds.width / 2 - 160);
   const y = display.bounds.y + 40;
   indicatorWindow.setPosition(x, y);
 }
 
-function showIndicator(text) {
+function showIndicator(text, opts = {}) {
   if (!indicatorWindow) return;
   indicatorWindow.webContents.executeJavaScript(
     `document.getElementById('label').textContent = ${JSON.stringify(text)};`
   );
+  if (opts.recording !== undefined) {
+    indicatorWindow.webContents.executeJavaScript(`setRecording(${opts.recording});`);
+  }
+  if (opts.showControls === false) {
+    indicatorWindow.webContents.executeJavaScript('hideControls();');
+  } else if (opts.showControls === true) {
+    indicatorWindow.webContents.executeJavaScript('showControls();');
+  }
   indicatorWindow.show();
 }
 
@@ -206,12 +320,30 @@ function hideIndicator() {
   if (indicatorWindow) indicatorWindow.hide();
 }
 
+// IPC: indicator skill selector sends index back to main process
+ipcMain.on('skill-select', (_event, idx) => {
+  selectedSkillIdx = idx;
+});
+
 // ─── Core Flow ───
 
 function onHotkeyDown() {
   if (isRecording) return;
   isRecording = true;
-  showIndicator('Recording...');
+
+  // Reset skill selector to user's default (or first skill)
+  const defaultIdx = userSkills.findIndex(s => s.is_default);
+  selectedSkillIdx = defaultIdx >= 0 ? defaultIdx : 0;
+
+  // Send skills list to indicator window
+  if (indicatorWindow) {
+    const skillList = userSkills.map(s => ({ name: s.name, category: s.category, system_prompt: !!s.system_prompt }));
+    indicatorWindow.webContents.executeJavaScript(
+      `setSkills(${JSON.stringify(skillList)}, ${selectedSkillIdx});`
+    );
+  }
+
+  showIndicator('Recording...', { recording: true, showControls: true });
   updateTrayMenu('Recording...');
 
   try {
@@ -227,7 +359,12 @@ function onHotkeyDown() {
 async function onHotkeyUp() {
   if (!isRecording) return;
   isRecording = false;
-  showIndicator('Transcribing...');
+
+  // Determine which skill the user selected (or null for auto-detect)
+  const selectedSkill = userSkills[selectedSkillIdx] || null;
+  const isRaw = !selectedSkill || selectedSkill.category === 'raw' || !selectedSkill.system_prompt;
+
+  showIndicator('Transcribing...', { recording: false, showControls: false });
   updateTrayMenu('Transcribing...');
 
   try {
@@ -239,23 +376,53 @@ async function onHotkeyUp() {
       return; // Too short, ignore
     }
 
+    const mode = settings?.transcription_mode || store.get('transcription_mode') || 'cloud';
     const apiKey = settings?.openai_api_key || store.get('openai_api_key');
-    if (!apiKey) {
+
+    if (mode !== 'local' && !apiKey) {
       hideIndicator();
       updateTrayMenu('No API key');
       console.error('No OpenAI API key configured');
       return;
     }
 
+    if (mode === 'local') {
+      showIndicator('Transcribing locally...');
+    }
+
     const authToken = store.get('supabase_token');
-    const text = await transcribe(apiKey, audioBuffer, settings?.language || 'en', authToken);
+    const text = await transcribe(apiKey, audioBuffer, settings?.language || 'en', authToken, mode);
 
     if (text && text.trim()) {
-      await injectText(text.trim(), !!settings?.auto_submit);
-      showIndicator('Done!');
+      let finalText = text.trim();
+      let usedSkill = null;
 
-      // Log usage to Supabase
-      logUsage(audioBuffer.length);
+      // Process through skill formatter (handles intent detection + formatting)
+      // If user selected Raw, still run intent detection in case they said "email to..."
+      const anthropicKey = settings?.anthropic_api_key || store.get('anthropic_api_key');
+      if (anthropicKey) {
+        showIndicator(isRaw ? 'Checking...' : `Formatting: ${selectedSkill.name}...`);
+        try {
+          const result = await processTranscription(finalText, {
+            skills: userSkills,
+            selectedSkill: isRaw ? null : selectedSkill, // null = auto-detect from speech
+            apiKey: anthropicKey,
+            baseURL: settings?.anthropic_base_url || undefined,
+            model: settings?.anthropic_model || undefined
+          });
+          finalText = result.text;
+          usedSkill = result.skill;
+        } catch (e) {
+          console.error('Skill formatting failed, using raw transcript:', e.message);
+          finalText = text.trim();
+        }
+      }
+
+      await injectText(finalText, !!settings?.auto_submit);
+      showIndicator(usedSkill ? `Done! (${usedSkill.name})` : 'Done!');
+
+      // Log usage with skill info
+      logUsage(audioBuffer.length, usedSkill);
     } else {
       showIndicator('No speech detected');
     }
@@ -272,7 +439,7 @@ async function onHotkeyUp() {
   }
 }
 
-async function logUsage(bufferLength) {
+async function logUsage(bufferLength, skill) {
   // Estimate duration: 16-bit mono 16kHz = 32000 bytes/sec
   const durationSeconds = Math.max(1, Math.round(bufferLength / 32000));
   const costUsd = (durationSeconds / 60) * 0.006; // Whisper pricing
@@ -285,6 +452,16 @@ async function logUsage(bufferLength) {
   const userId = store.get('user_id');
   if (!userId) return;
 
+  const payload = {
+    user_id: userId,
+    duration_seconds: durationSeconds,
+    cost_usd: costUsd.toFixed(6)
+  };
+  if (skill && skill.id) {
+    payload.skill_id = skill.id;
+    payload.skill_name = skill.name || '';
+  }
+
   try {
     await fetch(SUPABASE_URL + '/rest/v1/voicetype_usage', {
       method: 'POST',
@@ -293,13 +470,39 @@ async function logUsage(bufferLength) {
         'Authorization': 'Bearer ' + token,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        user_id: userId,
-        duration_seconds: durationSeconds,
-        cost_usd: costUsd.toFixed(6)
-      })
+      body: JSON.stringify(payload)
     });
   } catch (e) {
     console.error('Failed to log usage:', e.message);
   }
+}
+
+// ─── Skill Sync ───
+
+const LINKBOARD_SKILLS_API = 'https://linkboard.vercel.app/api/voicetype/skills';
+
+async function syncSkills() {
+  const token = store.get('supabase_token');
+  if (!token) {
+    userSkills = store.get('cached_skills') || [];
+    return;
+  }
+
+  try {
+    const res = await fetch(LINKBOARD_SKILLS_API, {
+      headers: { 'Authorization': 'Bearer ' + token },
+      signal: AbortSignal.timeout(8000)
+    });
+    if (res.ok) {
+      userSkills = await res.json();
+      store.set('cached_skills', userSkills);
+      console.log('Skills synced:', userSkills.length, 'skills');
+      return;
+    }
+  } catch (e) {
+    console.warn('Skills sync failed:', e.message);
+  }
+
+  // Fallback to cache
+  userSkills = store.get('cached_skills') || [];
 }

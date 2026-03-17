@@ -2,27 +2,34 @@
 //  VoiceType — Whisper Transcription
 // ═══════════════════════════════════════
 //
-// Two modes:
-//   1. PROXY (default) — sends audio to LinkBoard server,
+// Three modes:
+//   1. LOCAL — runs Whisper on-device via ONNX Runtime.
+//      No audio leaves the machine. HIPAA-safe.
+//   2. PROXY (default cloud) — sends audio to LinkBoard server,
 //      which calls Whisper with the user's key server-side.
 //      The API key never touches the desktop app.
-//   2. DIRECT — calls OpenAI Whisper directly (fallback
+//   3. DIRECT — calls OpenAI Whisper directly (fallback
 //      if the proxy is unavailable).
 
 const PROXY_URL = 'https://linkboard.vercel.app/api/voicetype/transcribe';
 
 /**
- * Transcribe audio via the server-side proxy first,
- * falling back to direct OpenAI call if proxy fails.
+ * Transcribe audio using the configured mode.
  *
- * @param {string} apiKey - OpenAI API key (used only for direct fallback)
+ * @param {string} apiKey - OpenAI API key (used only for cloud modes)
  * @param {Buffer} audioBuffer - WAV file as a Buffer
  * @param {string} language - ISO 639-1 language code
  * @param {string} [authToken] - Supabase Bearer token for proxy auth
+ * @param {string} [mode] - 'local', 'cloud', or 'direct'
  * @returns {Promise<string>} - Transcribed text
  */
-async function transcribe(apiKey, audioBuffer, language = 'en', authToken = null) {
-  // Try proxy first (keeps API key server-side)
+async function transcribe(apiKey, audioBuffer, language = 'en', authToken = null, mode = 'cloud') {
+  if (mode === 'local') {
+    const { transcribeLocal } = require('./local-whisper');
+    return transcribeLocal(audioBuffer, language);
+  }
+
+  // Cloud mode: try proxy first, fallback to direct
   if (authToken) {
     try {
       const text = await transcribeViaProxy(audioBuffer, language, authToken);
