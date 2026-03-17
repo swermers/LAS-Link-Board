@@ -19,6 +19,7 @@ let tray = null;
 let indicatorWindow = null;
 let isRecording = false;
 let settings = null;
+let soapOverride = null; // null = use settings default, true/false = per-dictation override
 
 // Prevent multiple instances
 const gotLock = app.requestSingleInstanceLock();
@@ -177,8 +178,8 @@ function formatHotkey(key) {
 
 function createIndicatorWindow() {
   indicatorWindow = new BrowserWindow({
-    width: 200,
-    height: 60,
+    width: 320,
+    height: 56,
     show: false,
     frame: false,
     transparent: true,
@@ -186,30 +187,82 @@ function createIndicatorWindow() {
     skipTaskbar: true,
     resizable: false,
     hasShadow: true,
-    webPreferences: { nodeIntegration: false, contextIsolation: true }
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'indicator-preload.js')
+    }
   });
 
   indicatorWindow.loadURL('data:text/html,' + encodeURIComponent(`
     <!DOCTYPE html>
     <html>
     <head><style>
+      * { box-sizing: border-box; }
       body {
-        margin: 0; display: flex; align-items: center; justify-content: center;
+        margin: 0; display: flex; align-items: center;
         height: 100vh; font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-        background: rgba(11,37,69,0.92); color: #fff; border-radius: 12px;
-        -webkit-app-region: drag; user-select: none;
+        background: rgba(11,37,69,0.95); color: #fff; border-radius: 14px;
+        -webkit-app-region: drag; user-select: none; padding: 0 16px;
       }
       .dot {
-        width: 12px; height: 12px; border-radius: 50%;
-        background: #e74c3c; margin-right: 10px;
+        width: 10px; height: 10px; border-radius: 50%;
+        background: #e74c3c; margin-right: 10px; flex-shrink: 0;
         animation: pulse 1s ease-in-out infinite;
       }
+      .dot.done { background: #1A7A6D; animation: none; }
       @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
-      .label { font-size: 13px; font-weight: 600; letter-spacing: 0.02em; }
+      .label { font-size: 13px; font-weight: 600; letter-spacing: 0.02em; flex: 1; }
+      .divider { width: 1px; height: 24px; background: rgba(255,255,255,0.2); margin: 0 12px; }
+      .soap-btn {
+        -webkit-app-region: no-drag;
+        display: flex; align-items: center; gap: 6px;
+        background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 8px; padding: 4px 10px; cursor: pointer;
+        font-size: 11px; font-weight: 600; color: rgba(255,255,255,0.7);
+        transition: all 0.15s ease; white-space: nowrap;
+      }
+      .soap-btn:hover { background: rgba(255,255,255,0.18); color: #fff; }
+      .soap-btn.active { background: rgba(26,122,109,0.5); border-color: #1A7A6D; color: #5CEAD8; }
+      .soap-pip {
+        width: 7px; height: 7px; border-radius: 50%;
+        background: rgba(255,255,255,0.3); transition: background 0.15s;
+      }
+      .soap-btn.active .soap-pip { background: #5CEAD8; }
+      .soap-btn.hidden { display: none; }
     </style></head>
     <body>
-      <div class="dot"></div>
+      <div class="dot" id="dot"></div>
       <div class="label" id="label">Recording...</div>
+      <div class="divider" id="divider"></div>
+      <button class="soap-btn" id="soapBtn" onclick="toggleSoap()">
+        <div class="soap-pip" id="soapPip"></div>
+        SOAP
+      </button>
+      <script>
+        let soapOn = false;
+        function toggleSoap() {
+          soapOn = !soapOn;
+          const btn = document.getElementById('soapBtn');
+          btn.classList.toggle('active', soapOn);
+          if (window.voicetype) window.voicetype.setSoap(soapOn);
+        }
+        function setSoapState(on) {
+          soapOn = on;
+          document.getElementById('soapBtn').classList.toggle('active', on);
+        }
+        function setRecording(isRec) {
+          document.getElementById('dot').classList.toggle('done', !isRec);
+        }
+        function hideControls() {
+          document.getElementById('soapBtn').classList.add('hidden');
+          document.getElementById('divider').style.display = 'none';
+        }
+        function showControls() {
+          document.getElementById('soapBtn').classList.remove('hidden');
+          document.getElementById('divider').style.display = '';
+        }
+      </script>
     </body>
     </html>
   `));
@@ -217,16 +270,24 @@ function createIndicatorWindow() {
   // Position at top-center of primary display
   const { screen } = require('electron');
   const display = screen.getPrimaryDisplay();
-  const x = Math.round(display.bounds.x + display.bounds.width / 2 - 100);
+  const x = Math.round(display.bounds.x + display.bounds.width / 2 - 160);
   const y = display.bounds.y + 40;
   indicatorWindow.setPosition(x, y);
 }
 
-function showIndicator(text) {
+function showIndicator(text, opts = {}) {
   if (!indicatorWindow) return;
   indicatorWindow.webContents.executeJavaScript(
     `document.getElementById('label').textContent = ${JSON.stringify(text)};`
   );
+  if (opts.recording !== undefined) {
+    indicatorWindow.webContents.executeJavaScript(`setRecording(${opts.recording});`);
+  }
+  if (opts.showControls === false) {
+    indicatorWindow.webContents.executeJavaScript('hideControls();');
+  } else if (opts.showControls === true) {
+    indicatorWindow.webContents.executeJavaScript('showControls();');
+  }
   indicatorWindow.show();
 }
 
@@ -234,12 +295,25 @@ function hideIndicator() {
   if (indicatorWindow) indicatorWindow.hide();
 }
 
+// IPC: indicator SOAP toggle sends override back to main process
+ipcMain.on('soap-toggle', (_event, on) => {
+  soapOverride = on;
+});
+
 // ─── Core Flow ───
 
 function onHotkeyDown() {
   if (isRecording) return;
   isRecording = true;
-  showIndicator('Recording...');
+
+  // Reset SOAP override to match settings default, user can toggle during recording
+  const soapDefault = !!(settings?.soap_notes);
+  soapOverride = soapDefault;
+  if (indicatorWindow) {
+    indicatorWindow.webContents.executeJavaScript(`setSoapState(${soapDefault});`);
+  }
+
+  showIndicator('Recording...', { recording: true, showControls: true });
   updateTrayMenu('Recording...');
 
   try {
@@ -255,7 +329,8 @@ function onHotkeyDown() {
 async function onHotkeyUp() {
   if (!isRecording) return;
   isRecording = false;
-  showIndicator('Transcribing...');
+  const useSoap = soapOverride !== null ? soapOverride : !!(settings?.soap_notes);
+  showIndicator('Transcribing...', { recording: false, showControls: false });
   updateTrayMenu('Transcribing...');
 
   try {
@@ -287,8 +362,8 @@ async function onHotkeyUp() {
     if (text && text.trim()) {
       let finalText = text.trim();
 
-      // Apply SOAP note formatting if enabled
-      if (settings?.soap_notes) {
+      // Apply SOAP note formatting if toggled on (via overlay button or settings)
+      if (useSoap) {
         showIndicator('Formatting SOAP note...');
         try {
           finalText = await formatSOAPNote(finalText, {
