@@ -5,6 +5,9 @@ on:
     tags:
       - 'voicetype-v*'   # e.g. voicetype-v0.1.0
 
+permissions:
+  contents: write
+
 jobs:
   build:
     strategy:
@@ -47,5 +50,6 @@ jobs:
           name: voicetype-${{ matrix.os }}
           path: |
             voicetype-desktop/dist/*.dmg
+            voicetype-desktop/dist/*.zip
             voicetype-desktop/dist/*.exe
             voicetype-desktop/dist/*.yml
