@@ -39,12 +39,7 @@ jobs:
         working-directory: voicetype-desktop
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
-        run: >
-          npx electron-builder --mac --publish never
-          --config.mac.hardenedRuntime=false
-          --config.mac.entitlements=null
-          --config.mac.entitlementsInherit=null
-          --config.afterSign=null
+        run: npx electron-builder --mac --publish never
 
       # ── Windows build ──
       - name: Build Electron app (Windows)
