@@ -1,6 +1,6 @@
 {
   "name": "voicetype",
-  "version": "0.1.0",
+  "version": "2.0.1",
   "description": "VoiceType — system-wide voice-to-text via OpenAI Whisper, distributed through LinkBoard",
   "main": "src/main.js",
   "scripts": {
