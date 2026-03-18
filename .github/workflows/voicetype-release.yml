@@ -33,19 +33,18 @@ jobs:
         working-directory: voicetype-desktop
         run: npm ci || npm install
 
-      # ── macOS build ──
+      # ── macOS build (unsigned — no Apple certs configured) ──
       - name: Build Electron app (macOS)
         if: runner.os == 'macOS'
         working-directory: voicetype-desktop
         env:
-          CSC_LINK: ${{ secrets.APPLE_CERT_P12_BASE64 }}
-          CSC_KEY_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # Skip code signing if no certificate is provided
-          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.APPLE_CERT_P12_BASE64 != '' && 'true' || 'false' }}
-        run: npx electron-builder --mac --publish never
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+        run: >
+          npx electron-builder --mac --publish never
+          --config.mac.hardenedRuntime=false
+          --config.mac.entitlements=null
+          --config.mac.entitlementsInherit=null
+          --config.afterSign=null
 
       # ── Windows build ──
       - name: Build Electron app (Windows)
