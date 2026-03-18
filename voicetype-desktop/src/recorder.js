@@ -3,8 +3,8 @@
 // ═══════════════════════════════════════
 //
 // Captures audio from the system microphone into a WAV buffer.
-// Uses node-record-lpcm16 for cross-platform mic access.
-// Requires SoX to be installed: brew install sox
+// Primary: uses Web Audio API via Electron's renderer process (no external deps).
+// Fallback: uses node-record-lpcm16 + SoX if available.
 
 const record = require('node-record-lpcm16');
 const { execFileSync } = require('child_process');
@@ -12,6 +12,11 @@ const { execFileSync } = require('child_process');
 let recording = null;
 let audioChunks = [];
 let soxAvailable = null; // cached check result
+
+// Browser-based recording state (managed via IPC from indicator window)
+let browserAudioResolve = null;
+let browserAudioBuffer = null;
+let useBrowserRecording = false;
 
 /**
  * Check if SoX (rec/sox) is installed and available on PATH.
@@ -30,19 +35,20 @@ function checkSoxInstalled() {
 
 /**
  * Start recording audio from the default microphone.
- * Audio is captured as 16-bit mono PCM at 16kHz (optimal for Whisper).
- * Throws if SoX is not installed.
+ * Uses browser-based recording if SoX is not installed.
  */
 function startRecording() {
+  if (useBrowserRecording) {
+    // Browser recording is started via IPC in the indicator window
+    browserAudioBuffer = null;
+    return;
+  }
+
   if (!checkSoxInstalled()) {
-    const installHint = process.platform === 'darwin'
-      ? 'Install it with: brew install sox'
-      : process.platform === 'win32'
-        ? 'Download SoX from https://sox.sourceforge.net and add it to PATH'
-        : 'Install it with: sudo apt install sox';
-    throw new Error(
-      `SoX audio tool is not installed. ${installHint}`
-    );
+    // Switch to browser-based recording permanently for this session
+    useBrowserRecording = true;
+    browserAudioBuffer = null;
+    return;
   }
 
   audioChunks = [];
@@ -51,10 +57,9 @@ function startRecording() {
     sampleRate: 16000,
     channels: 1,
     audioType: 'wav',
-    // Use SoX on macOS/Linux, arecord on Linux if SoX unavailable
     recorder: process.platform === 'win32' ? 'sox' : 'rec',
-    silence: '0',    // Don't auto-stop on silence
-    threshold: 0      // Capture everything
+    silence: '0',
+    threshold: 0
   });
 
   recording.stream().on('data', (chunk) => {
@@ -69,8 +74,23 @@ function startRecording() {
 /**
  * Stop recording and return the complete audio as a WAV Buffer.
  * Returns null if no audio was captured.
+ * For browser recording, returns a Promise that resolves with the buffer.
  */
 function stopRecording() {
+  if (useBrowserRecording) {
+    // Return a promise that resolves when browser sends audio data via IPC
+    return new Promise((resolve) => {
+      browserAudioResolve = resolve;
+      // Timeout after 5s in case something goes wrong
+      setTimeout(() => {
+        if (browserAudioResolve) {
+          browserAudioResolve(null);
+          browserAudioResolve = null;
+        }
+      }, 5000);
+    });
+  }
+
   if (recording) {
     recording.stop();
     recording = null;
@@ -82,13 +102,38 @@ function stopRecording() {
   audioChunks = [];
 
   // If the recorder already outputs WAV format, return as-is
-  // node-record-lpcm16 with audioType:'wav' includes the header
   if (pcmData.length > 44 && pcmData.toString('ascii', 0, 4) === 'RIFF') {
     return pcmData;
   }
 
   // Otherwise wrap raw PCM in a WAV header
   return createWavBuffer(pcmData, 16000, 1, 16);
+}
+
+/**
+ * Called from IPC when browser-based recording delivers audio data.
+ */
+function onBrowserAudioData(wavArrayBuffer) {
+  const buffer = Buffer.from(wavArrayBuffer);
+  if (browserAudioResolve) {
+    browserAudioResolve(buffer);
+    browserAudioResolve = null;
+  } else {
+    browserAudioBuffer = buffer;
+  }
+}
+
+/**
+ * Returns true if browser-based recording is being used.
+ */
+function isBrowserRecording() {
+  if (useBrowserRecording) return true;
+  // Auto-detect on first call
+  if (!checkSoxInstalled()) {
+    useBrowserRecording = true;
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -124,4 +169,4 @@ function createWavBuffer(pcmData, sampleRate, channels, bitsPerSample) {
   return buffer;
 }
 
-module.exports = { startRecording, stopRecording, checkSoxInstalled };
+module.exports = { startRecording, stopRecording, checkSoxInstalled, onBrowserAudioData, isBrowserRecording };
