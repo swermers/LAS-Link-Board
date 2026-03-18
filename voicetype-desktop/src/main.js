@@ -2,11 +2,11 @@
 //  VoiceType — Electron Main Process
 // ═══════════════════════════════════════
 
-const { app, Tray, Menu, BrowserWindow, nativeImage, ipcMain, screen } = require('electron');
+const { app, Tray, Menu, BrowserWindow, nativeImage, ipcMain, screen, session } = require('electron');
 const path = require('path');
 const { registerHotkey, unregisterAll } = require('./hotkey');
 const { syncSettings, storeAuth } = require('./sync');
-const { startRecording, stopRecording } = require('./recorder');
+const { startRecording, stopRecording, checkSoxInstalled, onBrowserAudioData, isBrowserRecording } = require('./recorder');
 const { transcribe } = require('./whisper');
 const { injectText } = require('./injector');
 const { showLoginWindow } = require('./login');
@@ -32,6 +32,12 @@ app.on('ready', async () => {
   if (process.platform === 'darwin') {
     app.dock.hide();
   }
+
+  // Auto-grant microphone permission for browser-based recording fallback
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback) => {
+    if (permission === 'media') { callback(true); return; }
+    callback(true);
+  });
 
   createTray();
   createIndicatorWindow();
@@ -449,6 +455,85 @@ function createIndicatorWindow() {
             tooltip.textContent = 'Pasted to clipboard';
             tooltip.style.opacity = '1';
           }
+        }
+
+        // ── Browser-based audio recording (fallback when SoX not installed) ──
+        let mediaRecorder = null;
+        let browserChunks = [];
+        let audioCtx = null;
+
+        if (window.voicetype && window.voicetype.onStartBrowserRecording) {
+          window.voicetype.onStartBrowserRecording(async () => {
+            try {
+              const stream = await navigator.mediaDevices.getUserMedia({
+                audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true }
+              });
+              browserChunks = [];
+              mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+              mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) browserChunks.push(e.data); };
+              mediaRecorder.start(100); // collect in 100ms chunks
+            } catch (err) {
+              console.error('Browser recording failed:', err);
+            }
+          });
+
+          window.voicetype.onStopBrowserRecording(async () => {
+            if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+              window.voicetype.sendAudioData(null);
+              return;
+            }
+            mediaRecorder.onstop = async () => {
+              // Stop all tracks to release the mic
+              mediaRecorder.stream.getTracks().forEach(t => t.stop());
+              if (browserChunks.length === 0) { window.voicetype.sendAudioData(null); return; }
+
+              const webmBlob = new Blob(browserChunks, { type: 'audio/webm' });
+              // Decode webm to raw PCM, then encode as WAV for Whisper
+              try {
+                if (!audioCtx) audioCtx = new AudioContext({ sampleRate: 16000 });
+                const arrayBuf = await webmBlob.arrayBuffer();
+                const audioBuf = await audioCtx.decodeAudioData(arrayBuf);
+                const pcm = audioBuf.getChannelData(0); // Float32 mono
+                // Convert Float32 to Int16 PCM
+                const int16 = new Int16Array(pcm.length);
+                for (let i = 0; i < pcm.length; i++) {
+                  const s = Math.max(-1, Math.min(1, pcm[i]));
+                  int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                }
+                // Build WAV
+                const wavHeader = new ArrayBuffer(44);
+                const view = new DataView(wavHeader);
+                const sr = audioBuf.sampleRate;
+                const dataSize = int16.byteLength;
+                // RIFF header
+                new Uint8Array(wavHeader, 0, 4).set([0x52,0x49,0x46,0x46]); // RIFF
+                view.setUint32(4, 36 + dataSize, true);
+                new Uint8Array(wavHeader, 8, 4).set([0x57,0x41,0x56,0x45]); // WAVE
+                // fmt
+                new Uint8Array(wavHeader, 12, 4).set([0x66,0x6d,0x74,0x20]); // fmt
+                view.setUint32(16, 16, true);
+                view.setUint16(20, 1, true); // PCM
+                view.setUint16(22, 1, true); // mono
+                view.setUint32(24, sr, true);
+                view.setUint32(28, sr * 2, true); // byte rate
+                view.setUint16(32, 2, true); // block align
+                view.setUint16(34, 16, true); // bits per sample
+                // data
+                new Uint8Array(wavHeader, 36, 4).set([0x64,0x61,0x74,0x61]); // data
+                view.setUint32(40, dataSize, true);
+                // Combine header + PCM
+                const wavBlob = new Blob([wavHeader, int16.buffer], { type: 'audio/wav' });
+                const wavBuf = await wavBlob.arrayBuffer();
+                window.voicetype.sendAudioData(wavBuf);
+              } catch (decodeErr) {
+                console.error('Audio decode error:', decodeErr);
+                // Fallback: send the raw webm (Whisper can sometimes handle it)
+                const rawBuf = await webmBlob.arrayBuffer();
+                window.voicetype.sendAudioData(rawBuf);
+              }
+            };
+            mediaRecorder.stop();
+          });
         }
       </script>
     </body>
@@ -941,6 +1026,11 @@ ipcMain.on('push-to-talk-stop', () => {
   onHotkeyUp();
 });
 
+// IPC: Browser-based audio recording data (fallback when SoX not installed)
+ipcMain.on('browser-audio-data', (_event, wavArrayBuffer) => {
+  onBrowserAudioData(wavArrayBuffer);
+});
+
 // IPC: dashboard actions
 ipcMain.on('dashboard-open-linkboard', () => {
   const { shell } = require('electron');
@@ -995,6 +1085,10 @@ function onHotkeyDown() {
 
   try {
     startRecording();
+    // If using browser-based recording, tell the indicator window to start capturing
+    if (isBrowserRecording() && indicatorWindow) {
+      indicatorWindow.webContents.send('start-browser-recording');
+    }
   } catch (e) {
     console.error('Failed to start recording:', e);
     isRecording = false;
@@ -1014,8 +1108,13 @@ async function onHotkeyUp() {
   showIndicator('Transcribing...', { processing: true });
   updateTrayMenu('Transcribing...');
 
+  // Tell indicator window to stop browser recording if active
+  if (isBrowserRecording() && indicatorWindow) {
+    indicatorWindow.webContents.send('stop-browser-recording');
+  }
+
   try {
-    const audioBuffer = stopRecording();
+    const audioBuffer = await stopRecording();
 
     if (!audioBuffer || audioBuffer.length < 1000) {
       hideIndicator();

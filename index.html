@@ -981,7 +981,8 @@ body {
     </div>
     <div class="tab-bar">
       <button class="tab active" id="tabLinks" onclick="switchTab('links')">Links</button>
-      <button class="tab" id="tabCampaigns" onclick="switchTab('campaigns')">Campaigns</button>
+      <!-- Email tracker hidden — feature disabled -->
+      <button class="tab" id="tabCampaigns" onclick="switchTab('campaigns')" style="display:none">Campaigns</button>
       <button class="tab" id="tabAnalytics" onclick="switchTab('analytics')">Analytics</button>
       <button class="tab" id="tabVoicetype" onclick="switchTab('voicetype')">VoiceType</button>
     </div>
@@ -1063,10 +1064,10 @@ body {
       <!-- KPI Cards -->
       <div class="kpi-grid" id="kpiGrid">
         <div class="kpi-card"><div class="kpi-val" id="kpiScans">0</div><div class="kpi-label">Total Scans</div><div class="kpi-change flat" id="kpiScansChange">—</div></div>
-        <div class="kpi-card"><div class="kpi-val" id="kpiOpens">0</div><div class="kpi-label">Email Opens</div><div class="kpi-change flat" id="kpiOpensChange">—</div></div>
-        <div class="kpi-card"><div class="kpi-val" id="kpiUniqueOpens">0</div><div class="kpi-label">Unique Opens</div><div class="kpi-change flat" id="kpiUniqueChange">—</div></div>
+        <div class="kpi-card" style="display:none"><div class="kpi-val" id="kpiOpens">0</div><div class="kpi-label">Email Opens</div><div class="kpi-change flat" id="kpiOpensChange">—</div></div>
+        <div class="kpi-card" style="display:none"><div class="kpi-val" id="kpiUniqueOpens">0</div><div class="kpi-label">Unique Opens</div><div class="kpi-change flat" id="kpiUniqueChange">—</div></div>
         <div class="kpi-card"><div class="kpi-val" id="kpiActiveQR">0</div><div class="kpi-label">Active QR Codes</div><div class="kpi-change flat" id="kpiQRChange">—</div></div>
-        <div class="kpi-card"><div class="kpi-val" id="kpiActiveCamp">0</div><div class="kpi-label">Campaigns</div><div class="kpi-change flat" id="kpiCampChange">—</div></div>
+        <div class="kpi-card" style="display:none"><div class="kpi-val" id="kpiActiveCamp">0</div><div class="kpi-label">Campaigns</div><div class="kpi-change flat" id="kpiCampChange">—</div></div>
       </div>
 
       <!-- Time Series Charts -->
@@ -1075,7 +1076,7 @@ body {
           <h3>QR Scans Over Time</h3>
           <canvas id="dashScansChart"></canvas>
         </div>
-        <div class="chart-section">
+        <div class="chart-section" style="display:none">
           <h3>Email Opens Over Time</h3>
           <canvas id="dashOpensChart"></canvas>
         </div>
@@ -1088,7 +1089,7 @@ body {
           <canvas id="dashDeviceChart"></canvas>
         </div>
         <div class="chart-section">
-          <h3>Browser / Email Client</h3>
+          <h3>Browser</h3>
           <canvas id="dashBrowserChart"></canvas>
         </div>
       </div>
@@ -1112,7 +1113,7 @@ body {
             <tbody></tbody>
           </table>
         </div>
-        <div class="chart-section">
+        <div class="chart-section" style="display:none">
           <h3>Top Campaigns</h3>
           <table class="dash-table" id="topCampTable">
             <thead><tr><th onclick="sortDashTable('topCamp','name')">Name <span class="sort-arrow"></span></th><th onclick="sortDashTable('topCamp','opens')">Opens <span class="sort-arrow"></span></th><th onclick="sortDashTable('topCamp','unique')">Unique <span class="sort-arrow"></span></th></tr></thead>
@@ -1133,7 +1134,7 @@ body {
         <div class="compare-selectors">
           <select id="compareType" onchange="updateCompareOptions()">
             <option value="qr">Compare QR Codes</option>
-            <option value="campaign">Compare Campaigns</option>
+            <option value="campaign" style="display:none">Compare Campaigns</option>
           </select>
           <select id="compareA" onchange="runComparison()"><option value="">Select first...</option></select>
           <select id="compareB" onchange="runComparison()"><option value="">Select second...</option></select>
@@ -1153,8 +1154,8 @@ body {
         <div id="goalsList"><p style="font-size:0.82rem;color:var(--text-muted)">No goals set yet. Click "+ Set Goal" to set a KPI target.</p></div>
       </div>
 
-      <!-- Funnel View -->
-      <div class="funnel-section">
+      <!-- Funnel View — hidden (email tracker disabled) -->
+      <div class="funnel-section" style="display:none">
         <h3>Campaign Funnel</h3>
         <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:1rem">Aggregated across all campaigns in the selected period.</p>
         <div class="funnel-chart" id="funnelChart"></div>
@@ -1445,7 +1446,7 @@ body {
         <label>Goal Type</label>
         <select id="goalType" onchange="updateGoalTargetOptions()" style="width:100%;padding:0.5rem;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem">
           <option value="qr_scans">QR Code Scans</option>
-          <option value="campaign_opens">Campaign Opens</option>
+          <option value="campaign_opens" style="display:none">Campaign Opens</option>
         </select>
       </div>
       <div class="field">
@@ -3277,7 +3278,7 @@ function groupByDate(items, field) {
 function buildDateLabels(from, to) {
   const labels = [];
   const end = to || new Date();
-  const start = from || new Date(Math.min(...dashScanLogs.map(s => new Date(s.scanned_at)), ...dashCampOpens.map(o => new Date(o.opened_at)), end));
+  const start = from || new Date(Math.min(...dashScanLogs.map(s => new Date(s.scanned_at)), end));
   const d = new Date(start);
   while (d <= end) { labels.push(d.toISOString().slice(0, 10)); d.setDate(d.getDate() + 1); }
   if (labels.length === 0) labels.push(new Date().toISOString().slice(0, 10));
@@ -3308,9 +3309,9 @@ function renderChartJS(canvasId, type, labels, datasets) {
 function renderBreakdownCharts() {
   const scans = filterByRange(dashScanLogs, 'scanned_at');
   const opens = filterByRange(dashCampOpens, 'opened_at');
+  // Email tracker disabled — only use QR scan data
   const allItems = [
-    ...scans.map(s => ({ ua: s.user_agent || '', time: s.scanned_at })),
-    ...opens.map(o => ({ ua: o.user_agent || '', time: o.opened_at }))
+    ...scans.map(s => ({ ua: s.user_agent || '', time: s.scanned_at }))
   ];
 
   // Device breakdown
@@ -3426,25 +3427,13 @@ function miniSparkline(items, field) {
 
 // ─── Activity Feed ───
 function renderActivityFeed() {
+  // Email tracker disabled — activity feed shows QR scans only
   const scans = filterByRange(dashScanLogs, 'scanned_at').map(s => ({
     type: 'scan', time: s.scanned_at, ua: s.user_agent,
     name: (myLinks.find(l => l.id === s.link_id) || {}).label || 'Unknown'
   }));
-  const opens = filterByRange(dashCampOpens, 'opened_at').map(o => ({
-    type: 'open', time: o.opened_at, ua: o.user_agent,
-    name: (dashCampaignsData.find(c => c.id === o.campaign_id) || {}).name || 'Unknown'
-  }));
-  const clicks = (window.dashCampClicks || []).filter(c => {
-    const { from, to } = getDashDateRange();
-    if (!from) return true;
-    const d = new Date(c.clicked_at);
-    return d >= from && d <= to;
-  }).map(c => ({
-    type: 'click', time: c.clicked_at, ua: c.user_agent,
-    name: (dashCampaignsData.find(camp => camp.id === c.campaign_id) || {}).name || 'Unknown'
-  }));
 
-  const all = [...scans, ...opens, ...clicks].sort((a, b) => new Date(b.time) - new Date(a.time)).slice(0, 50);
+  const all = [...scans].sort((a, b) => new Date(b.time) - new Date(a.time)).slice(0, 50);
   const feed = document.getElementById('activityFeed');
   if (all.length === 0) {
     feed.innerHTML = '<p style="font-size:0.82rem;color:var(--text-muted);padding:0.5rem 0">No activity in this period.</p>';
@@ -3684,16 +3673,11 @@ function renderFunnel() {
 // ─── Export: CSV ───
 function exportCSV() {
   const scans = filterByRange(dashScanLogs, 'scanned_at');
-  const opens = filterByRange(dashCampOpens, 'opened_at');
 
   let csv = 'Type,Name,Date,Device,Browser\n';
   scans.forEach(s => {
     const name = (myLinks.find(l => l.id === s.link_id) || {}).label || 'Unknown';
     csv += `QR Scan,"${name}",${s.scanned_at},${parseDevice(s.user_agent || '')},${parseBrowser(s.user_agent || '')}\n`;
-  });
-  opens.forEach(o => {
-    const name = (dashCampaignsData.find(c => c.id === o.campaign_id) || {}).name || 'Unknown';
-    csv += `Email Open,"${name}",${o.opened_at},${parseDevice(o.user_agent || '')},${parseEmailClient(o.user_agent || '')}\n`;
   });
 
   const blob = new Blob([csv], { type: 'text/csv' });
@@ -3707,8 +3691,6 @@ function exportCSV() {
 // ─── Export: Copy Summary ───
 function copyDashboardSummary() {
   const scans = filterByRange(dashScanLogs, 'scanned_at');
-  const opens = filterByRange(dashCampOpens, 'opened_at');
-  const uniqueOpens = new Set(opens.map(o => o.ip_hash)).size;
   const { from, to } = getDashDateRange();
   const period = from ? `${from.toLocaleDateString()} - ${(to || new Date()).toLocaleDateString()}` : 'All Time';
 
@@ -3718,19 +3700,10 @@ Generated: ${new Date().toLocaleString()}
 
 KPI Summary:
 - Total QR Scans: ${scans.length.toLocaleString()}
-- Email Opens: ${opens.length.toLocaleString()}
-- Unique Opens: ${uniqueOpens.toLocaleString()}
 - Active QR Codes: ${myLinks.filter(l => !l.expires_at || new Date(l.expires_at) > new Date()).length}
-- Campaigns: ${dashCampaignsData.length}
 
 Top QR Codes:
-${myLinks.sort((a, b) => (b.scans || 0) - (a.scans || 0)).slice(0, 5).map(l => `  - ${l.label}: ${l.scans || 0} scans`).join('\n')}
-
-Top Campaigns:
-${dashCampaignsData.slice(0, 5).map(c => {
-  const count = opens.filter(o => o.campaign_id === c.id).length;
-  return `  - ${c.name}: ${count} opens`;
-}).join('\n')}`;
+${myLinks.sort((a, b) => (b.scans || 0) - (a.scans || 0)).slice(0, 5).map(l => `  - ${l.label}: ${l.scans || 0} scans`).join('\n')}`;
 
   navigator.clipboard.writeText(summary).then(() => toast('Summary copied to clipboard!', true));
 }
