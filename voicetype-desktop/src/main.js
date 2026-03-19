@@ -2,8 +2,10 @@
 //  VoiceType — Electron Main Process
 // ═══════════════════════════════════════
 
-const { app, Tray, Menu, BrowserWindow, nativeImage, ipcMain, screen, session } = require('electron');
+const { app, Tray, Menu, BrowserWindow, nativeImage, ipcMain, screen, session, systemPreferences } = require('electron');
 const path = require('path');
+const fs = require('fs');
+const os = require('os');
 const { registerHotkey, unregisterAll } = require('./hotkey');
 const { syncSettings, storeAuth } = require('./sync');
 const { startRecording, stopRecording, checkSoxInstalled, onBrowserAudioData, isBrowserRecording } = require('./recorder');
@@ -43,6 +45,14 @@ app.on('ready', async () => {
     if (permission === 'media') { callback(true); return; }
     callback(true);
   });
+
+  // Request microphone permission on macOS (required for recording)
+  if (process.platform === 'darwin') {
+    const micStatus = systemPreferences.getMediaAccessStatus('microphone');
+    if (micStatus !== 'granted') {
+      await systemPreferences.askForMediaAccess('microphone');
+    }
+  }
 
   createTray();
   createIndicatorWindow();
@@ -172,7 +182,7 @@ function updateTrayMenu(statusText) {
       label: 'Open LinkBoard (Web)',
       click: () => {
         const { shell } = require('electron');
-        shell.openExternal('https://linkboard.vercel.app');
+        shell.openExternal('https://las-link-board.vercel.app');
       }
     },
     {
@@ -238,7 +248,10 @@ function createIndicatorWindow() {
     }
   });
 
-  indicatorWindow.loadURL('data:text/html,' + encodeURIComponent(`
+  // Write indicator HTML to a temp file so it loads from file:// (a secure context).
+  // data: URLs are NOT secure contexts, so navigator.mediaDevices.getUserMedia
+  // is unavailable — this broke browser-based microphone recording.
+  const indicatorHTML = `
     <!DOCTYPE html>
     <html>
     <head><style>
@@ -569,7 +582,10 @@ function createIndicatorWindow() {
       </script>
     </body>
     </html>
-  `));
+  `;
+  const indicatorTmpPath = path.join(os.tmpdir(), 'voicetype-indicator.html');
+  fs.writeFileSync(indicatorTmpPath, indicatorHTML);
+  indicatorWindow.loadFile(indicatorTmpPath);
 
   // Position at bottom-center of primary display
   const display = screen.getPrimaryDisplay();
@@ -628,7 +644,9 @@ function createDashboardWindow() {
     }
   });
 
-  dashboardWindow.loadURL('data:text/html,' + encodeURIComponent(getDashboardHTML()));
+  const dashboardTmpPath = path.join(os.tmpdir(), 'voicetype-dashboard.html');
+  fs.writeFileSync(dashboardTmpPath, getDashboardHTML());
+  dashboardWindow.loadFile(dashboardTmpPath);
 
   dashboardWindow.on('close', (e) => {
     e.preventDefault();
@@ -1065,7 +1083,7 @@ ipcMain.on('browser-audio-data', (_event, wavArrayBuffer) => {
 // IPC: dashboard actions
 ipcMain.on('dashboard-open-linkboard', () => {
   const { shell } = require('electron');
-  shell.openExternal('https://linkboard.vercel.app');
+  shell.openExternal('https://las-link-board.vercel.app');
 });
 
 ipcMain.on('dashboard-refresh-settings', async () => {
@@ -1257,7 +1275,7 @@ async function logUsage(bufferLength, skill) {
 
 // ─── Skill Sync ───
 
-const LINKBOARD_SKILLS_API = 'https://linkboard.vercel.app/api/voicetype/skills';
+const LINKBOARD_SKILLS_API = 'https://las-link-board.vercel.app/api/voicetype/skills';
 
 async function syncSkills() {
   const token = store.get('supabase_token');

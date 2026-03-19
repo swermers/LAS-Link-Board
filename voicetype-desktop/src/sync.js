@@ -8,7 +8,7 @@
 
 const SUPABASE_URL = 'https://pmhoeqxuamvqlwsatozu.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBtaG9lcXh1YW12cWx3c2F0b3p1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MTY2NDYsImV4cCI6MjA4ODM5MjY0Nn0.ktaozIz1XrIUeUrPjtKp3VZ92BptG8xehOFsv_ny12w';
-const LINKBOARD_API = 'https://linkboard.vercel.app/api/voicetype/settings';
+const LINKBOARD_API = 'https://las-link-board.vercel.app/api/voicetype/settings';
 
 /**
  * Sync settings from Supabase. Tries the LinkBoard API first,

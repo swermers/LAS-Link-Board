@@ -11,7 +11,7 @@
 //   3. DIRECT — calls OpenAI Whisper directly (fallback
 //      if the proxy is unavailable).
 
-const PROXY_URL = 'https://linkboard.vercel.app/api/voicetype/transcribe';
+const PROXY_URL = 'https://las-link-board.vercel.app/api/voicetype/transcribe';
 
 /**
  * Transcribe audio using the configured mode.

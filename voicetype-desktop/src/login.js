@@ -36,25 +36,60 @@ function showLoginWindow() {
     const html = buildLoginHTML();
     loginWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
 
-    // Listen for auth result from the page
+    let resolved = false;
+
+    function resolveAuth(data) {
+      if (resolved) return;
+      resolved = true;
+      if (loginWindow) {
+        loginWindow.removeAllListeners('closed');
+        loginWindow.close();
+        loginWindow = null;
+      }
+      resolve(data);
+    }
+
+    // Listen for auth result from email login (sent via console message)
     loginWindow.webContents.on('console-message', (event, level, message) => {
       if (message.startsWith('VOICETYPE_AUTH:')) {
         try {
           const data = JSON.parse(message.replace('VOICETYPE_AUTH:', ''));
-          if (loginWindow) {
-            loginWindow.close();
-            loginWindow = null;
-          }
-          resolve(data);
+          resolveAuth(data);
         } catch (e) {
           // Not valid JSON, ignore
         }
       }
     });
 
+    // Capture Google OAuth redirect — tokens arrive in the URL hash fragment
+    loginWindow.webContents.on('did-finish-load', async () => {
+      if (resolved) return;
+      try {
+        const hash = await loginWindow.webContents.executeJavaScript('window.location.hash');
+        if (hash && hash.includes('access_token=')) {
+          const params = new URLSearchParams(hash.substring(1));
+          const accessToken = params.get('access_token');
+          const refreshToken = params.get('refresh_token');
+          if (accessToken) {
+            // Decode JWT payload to extract user ID (sub claim)
+            const payload = JSON.parse(
+              Buffer.from(accessToken.split('.')[1], 'base64').toString()
+            );
+            resolveAuth({
+              token: accessToken,
+              refreshToken: refreshToken,
+              userId: payload.sub
+            });
+          }
+        }
+      } catch (e) {
+        // Page might not be ready or window closed, ignore
+      }
+    });
+
     loginWindow.on('closed', () => {
       loginWindow = null;
-      reject(new Error('Login window closed'));
+      if (!resolved) reject(new Error('Login window closed'));
     });
   });
 }
