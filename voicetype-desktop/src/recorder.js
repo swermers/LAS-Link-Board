@@ -114,6 +114,14 @@ function stopRecording() {
  * Called from IPC when browser-based recording delivers audio data.
  */
 function onBrowserAudioData(wavArrayBuffer) {
+  if (!wavArrayBuffer) {
+    // No audio data (e.g. mic not ready or recording too short)
+    if (browserAudioResolve) {
+      browserAudioResolve(null);
+      browserAudioResolve = null;
+    }
+    return;
+  }
   const buffer = Buffer.from(wavArrayBuffer);
   if (browserAudioResolve) {
     browserAudioResolve(buffer);
