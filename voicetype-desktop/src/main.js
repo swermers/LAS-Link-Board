@@ -88,6 +88,9 @@ app.on('ready', async () => {
     updateTrayMenu('Ready (offline)');
   }
 
+  // Refresh dashboard with latest auth and settings state
+  openDashboard();
+
   // Show the floating push-to-talk button (always visible)
   showFloatingButton();
 });
@@ -193,6 +196,7 @@ function updateTrayMenu(statusText) {
           clearAuth(store);
           settings = null;
           updateTrayMenu('Signed out');
+          openDashboard();
         } else {
           try {
             const auth = await showLoginWindow();
@@ -202,6 +206,7 @@ function updateTrayMenu(statusText) {
             unregisterAll();
             registerHotkey(settings?.hotkey || 'CommandOrControl+Shift+Space', onHotkeyDown, onHotkeyUp);
             updateTrayMenu('Ready');
+            openDashboard();
           } catch (e) {
             // Login window closed
           }
