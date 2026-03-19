@@ -723,6 +723,12 @@ function getDashboardHTML() {
   .sidebar-footer {
     padding: 16px; border-top: 1px solid var(--border);
   }
+  .btn-quit {
+    margin-top: 12px; width: 100%; padding: 7px 12px; border-radius: 8px;
+    font-size: 12px; font-weight: 600; cursor: pointer; border: 1px solid var(--border);
+    background: transparent; color: var(--text3); transition: all 0.15s ease;
+  }
+  .btn-quit:hover { background: rgba(231,76,60,0.15); color: #e74c3c; border-color: rgba(231,76,60,0.3); }
   .status-badge {
     display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text2);
   }
@@ -846,6 +852,7 @@ function getDashboardHTML() {
         <div class="status-dot" id="statusDot"></div>
         <span id="statusText">Ready</span>
       </div>
+      <button class="btn-quit" onclick="quitApp()">Quit VoiceType</button>
     </div>
   </div>
 
@@ -987,6 +994,10 @@ function getDashboardHTML() {
       document.querySelector('[data-page="' + name + '"]').classList.add('active');
     }
 
+    function quitApp() {
+      if (window.dashboard) window.dashboard.quitApp();
+    }
+
     function openLinkBoard() {
       if (window.dashboard) window.dashboard.openLinkBoard();
     }
@@ -1107,6 +1118,13 @@ ipcMain.on('dashboard-refresh-settings', async () => {
 ipcMain.on('dashboard-toggle-autosubmit', (_event, on) => {
   if (settings) settings.auto_submit = on;
   store.set('auto_submit', on);
+});
+
+ipcMain.on('dashboard-quit', () => {
+  if (indicatorWindow) { indicatorWindow.destroy(); indicatorWindow = null; }
+  if (dashboardWindow) { dashboardWindow.removeAllListeners('close'); dashboardWindow.destroy(); dashboardWindow = null; }
+  if (tray) { tray.destroy(); tray = null; }
+  app.quit();
 });
 
 ipcMain.on('dashboard-select-skill', (_event, idx) => {
