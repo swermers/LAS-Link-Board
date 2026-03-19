@@ -213,6 +213,17 @@ function updateTrayMenu(statusText) {
         }
       }
     },
+    {
+      label: indicatorWindow && indicatorWindow.isVisible() ? 'Hide Floating Pill' : 'Show Floating Pill',
+      click: () => {
+        if (indicatorWindow && indicatorWindow.isVisible()) {
+          indicatorWindow.hide();
+        } else {
+          showFloatingButton();
+        }
+        updateTrayMenu(statusText);
+      }
+    },
     { type: 'separator' },
     { label: 'Quit VoiceType', click: () => {
         // Destroy all windows so the app fully exits
@@ -950,6 +961,13 @@ function getDashboardHTML() {
           </div>
         </div>
         <div class="card">
+          <h3>Interface</h3>
+          <div class="card-row">
+            <span class="label">Floating Pill (push-to-talk button)</span>
+            <div class="toggle on" id="pillToggle" onclick="togglePill()"></div>
+          </div>
+        </div>
+        <div class="card">
           <h3>Injection</h3>
           <div class="card-row">
             <span class="label">Method</span>
@@ -996,6 +1014,12 @@ function getDashboardHTML() {
 
     function quitApp() {
       if (window.dashboard) window.dashboard.quitApp();
+    }
+
+    function togglePill() {
+      const toggle = document.getElementById('pillToggle');
+      toggle.classList.toggle('on');
+      if (window.dashboard) window.dashboard.togglePill(toggle.classList.contains('on'));
     }
 
     function openLinkBoard() {
@@ -1118,6 +1142,14 @@ ipcMain.on('dashboard-refresh-settings', async () => {
 ipcMain.on('dashboard-toggle-autosubmit', (_event, on) => {
   if (settings) settings.auto_submit = on;
   store.set('auto_submit', on);
+});
+
+ipcMain.on('dashboard-toggle-pill', (_event, on) => {
+  if (on) {
+    showFloatingButton();
+  } else if (indicatorWindow) {
+    indicatorWindow.hide();
+  }
 });
 
 ipcMain.on('dashboard-quit', () => {
