@@ -7,6 +7,8 @@
     { "source": "/api/c/:path*", "destination": "/api/c/[...params]" },
     { "source": "/api/voicetype/settings", "destination": "/api/voicetype/settings" },
     { "source": "/api/voicetype/transcribe", "destination": "/api/voicetype/transcribe" },
+    { "source": "/api/voicetype/format", "destination": "/api/voicetype/format" },
+    { "source": "/api/voicetype/skills", "destination": "/api/voicetype/skills" },
     { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]

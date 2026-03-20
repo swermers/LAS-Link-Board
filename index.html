@@ -736,8 +736,211 @@ body {
 
 /* ═══ VOICETYPE ═══ */
 .vt-section { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
-.vt-section h2 { font-family: 'Montserrat', sans-serif; font-weight: 800; font-size: 1.25rem; margin-bottom: 0.25rem; }
-.vt-section .vt-subtitle { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1.5rem; }
+
+/* ─── Hero / Greeting ─── */
+.vt-hero {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  margin-bottom: 1.5rem;
+}
+.vt-greeting {
+  font-family: 'Montserrat', sans-serif; font-weight: 800;
+  font-size: 1.6rem; color: var(--navy); margin-bottom: 0.2rem;
+}
+.vt-hero-sub { font-size: 0.88rem; color: var(--text-muted); }
+.vt-hero-badge {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 20px; padding: 5px 14px;
+  font-size: 0.78rem; font-weight: 600; color: var(--text-muted);
+}
+.vt-status-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: #ccc;
+}
+.vt-status-dot.active { background: #22c55e; }
+.vt-status-dot.error { background: var(--danger); }
+
+/* ─── Stats Row (Glaido-style) ─── */
+.vt-stats-row {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.vt-stat-card {
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 14px; padding: 1.25rem 1.25rem 1rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.vt-stat-card:hover { border-color: var(--gold); box-shadow: var(--shadow-lg); }
+.vt-stat-card.vt-stat-primary { border-color: rgba(197,150,59,0.35); background: linear-gradient(135deg, #FFFDF5, var(--surface)); }
+.vt-stat-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+.vt-stat-title { font-family: 'Montserrat', sans-serif; font-size: 0.78rem; font-weight: 600; color: var(--text-muted); }
+.vt-stat-icon { color: var(--gold); }
+.vt-stat-value { font-family: 'Montserrat', sans-serif; font-size: 2.2rem; font-weight: 800; color: var(--navy); line-height: 1; margin-bottom: 0.3rem; }
+.vt-stat-sub { font-size: 0.72rem; color: var(--text-muted); }
+
+/* ─── Recording Area ─── */
+.vt-record-area {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 2.5rem 1.5rem 2rem;
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 14px; margin-bottom: 1rem;
+  box-shadow: var(--shadow);
+}
+.vt-mic-ring {
+  width: 80px; height: 80px; border-radius: 50%;
+  background: var(--navy);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 1rem; transition: all 0.3s;
+  box-shadow: 0 4px 20px rgba(11,37,69,0.2);
+}
+.vt-mic-ring.recording {
+  background: var(--crimson);
+  box-shadow: 0 0 0 8px rgba(164,37,71,0.15), 0 0 0 16px rgba(164,37,71,0.07);
+  animation: vt-pulse 1.5s ease-in-out infinite;
+}
+.vt-mic-ring.transcribing {
+  background: var(--gold);
+  animation: vt-spin-border 1.5s linear infinite;
+}
+@keyframes vt-pulse {
+  0%, 100% { box-shadow: 0 0 0 8px rgba(164,37,71,0.15), 0 0 0 16px rgba(164,37,71,0.07); }
+  50% { box-shadow: 0 0 0 12px rgba(164,37,71,0.2), 0 0 0 24px rgba(164,37,71,0.1); }
+}
+@keyframes vt-spin-border {
+  0% { box-shadow: 0 4px 20px rgba(197,150,59,0.3); }
+  50% { box-shadow: 0 4px 20px rgba(197,150,59,0.6); }
+  100% { box-shadow: 0 4px 20px rgba(197,150,59,0.3); }
+}
+.vt-mic-btn {
+  width: 80px; height: 80px; border-radius: 50%;
+  background: none; border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform 0.15s;
+}
+.vt-mic-btn:hover { transform: scale(1.06); }
+.vt-mic-btn:active { transform: scale(0.95); }
+.vt-record-label {
+  font-family: 'Montserrat', sans-serif; font-size: 0.85rem;
+  font-weight: 600; color: var(--text-muted);
+}
+
+/* Waveform */
+.vt-waveform {
+  display: flex; align-items: center; gap: 4px;
+  height: 32px; margin-top: 0.75rem;
+}
+.vt-waveform span {
+  width: 4px; border-radius: 2px; background: var(--gold);
+  animation: vt-wave 0.8s ease-in-out infinite;
+}
+.vt-waveform span:nth-child(1) { height: 10px; animation-delay: 0s; }
+.vt-waveform span:nth-child(2) { height: 20px; animation-delay: 0.1s; }
+.vt-waveform span:nth-child(3) { height: 28px; animation-delay: 0.2s; }
+.vt-waveform span:nth-child(4) { height: 20px; animation-delay: 0.3s; }
+.vt-waveform span:nth-child(5) { height: 10px; animation-delay: 0.4s; }
+@keyframes vt-wave {
+  0%, 100% { transform: scaleY(0.4); }
+  50% { transform: scaleY(1); }
+}
+
+/* ─── Skill Bar ─── */
+.vt-skill-bar {
+  display: flex; align-items: center; gap: 1rem;
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 14px; padding: 1rem 1.25rem; margin-bottom: 1rem;
+  box-shadow: var(--shadow);
+}
+.vt-skill-bar-label {
+  font-family: 'Montserrat', sans-serif; font-size: 0.72rem;
+  font-weight: 700; color: var(--text-muted); text-transform: uppercase;
+  letter-spacing: 0.06em; white-space: nowrap;
+}
+.vt-skill-selector { flex: 1; }
+.vt-skill-selector select {
+  width: 100%; padding: 0.5rem 0.75rem;
+  background: var(--surface-alt); border: 1.5px solid var(--border);
+  border-radius: 9px; font-size: 0.88rem; color: var(--text);
+  font-family: inherit; transition: border-color 0.2s;
+}
+.vt-skill-selector select:focus { outline: none; border-color: var(--gold); }
+.vt-skill-hint { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem; }
+
+/* ─── Transcript Result ─── */
+.vt-transcript-result {
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 14px; padding: 1.25rem; margin-bottom: 1rem;
+  box-shadow: var(--shadow);
+}
+.vt-transcript-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 0.5rem;
+}
+.vt-transcript-header label {
+  font-family: 'Montserrat', sans-serif; font-size: 0.72rem;
+  font-weight: 700; color: var(--text-muted); text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.vt-transcript-box {
+  background: var(--surface-alt); border: 1.5px solid var(--border);
+  border-radius: 9px; padding: 0.75rem; font-size: 0.9rem;
+  line-height: 1.6; max-height: 200px; overflow-y: auto;
+  outline: none; cursor: text; color: var(--text);
+}
+.vt-transcript-box:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(197,150,59,0.12); }
+.vt-format-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-top: 0.75rem;
+}
+.vt-format-left { display: flex; align-items: center; gap: 0.5rem; }
+.vt-format-right { display: flex; align-items: center; gap: 0.5rem; }
+.vt-format-skill-tag {
+  font-size: 0.72rem; font-weight: 600; color: var(--gold);
+  background: rgba(197,150,59,0.1); border-radius: 4px;
+  padding: 2px 8px;
+}
+
+/* ─── Formatted Output ─── */
+.vt-formatted-result {
+  background: linear-gradient(135deg, #FFFDF5, var(--surface));
+  border: 1.5px solid rgba(197,150,59,0.35);
+  border-radius: 14px; padding: 1.25rem; margin-bottom: 1rem;
+  box-shadow: var(--shadow);
+}
+.vt-formatted-header {
+  display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;
+}
+.vt-formatted-header label {
+  font-family: 'Montserrat', sans-serif; font-size: 0.72rem;
+  font-weight: 700; color: var(--gold); text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.vt-formatted-badge {
+  font-size: 0.68rem; font-weight: 700; color: #fff;
+  background: var(--gold); border-radius: 4px; padding: 1px 8px;
+}
+.vt-formatted-box {
+  background: #fff; border: 1.5px solid rgba(197,150,59,0.25);
+  border-radius: 9px; padding: 0.75rem; font-size: 0.9rem;
+  line-height: 1.6; max-height: 300px; overflow-y: auto;
+  outline: none; cursor: text; color: var(--text);
+  white-space: pre-wrap;
+}
+.vt-formatted-box:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(197,150,59,0.12); }
+
+/* ─── Format spinner ─── */
+.vt-format-spinner {
+  display: inline-block; width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff; border-radius: 50%;
+  animation: vt-spin 0.6s linear infinite;
+  vertical-align: -2px; margin-right: 6px;
+}
+@keyframes vt-spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 600px) {
+  .vt-stats-row { grid-template-columns: 1fr; }
+  .vt-hero { flex-direction: column; gap: 0.75rem; }
+  .vt-skill-bar { flex-direction: column; align-items: flex-start; }
+}
 
 .vt-tabs { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 1.5rem; }
 .vt-tab {
@@ -1166,44 +1369,216 @@ body {
     <!-- ═══ VOICETYPE SECTION ═══ -->
     <div id="voicetypeSection" style="display:none">
       <div class="vt-section">
-        <h2>VoiceType</h2>
-        <p class="vt-subtitle">Press a hotkey, speak, and text appears wherever your cursor is. Powered by OpenAI Whisper.</p>
 
-        <div class="stats" style="grid-template-columns: repeat(4, 1fr);">
-          <div class="stat"><div class="stat-label">Status</div><div class="stat-val" id="vtStatus" style="font-size:1rem;color:var(--text-muted)">Not configured</div></div>
-          <div class="stat"><div class="stat-label">Transcriptions</div><div class="stat-val" id="vtTranscriptions">0</div></div>
-          <div class="stat"><div class="stat-label">Minutes Used</div><div class="stat-val" id="vtMinutes">0</div></div>
-          <div class="stat"><div class="stat-label">Est. Cost</div><div class="stat-val" id="vtCost">$0.00</div></div>
+        <!-- ─── Greeting Header (Glaido-style) ─── -->
+        <div class="vt-hero">
+          <div class="vt-hero-left">
+            <h2 class="vt-greeting" id="vtGreeting">Good afternoon</h2>
+            <p class="vt-hero-sub" id="vtHeroSub">Here's your dictation overview</p>
+          </div>
+          <div class="vt-hero-badge" id="vtStatusBadge">
+            <span class="vt-status-dot" id="vtStatusDot"></span>
+            <span id="vtStatus">Ready</span>
+          </div>
         </div>
 
+        <!-- ─── Stats Row (Glaido-style) ─── -->
+        <div class="vt-stats-row">
+          <div class="vt-stat-card vt-stat-primary">
+            <div class="vt-stat-header">
+              <span class="vt-stat-title">Total words</span>
+              <span class="vt-stat-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+              </span>
+            </div>
+            <div class="vt-stat-value" id="vtTotalWords">0</div>
+            <div class="vt-stat-sub">words &middot; Lifetime total</div>
+          </div>
+          <div class="vt-stat-card">
+            <div class="vt-stat-header">
+              <span class="vt-stat-title">Time saved</span>
+              <span class="vt-stat-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </span>
+            </div>
+            <div class="vt-stat-value" id="vtTimeSaved">0.0</div>
+            <div class="vt-stat-sub">hours &middot; vs typing at 40 WPM</div>
+          </div>
+          <div class="vt-stat-card">
+            <div class="vt-stat-header">
+              <span class="vt-stat-title">Transcriptions</span>
+              <span class="vt-stat-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              </span>
+            </div>
+            <div class="vt-stat-value" id="vtTranscriptions">0</div>
+            <div class="vt-stat-sub" id="vtMinutes">0 min used</div>
+          </div>
+        </div>
+
+        <!-- ─── Navigation Tabs ─── -->
         <div class="vt-tabs">
-          <button class="vt-tab active" onclick="switchVtTab('settings')">Settings</button>
-          <button class="vt-tab" onclick="switchVtTab('download')">Download</button>
+          <button class="vt-tab active" onclick="switchVtTab('dictate')">Dictate</button>
+          <button class="vt-tab" onclick="switchVtTab('skills')">Skills</button>
           <button class="vt-tab" onclick="switchVtTab('usage')">Usage</button>
+          <button class="vt-tab" onclick="switchVtTab('settings')">Settings</button>
+          <button class="vt-tab" onclick="switchVtTab('download')">Download</button>
         </div>
 
-        <!-- Settings Panel -->
-        <div class="vt-panel active" id="vtPanelSettings">
-          <!-- Browser Voice Recorder -->
-          <div class="vt-card" style="text-align:center;padding:2rem 1.5rem">
-            <h4 style="margin-bottom:0.25rem">Quick Voice-to-Text</h4>
-            <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:1.25rem">Click to record, click again to stop. Transcription is copied to your clipboard.</p>
-            <button class="btn btn-gold" id="vtRecordBtn" onclick="toggleVtRecording()" style="width:180px;height:48px;font-size:0.95rem;border-radius:24px;position:relative">
-              <span id="vtRecordIcon" style="display:inline-block;width:14px;height:14px;border-radius:50%;background:#fff;margin-right:8px;vertical-align:middle"></span>
-              <span id="vtRecordLabel">Record</span>
-            </button>
-            <div id="vtRecordTimer" style="font-family:Montserrat,sans-serif;font-size:1.5rem;font-weight:800;color:var(--navy);margin-top:0.75rem;display:none">0:00</div>
+        <!-- ═══ DICTATE PANEL (primary — Glaido-style recorder + formatter) ═══ -->
+        <div class="vt-panel active" id="vtPanelDictate">
+
+          <!-- Skill Selector -->
+          <div class="vt-skill-bar">
+            <label class="vt-skill-bar-label">Output format</label>
+            <div class="vt-skill-selector">
+              <select id="vtActiveSkill" onchange="onVtSkillChange()">
+                <option value="">Auto-detect from speech</option>
+                <!-- Populated by JS -->
+              </select>
+              <div class="vt-skill-hint" id="vtSkillHint">Start talking naturally — VoiceType detects your intent and formats automatically.</div>
+            </div>
+          </div>
+
+          <!-- Recording Area -->
+          <div class="vt-record-area" id="vtRecordArea">
+            <div class="vt-mic-ring" id="vtMicRing">
+              <button class="vt-mic-btn" id="vtRecordBtn" onclick="toggleVtRecording()">
+                <svg id="vtMicIcon" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                <svg id="vtStopIcon" style="display:none" width="28" height="28" viewBox="0 0 24 24" fill="#fff"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+              </button>
+            </div>
+            <div class="vt-record-label" id="vtRecordLabel">Click to start recording</div>
+            <div id="vtRecordTimer" style="font-family:Montserrat,sans-serif;font-size:2rem;font-weight:800;color:var(--gold);display:none">0:00</div>
+
+            <!-- Waveform animation (visible during recording) -->
+            <div class="vt-waveform" id="vtWaveform" style="display:none">
+              <span></span><span></span><span></span><span></span><span></span>
+            </div>
+
             <div id="vtRecordStatus" style="font-size:0.82rem;color:var(--text-muted);margin-top:0.5rem;min-height:1.2em"></div>
-            <div id="vtTranscriptResult" style="display:none;margin-top:1rem;text-align:left">
-              <label style="display:block;font-family:Montserrat,sans-serif;font-size:0.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.35rem">Transcription</label>
-              <div id="vtTranscriptText" contenteditable="true" style="background:var(--surface-alt);border:1.5px solid var(--border);border-radius:9px;padding:0.75rem;font-size:0.9rem;line-height:1.5;max-height:200px;overflow-y:auto;outline:none;cursor:text"></div>
-              <div style="display:flex;gap:0.5rem;margin-top:0.75rem;justify-content:flex-end">
+          </div>
+
+          <!-- Transcript Result (appears after recording) -->
+          <div id="vtTranscriptResult" class="vt-transcript-result" style="display:none">
+            <div class="vt-transcript-header">
+              <label>Raw Transcription</label>
+              <div class="vt-transcript-actions-top">
                 <button class="btn btn-soft btn-sm" onclick="clearVtTranscript()" style="color:var(--text-muted)">Clear</button>
-                <button class="btn btn-soft btn-sm" onclick="copyVtTranscript()">Copy to Clipboard</button>
+              </div>
+            </div>
+            <div id="vtTranscriptText" contenteditable="true" class="vt-transcript-box"></div>
+
+            <!-- Format Actions -->
+            <div class="vt-format-bar">
+              <div class="vt-format-left">
+                <button class="btn btn-gold" id="vtFormatBtn" onclick="formatVtTranscript()" style="border-radius:24px;padding:0.5rem 1.5rem">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-3px;margin-right:6px"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                  Format with AI
+                </button>
+                <span class="vt-format-skill-tag" id="vtFormatSkillTag" style="display:none"></span>
+              </div>
+              <div class="vt-format-right">
+                <button class="btn btn-soft btn-sm" onclick="copyVtTranscript()">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  Copy
+                </button>
               </div>
             </div>
           </div>
 
+          <!-- Formatted Output (appears after AI formatting) -->
+          <div id="vtFormattedResult" class="vt-formatted-result" style="display:none">
+            <div class="vt-formatted-header">
+              <label id="vtFormattedLabel">Formatted Output</label>
+              <span class="vt-formatted-badge" id="vtFormattedBadge"></span>
+            </div>
+            <div id="vtFormattedText" contenteditable="true" class="vt-formatted-box"></div>
+            <div class="vt-format-bar">
+              <div class="vt-format-left">
+                <button class="btn btn-soft btn-sm" onclick="reformatVtTranscript()" style="border-radius:20px">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                  Re-format
+                </button>
+              </div>
+              <div class="vt-format-right">
+                <button class="btn btn-gold btn-sm" onclick="copyVtFormatted()" style="border-radius:20px">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  Copy Formatted
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ SKILLS PANEL ═══ -->
+        <div class="vt-panel" id="vtPanelSkills">
+          <div class="vt-card">
+            <h4 style="display:flex;align-items:center;justify-content:space-between">
+              AI Formatting Skills
+              <button class="btn btn-soft btn-sm" onclick="openSkillEditor()" style="font-size:0.72rem">+ New Skill</button>
+            </h4>
+            <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:1rem">
+              Skills transform your raw dictation into polished output — emails, clinical notes, chat messages, and more. Start talking naturally (e.g. "writing an email to a parent...") and the right skill activates automatically.
+            </p>
+            <div id="vtSkillsList" style="display:flex;flex-direction:column;gap:0.5rem">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+
+          <div class="vt-card" id="vtAnthropicCard" style="display:none">
+            <h4>Anthropic API Key</h4>
+            <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:0.75rem">Required for AI formatting. Powers the skill system via Claude.</p>
+            <div class="vt-field">
+              <label>API Key</label>
+              <div class="vt-api-key-wrap">
+                <input type="password" id="vtAnthropicKey" placeholder="sk-ant-..." autocomplete="off">
+                <button class="btn btn-soft btn-sm" onclick="toggleVtAnthropicKeyVisibility()" id="vtAnthropicKeyToggle">Show</button>
+                <button class="btn btn-danger-ghost btn-sm" onclick="deleteVtAnthropicKey()" title="Remove Anthropic API key">Delete</button>
+              </div>
+              <div class="vt-hint">Get one at <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--gold);font-weight:600">console.anthropic.com</a></div>
+            </div>
+            <div class="vt-field">
+              <label>API Base URL <span style="color:var(--text-muted);font-weight:400">(optional)</span></label>
+              <input type="text" id="vtAnthropicBaseUrl" placeholder="https://api.anthropic.com (default)" autocomplete="off">
+              <div class="vt-hint">For HIPAA compliance, use an AWS Bedrock or Azure endpoint with a BAA.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ USAGE PANEL ═══ -->
+        <div class="vt-panel" id="vtPanelUsage">
+          <!-- Usage chart card (Glaido-style) -->
+          <div class="vt-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+              <div>
+                <h4 style="margin-bottom:0.15rem">Usage over time</h4>
+                <span style="font-size:0.75rem;color:var(--text-muted)">Last 30 days activity</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:6px;font-size:0.72rem;color:var(--gold)">
+                <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--gold)"></span>
+                Words dictated
+              </div>
+            </div>
+            <canvas id="vtUsageChart" height="200"></canvas>
+          </div>
+
+          <!-- KPI grid -->
+          <div class="vt-usage-grid">
+            <div class="kpi-card"><div class="kpi-val" id="vtKpiTranscriptions">0</div><div class="kpi-label">Transcriptions</div></div>
+            <div class="kpi-card"><div class="kpi-val" id="vtKpiMinutes">0</div><div class="kpi-label">Total Minutes</div></div>
+            <div class="kpi-card"><div class="kpi-val" id="vtKpiCost">$0.00</div><div class="kpi-label">Est. Cost</div></div>
+            <div class="kpi-card"><div class="kpi-val" id="vtKpiAvgLen">0s</div><div class="kpi-label">Avg Length</div></div>
+          </div>
+
+          <div class="vt-card">
+            <h4>Recent Transcriptions</h4>
+            <div id="vtUsageList" style="font-size:0.82rem;color:var(--text-muted)">No usage data yet. Start using VoiceType to see your history here.</div>
+          </div>
+        </div>
+
+        <!-- ═══ SETTINGS PANEL ═══ -->
+        <div class="vt-panel" id="vtPanelSettings">
           <div class="vt-card">
             <h4>Transcription Mode</h4>
             <div class="vt-field">
@@ -1232,7 +1607,7 @@ body {
           <div class="vt-card">
             <h4>Preferences</h4>
             <div class="vt-field">
-              <label>Global Hotkey</label>
+              <label>Global Hotkey (Desktop App)</label>
               <select id="vtHotkey">
                 <option value="CommandOrControl+Shift+Space">Ctrl/Cmd + Shift + Space</option>
                 <option value="CommandOrControl+Shift+V">Ctrl/Cmd + Shift + V</option>
@@ -1267,90 +1642,18 @@ body {
             </div>
           </div>
 
-          <div class="vt-card" id="vtSkillsCard">
-            <h4 style="display:flex;align-items:center;justify-content:space-between">
-              Skills
-              <button class="btn btn-soft btn-sm" onclick="openSkillEditor()" style="font-size:0.72rem">+ New Skill</button>
-            </h4>
-            <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:1rem">
-              Skills transform your raw dictation into polished output — emails, clinical notes, chat messages, and more. Just start talking naturally (e.g. "writing an email to a parent...") and the right skill activates automatically. Default is raw transcript.
-            </p>
-            <div id="vtSkillsList" style="display:flex;flex-direction:column;gap:0.5rem">
-              <!-- Populated by JS -->
-            </div>
-          </div>
-
-          <div class="vt-card" id="vtAnthropicCard" style="display:none">
-            <h4>Anthropic API Key</h4>
-            <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:0.75rem">Required for any skill other than Raw Transcript. Powers the AI formatting via Claude.</p>
-            <div class="vt-field">
-              <label>API Key</label>
-              <div class="vt-api-key-wrap">
-                <input type="password" id="vtAnthropicKey" placeholder="sk-ant-..." autocomplete="off">
-                <button class="btn btn-soft btn-sm" onclick="toggleVtAnthropicKeyVisibility()" id="vtAnthropicKeyToggle">Show</button>
-                <button class="btn btn-danger-ghost btn-sm" onclick="deleteVtAnthropicKey()" title="Remove Anthropic API key">Delete</button>
-              </div>
-              <div class="vt-hint">Get one at <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:var(--gold);font-weight:600">console.anthropic.com</a></div>
-            </div>
-            <div class="vt-field">
-              <label>API Base URL <span style="color:var(--text-muted);font-weight:400">(optional)</span></label>
-              <input type="text" id="vtAnthropicBaseUrl" placeholder="https://api.anthropic.com (default)" autocomplete="off">
-              <div class="vt-hint">For HIPAA compliance, use an AWS Bedrock or Azure endpoint with a BAA.</div>
-            </div>
-          </div>
-
-          <!-- Skill Editor Modal (hidden by default) -->
-          <div id="vtSkillEditorOverlay" class="overlay" style="display:none">
-            <div class="modal" style="max-width:560px">
-              <h3 id="vtSkillEditorTitle">Edit Skill</h3>
-              <input type="hidden" id="vtSkillEditId">
-              <div class="field" style="margin-bottom:0.75rem">
-                <label>Skill Name</label>
-                <input type="text" id="vtSkillEditName" placeholder="e.g. Parent Email">
-              </div>
-              <div class="field" style="margin-bottom:0.75rem">
-                <label>Category</label>
-                <select id="vtSkillEditCategory">
-                  <option value="email">Email</option>
-                  <option value="clinical">Clinical</option>
-                  <option value="chat">Chat / Messaging</option>
-                  <option value="custom">Custom</option>
-                </select>
-              </div>
-              <div class="field" style="margin-bottom:0.75rem">
-                <label>System Prompt <span style="color:var(--text-muted);font-weight:400">— instructions for how to format the transcription</span></label>
-                <textarea id="vtSkillEditPrompt" rows="8" style="font-size:0.85rem;font-family:monospace;line-height:1.5" placeholder="You are a professional writing assistant..."></textarea>
-              </div>
-              <div class="field" style="margin-bottom:0.75rem">
-                <label>Trigger Phrases <span style="color:var(--text-muted);font-weight:400">— comma-separated words that auto-activate this skill</span></label>
-                <input type="text" id="vtSkillEditTriggers" placeholder="e.g. email to parent, parent email, letter to guardian">
-              </div>
-              <div id="vtSkillEditExamples" style="margin-bottom:0.75rem;display:none">
-                <label style="display:block;font-family:Montserrat,sans-serif;font-size:0.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.35rem">
-                  Learned Style Examples (<span id="vtSkillExampleCount">0</span>)
-                </label>
-                <p style="font-size:0.78rem;color:var(--text-muted)">This skill has learned from your usage. Examples are used to match your preferred tone and style.</p>
-              </div>
-              <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem">
-                <button class="btn btn-outline btn-sm" onclick="closeSkillEditor()">Cancel</button>
-                <button class="btn btn-danger-ghost btn-sm" id="vtSkillDeleteBtn" onclick="deleteSkill()" style="display:none">Delete</button>
-                <button class="btn btn-gold" onclick="saveSkill()">Save Skill</button>
-              </div>
-            </div>
-          </div>
-
           <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem">
             <button class="btn btn-outline btn-sm" onclick="loadVtSettings()">Reset</button>
             <button class="btn btn-gold" onclick="saveVtSettings()">Save Settings</button>
           </div>
         </div>
 
-        <!-- Download Panel -->
+        <!-- ═══ DOWNLOAD PANEL ═══ -->
         <div class="vt-panel" id="vtPanelDownload">
           <div class="vt-card">
             <h4>Download VoiceType</h4>
             <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:1.25rem">
-              A lightweight desktop app that lives in your menu bar. Click the floating mic button (or hold the hotkey), speak, release — your words appear as formatted text wherever your cursor is. No install wizard needed.
+              A lightweight desktop app that lives in your menu bar. Click the floating mic button (or hold the hotkey), speak, release — your words appear as formatted text wherever your cursor is.
             </p>
             <div class="vt-download-grid">
               <div class="vt-download-card" id="vtDownloadMac">
@@ -1372,69 +1675,73 @@ body {
           </div>
 
           <div class="vt-card">
-            <h4>Getting Started</h4>
+            <h4>Getting Started (macOS)</h4>
             <ol class="vt-steps">
-              <li><strong>Download</strong> VoiceType above — on Mac, unzip and move <code>VoiceType.app</code> to your <strong>Applications</strong> or <strong>Documents</strong> folder</li>
+              <li><strong>Download</strong> VoiceType above — unzip and move <code>VoiceType.app</code> to your <strong>Applications</strong> or <strong>Documents</strong> folder</li>
               <li>
-                <strong>Open for the first time (macOS)</strong> — macOS blocks apps from unidentified developers by default. To open VoiceType:
+                <strong>Open for the first time</strong> — macOS blocks unsigned apps. Use one of these workarounds:
                 <ul style="margin-top:0.4rem;font-size:0.82rem;color:var(--text-muted);list-style:disc;padding-left:1.25rem">
-                  <li><strong>Option A (right-click):</strong> Right-click <code>VoiceType.app</code> and select <strong>"Open"</strong>, then click <strong>"Open"</strong> again in the dialog</li>
-                  <li><strong>Option B (Terminal):</strong> Open Terminal and run:<br>
-                    <code style="display:inline-block;margin-top:0.3rem;background:rgba(0,0,0,0.3);padding:4px 10px;border-radius:4px;font-size:0.8rem;color:#5CEAD8">xattr -cr ~/Applications/VoiceType.app</code><br>
-                    <span style="font-size:0.78rem">(Adjust the path if you placed it elsewhere, e.g. <code>~/Documents/VoiceType.app</code>)</span>
-                  </li>
-                  <li><strong>Option C (System Settings):</strong> Go to <strong>System Settings &gt; Privacy &amp; Security</strong>, scroll down, and click <strong>"Open Anyway"</strong> next to the VoiceType message</li>
+                  <li><strong>Right-click</strong> <code>VoiceType.app</code> &rarr; <strong>"Open"</strong> &rarr; click <strong>"Open"</strong> again</li>
+                  <li><strong>Terminal:</strong> <code style="display:inline-block;margin-top:0.2rem;background:var(--surface-alt);padding:3px 8px;border-radius:4px;font-size:0.78rem">xattr -cr ~/Applications/VoiceType.app</code></li>
+                  <li><strong>System Settings</strong> &gt; Privacy &amp; Security &rarr; click <strong>"Open Anyway"</strong></li>
                 </ul>
               </li>
-              <li>
-                <strong>Allow microphone access</strong> — when prompted, click <strong>"Allow"</strong> to let VoiceType use your microphone. If you miss the prompt, go to <strong>System Settings &gt; Privacy &amp; Security &gt; Microphone</strong> and toggle VoiceType on
-              </li>
-              <li><strong>Sign in</strong> with your LinkBoard account — same email and password you use here</li>
-              <li>
-                <strong>Use the floating mic button</strong> — a small floating button appears at the bottom of your screen:
-                <ul style="margin-top:0.4rem;font-size:0.82rem;color:var(--text-muted);list-style:disc;padding-left:1.25rem">
-                  <li><strong>Click the skill tag</strong> on the button to pick which format you want (SOAP, Email, etc.)</li>
-                  <li><strong>Click on the text field</strong> where you want the text to go</li>
-                  <li><strong>Hold the mic button</strong> and speak — release to transcribe and paste</li>
-                </ul>
-              </li>
-              <li><strong>Or use the hotkey:</strong> <strong id="vtHotkeyDisplay">Ctrl/Cmd + Shift + Space</strong> — hold to record, release to transcribe (same as clicking the mic button)</li>
+              <li><strong>Allow microphone access</strong> when prompted</li>
+              <li><strong>Sign in</strong> with your LinkBoard account</li>
+              <li><strong>Use the floating mic</strong> or hotkey: <strong id="vtHotkeyDisplay">Ctrl/Cmd + Shift + Space</strong></li>
             </ol>
-            <p style="font-size:0.8rem;color:var(--text-muted);margin-top:0.75rem">
-              VoiceType stays in your menu bar and uses almost no resources when idle. The floating button can be dragged to any position on screen. Right-click the menu bar icon for settings.
-            </p>
           </div>
 
           <div class="vt-card">
             <h4>Windows Setup</h4>
             <ol class="vt-steps">
               <li><strong>Download</strong> the Windows version above</li>
-              <li><strong>Windows SmartScreen</strong> may show a warning — click <strong>"More info"</strong> then <strong>"Run anyway"</strong></li>
-              <li><strong>Allow microphone access</strong> when prompted by Windows</li>
-              <li><strong>Sign in</strong> and start using the floating mic button or hotkey</li>
+              <li><strong>Windows SmartScreen</strong> — click <strong>"More info"</strong> then <strong>"Run anyway"</strong></li>
+              <li><strong>Allow microphone</strong> when prompted, sign in, and start using the mic button or hotkey</li>
             </ol>
           </div>
         </div>
 
-        <!-- Usage Panel -->
-        <div class="vt-panel" id="vtPanelUsage">
-          <div class="vt-usage-grid">
-            <div class="kpi-card"><div class="kpi-val" id="vtKpiTranscriptions">0</div><div class="kpi-label">Transcriptions</div></div>
-            <div class="kpi-card"><div class="kpi-val" id="vtKpiMinutes">0</div><div class="kpi-label">Total Minutes</div></div>
-            <div class="kpi-card"><div class="kpi-val" id="vtKpiCost">$0.00</div><div class="kpi-label">Est. Cost</div></div>
-            <div class="kpi-card"><div class="kpi-val" id="vtKpiAvgLen">0s</div><div class="kpi-label">Avg Length</div></div>
-          </div>
-
-          <div class="vt-card">
-            <h4>Usage Over Time</h4>
-            <canvas id="vtUsageChart" height="200"></canvas>
-          </div>
-
-          <div class="vt-card">
-            <h4>Recent Transcriptions</h4>
-            <div id="vtUsageList" style="font-size:0.82rem;color:var(--text-muted)">No usage data yet. Start using VoiceType to see your history here.</div>
+        <!-- ═══ Skill Editor Modal ═══ -->
+        <div id="vtSkillEditorOverlay" class="overlay" style="display:none">
+          <div class="modal" style="max-width:560px">
+            <h3 id="vtSkillEditorTitle">Edit Skill</h3>
+            <input type="hidden" id="vtSkillEditId">
+            <div class="field" style="margin-bottom:0.75rem">
+              <label>Skill Name</label>
+              <input type="text" id="vtSkillEditName" placeholder="e.g. Parent Email">
+            </div>
+            <div class="field" style="margin-bottom:0.75rem">
+              <label>Category</label>
+              <select id="vtSkillEditCategory">
+                <option value="email">Email</option>
+                <option value="clinical">Clinical</option>
+                <option value="chat">Chat / Messaging</option>
+                <option value="custom">Custom</option>
+              </select>
+            </div>
+            <div class="field" style="margin-bottom:0.75rem">
+              <label>System Prompt <span style="color:var(--text-muted);font-weight:400">— instructions for how to format the transcription</span></label>
+              <textarea id="vtSkillEditPrompt" rows="8" style="font-size:0.85rem;font-family:monospace;line-height:1.5" placeholder="You are a professional writing assistant..."></textarea>
+            </div>
+            <div class="field" style="margin-bottom:0.75rem">
+              <label>Trigger Phrases <span style="color:var(--text-muted);font-weight:400">— comma-separated words that auto-activate this skill</span></label>
+              <input type="text" id="vtSkillEditTriggers" placeholder="e.g. email to parent, parent email, letter to guardian">
+            </div>
+            <div id="vtSkillEditExamples" style="margin-bottom:0.75rem;display:none">
+              <label style="display:block;font-family:Montserrat,sans-serif;font-size:0.72rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.35rem">
+                Learned Style Examples (<span id="vtSkillExampleCount">0</span>)
+              </label>
+              <p style="font-size:0.78rem;color:var(--text-muted)">This skill has learned from your usage. Examples are used to match your preferred tone and style.</p>
+            </div>
+            <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem">
+              <button class="btn btn-outline btn-sm" onclick="closeSkillEditor()">Cancel</button>
+              <button class="btn btn-danger-ghost btn-sm" id="vtSkillDeleteBtn" onclick="deleteSkill()" style="display:none">Delete</button>
+              <button class="btn btn-gold" onclick="saveSkill()">Save Skill</button>
+            </div>
           </div>
         </div>
+
       </div>
     </div>
 
@@ -3748,12 +4055,16 @@ let vtSkills = [];
 function switchVtTab(panel) {
   document.querySelectorAll('.vt-tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.vt-panel').forEach(p => p.classList.remove('active'));
-  const btn = [...document.querySelectorAll('.vt-tab')].find(t => t.textContent.toLowerCase().includes(panel));
+  const btn = [...document.querySelectorAll('.vt-tab')].find(t => {
+    const txt = t.textContent.toLowerCase().trim();
+    return txt === panel.toLowerCase();
+  });
   if (btn) btn.classList.add('active');
   const el = document.getElementById('vtPanel' + panel.charAt(0).toUpperCase() + panel.slice(1));
   if (el) el.classList.add('active');
   if (panel === 'usage') loadVtUsage();
   if (panel === 'download') detectVtOS();
+  if (panel === 'skills') loadVtSkills();
 }
 
 async function loadVtSettings() {
@@ -3782,8 +4093,9 @@ async function loadVtSettings() {
     document.getElementById('vtAnthropicBaseUrl').value = vtSettings.anthropic_base_url || '';
     const isLocal = vtSettings.transcription_mode === 'local';
     const isActive = isLocal || vtSettings.openai_api_key;
-    document.getElementById('vtStatus').textContent = isLocal ? 'Active (Local)' : (vtSettings.openai_api_key ? 'Active' : 'No API key');
-    document.getElementById('vtStatus').style.color = isActive ? '#1A7A6D' : 'var(--text-muted)';
+    document.getElementById('vtStatus').textContent = isLocal ? 'Local mode' : (vtSettings.openai_api_key ? 'Ready' : 'No API key');
+    const dot = document.getElementById('vtStatusDot');
+    if (dot) { dot.className = 'vt-status-dot' + (isActive ? ' active' : ''); }
   } else {
     document.getElementById('vtApiKey').value = '';
     document.getElementById('vtHotkey').value = 'CommandOrControl+Shift+Space';
@@ -3793,7 +4105,8 @@ async function loadVtSettings() {
     document.getElementById('vtAnthropicKey').value = '';
     document.getElementById('vtAnthropicBaseUrl').value = '';
     document.getElementById('vtStatus').textContent = 'Not configured';
-    document.getElementById('vtStatus').style.color = 'var(--text-muted)';
+    const dot = document.getElementById('vtStatusDot');
+    if (dot) { dot.className = 'vt-status-dot'; }
   }
   onVtModeChange();
 
@@ -3801,6 +4114,7 @@ async function loadVtSettings() {
   loadVtSkills();
 
   updateVtHotkeyDisplay();
+  updateVtGreeting();
   loadVtUsageSummary();
 }
 
@@ -3820,7 +4134,8 @@ async function loadVtSkills() {
     }
   } catch (e) { console.error('Failed to load skills:', e); vtSkills = []; }
   renderSkillsList();
-  // Show Anthropic key section if user has any non-raw skills
+  populateSkillSelector();
+  // Show Anthropic key section always (users need it for formatting)
   const hasFormatSkills = vtSkills.some(s => s.category !== 'raw' && s.system_prompt);
   document.getElementById('vtAnthropicCard').style.display = hasFormatSkills ? '' : 'none';
 }
@@ -4032,14 +4347,16 @@ let vtRecordingTimer = null;
 let vtRecordingSeconds = 0;
 
 async function toggleVtRecording() {
-  const btn = document.getElementById('vtRecordBtn');
+  const ring = document.getElementById('vtMicRing');
   if (vtMediaRecorder && vtMediaRecorder.state === 'recording') {
     // Stop recording
     vtMediaRecorder.stop();
-    btn.classList.remove('recording');
-    btn.classList.add('transcribing');
+    ring.classList.remove('recording');
+    ring.classList.add('transcribing');
     document.getElementById('vtRecordLabel').textContent = 'Transcribing...';
-    document.getElementById('vtRecordIcon').style.display = 'none';
+    document.getElementById('vtMicIcon').style.display = 'none';
+    document.getElementById('vtStopIcon').style.display = 'none';
+    document.getElementById('vtWaveform').style.display = 'none';
     clearInterval(vtRecordingTimer);
     return;
   }
@@ -4057,7 +4374,6 @@ async function toggleVtRecording() {
     };
 
     vtMediaRecorder.onstop = async () => {
-      // Stop all tracks to release the mic
       stream.getTracks().forEach(t => t.stop());
       document.getElementById('vtRecordTimer').style.display = 'none';
 
@@ -4073,15 +4389,27 @@ async function toggleVtRecording() {
         const text = await sendVtAudioToProxy(blob);
         document.getElementById('vtTranscriptText').textContent = text;
         document.getElementById('vtTranscriptResult').style.display = 'block';
-        document.getElementById('vtRecordStatus').textContent = 'Done! Transcription ready.';
+        document.getElementById('vtFormattedResult').style.display = 'none';
+        document.getElementById('vtRecordStatus').textContent = 'Done! Click "Format with AI" to apply a skill.';
 
-        // Auto-copy to clipboard
+        // Auto-copy raw to clipboard
         try {
           await navigator.clipboard.writeText(text);
-          document.getElementById('vtRecordStatus').textContent = 'Copied to clipboard!';
-        } catch (clipErr) {
-          // Clipboard API may not work in all browsers
+          document.getElementById('vtRecordStatus').textContent = 'Transcribed & copied! Click "Format with AI" to style it.';
+        } catch (clipErr) {}
+
+        // Update word count stat
+        updateVtWordCount(text);
+
+        // If a non-raw skill is selected, auto-format
+        const skillId = document.getElementById('vtActiveSkill')?.value;
+        if (skillId) {
+          const skill = vtSkills.find(s => s.id === skillId);
+          if (skill && skill.category !== 'raw' && skill.system_prompt) {
+            await formatVtTranscript();
+          }
         }
+
       } catch (e) {
         document.getElementById('vtRecordStatus').textContent = 'Error: ' + e.message;
         document.getElementById('vtTranscriptResult').style.display = 'none';
@@ -4090,12 +4418,15 @@ async function toggleVtRecording() {
       resetVtRecordBtn();
     };
 
-    vtMediaRecorder.start(250); // Collect chunks every 250ms
-    btn.classList.add('recording');
-    document.getElementById('vtRecordLabel').textContent = 'Stop';
-    document.getElementById('vtRecordIcon').style.display = 'inline-block';
+    vtMediaRecorder.start(250);
+    ring.classList.add('recording');
+    document.getElementById('vtRecordLabel').textContent = 'Click to stop';
+    document.getElementById('vtMicIcon').style.display = 'none';
+    document.getElementById('vtStopIcon').style.display = 'block';
+    document.getElementById('vtWaveform').style.display = 'flex';
     document.getElementById('vtRecordStatus').textContent = 'Listening...';
     document.getElementById('vtTranscriptResult').style.display = 'none';
+    document.getElementById('vtFormattedResult').style.display = 'none';
     document.getElementById('vtRecordTimer').style.display = 'block';
     document.getElementById('vtRecordTimer').textContent = '0:00';
 
@@ -4125,11 +4456,28 @@ function getMimeType() {
 }
 
 function resetVtRecordBtn() {
-  const btn = document.getElementById('vtRecordBtn');
-  btn.classList.remove('recording', 'transcribing');
-  document.getElementById('vtRecordLabel').textContent = 'Record';
-  document.getElementById('vtRecordIcon').style.display = 'inline-block';
-  document.getElementById('vtRecordIcon').style.borderRadius = '50%';
+  const ring = document.getElementById('vtMicRing');
+  ring.classList.remove('recording', 'transcribing');
+  document.getElementById('vtRecordLabel').textContent = 'Click to start recording';
+  document.getElementById('vtMicIcon').style.display = 'block';
+  document.getElementById('vtStopIcon').style.display = 'none';
+  document.getElementById('vtWaveform').style.display = 'none';
+}
+
+function updateVtWordCount(text) {
+  const words = text ? text.trim().split(/\s+/).filter(Boolean).length : 0;
+  const el = document.getElementById('vtTotalWords');
+  if (el) {
+    const current = parseInt(el.textContent.replace(/,/g, '')) || 0;
+    el.textContent = (current + words).toLocaleString();
+  }
+  // Update time saved (words / 40 WPM = minutes, / 60 = hours)
+  const tsEl = document.getElementById('vtTimeSaved');
+  if (tsEl) {
+    const currentWords = parseInt(el?.textContent?.replace(/,/g, '')) || 0;
+    const hours = (currentWords / 40 / 60).toFixed(1);
+    tsEl.textContent = hours;
+  }
 }
 
 async function sendVtAudioToProxy(blob) {
@@ -4166,7 +4514,133 @@ function copyVtTranscript() {
 function clearVtTranscript() {
   document.getElementById('vtTranscriptText').textContent = '';
   document.getElementById('vtTranscriptResult').style.display = 'none';
+  document.getElementById('vtFormattedResult').style.display = 'none';
   document.getElementById('vtRecordStatus').textContent = '';
+}
+
+// ─── Skill Selector (Dictate Tab) ───
+
+function populateSkillSelector() {
+  const sel = document.getElementById('vtActiveSkill');
+  if (!sel) return;
+  const currentVal = sel.value;
+  sel.innerHTML = '<option value="">Auto-detect from speech</option>';
+  (vtSkills || []).forEach(s => {
+    const icons = { raw: '', email: ' ✉️', clinical: ' 🏥', chat: ' 💬', custom: ' ⚙️' };
+    const icon = icons[s.category] || '';
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = s.name + icon;
+    sel.appendChild(opt);
+  });
+  if (currentVal) sel.value = currentVal;
+}
+
+function onVtSkillChange() {
+  const sel = document.getElementById('vtActiveSkill');
+  const hint = document.getElementById('vtSkillHint');
+  if (!sel || !hint) return;
+  if (!sel.value) {
+    hint.textContent = 'Start talking naturally — VoiceType detects your intent and formats automatically.';
+  } else {
+    const skill = vtSkills.find(s => s.id === sel.value);
+    if (skill && skill.category === 'raw') {
+      hint.textContent = 'Raw transcript — no AI formatting applied.';
+    } else if (skill) {
+      hint.textContent = 'Will format as: ' + skill.name + (skill.trigger_phrases?.length ? ' (triggers: "' + skill.trigger_phrases.slice(0, 2).join('", "') + '")' : '');
+    }
+  }
+}
+
+// ─── AI Formatting ───
+
+let vtIsFormatting = false;
+
+async function formatVtTranscript() {
+  const rawText = document.getElementById('vtTranscriptText').innerText.trim();
+  if (!rawText) { toast('Nothing to format — record something first.'); return; }
+  if (vtIsFormatting) return;
+
+  const token = currentSession?.access_token || SUPABASE_ANON;
+  const skillId = document.getElementById('vtActiveSkill')?.value || null;
+
+  vtIsFormatting = true;
+  const btn = document.getElementById('vtFormatBtn');
+  const origText = btn.innerHTML;
+  btn.innerHTML = '<span class="vt-format-spinner"></span> Formatting...';
+  btn.disabled = true;
+
+  try {
+    const payload = { text: rawText };
+    if (skillId) payload.skill_id = skillId;
+
+    const res = await fetch('/api/voicetype/format', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Server error ' + res.status }));
+      throw new Error(err.error || 'Formatting failed');
+    }
+
+    const data = await res.json();
+
+    if (data.was_formatted && data.text) {
+      document.getElementById('vtFormattedText').innerText = data.text;
+      document.getElementById('vtFormattedBadge').textContent = data.skill_name || 'AI Formatted';
+      document.getElementById('vtFormattedLabel').textContent = 'Formatted — ' + (data.skill_name || 'AI');
+      document.getElementById('vtFormattedResult').style.display = 'block';
+      document.getElementById('vtFormatSkillTag').textContent = data.skill_name;
+      document.getElementById('vtFormatSkillTag').style.display = '';
+      toast('Formatted with ' + data.skill_name + '!', true);
+    } else {
+      toast('No formatting needed (Raw Transcript mode).', true);
+    }
+  } catch (e) {
+    toast('Format error: ' + e.message);
+    console.error('Format error:', e);
+  } finally {
+    vtIsFormatting = false;
+    btn.innerHTML = origText;
+    btn.disabled = false;
+  }
+}
+
+async function reformatVtTranscript() {
+  // Re-run formatting on the original raw text
+  await formatVtTranscript();
+}
+
+function copyVtFormatted() {
+  const text = document.getElementById('vtFormattedText').innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    toast('Formatted text copied!', true);
+  }).catch(() => {
+    toast('Failed to copy — select and copy manually');
+  });
+}
+
+// ─── Greeting updater ───
+
+function updateVtGreeting() {
+  const h = new Date().getHours();
+  let greeting = 'Good evening';
+  if (h < 12) greeting = 'Good morning';
+  else if (h < 17) greeting = 'Good afternoon';
+  const el = document.getElementById('vtGreeting');
+  if (el) el.textContent = greeting;
+
+  // Update hero sub with user name
+  const sub = document.getElementById('vtHeroSub');
+  if (sub && currentUser) {
+    const name = currentUser.user_metadata?.full_name || currentUser.email?.split('@')[0] || '';
+    sub.textContent = name ? name + ' \u00b7 Here\'s your dictation overview' : 'Here\'s your dictation overview';
+  }
 }
 
 async function deleteVtApiKey() {
@@ -4214,8 +4688,19 @@ async function loadVtUsageSummary() {
   const totalCost = vtUsageData.reduce((s, u) => s + parseFloat(u.cost_usd || 0), 0);
 
   document.getElementById('vtTranscriptions').textContent = totalTranscriptions;
-  document.getElementById('vtMinutes').textContent = totalMinutes;
-  document.getElementById('vtCost').textContent = '$' + totalCost.toFixed(2);
+  document.getElementById('vtMinutes').textContent = totalMinutes + ' min used';
+
+  // Estimate total words (~150 words/min speech rate)
+  const estWords = Math.round(totalSeconds * 2.5);
+  const wordsEl = document.getElementById('vtTotalWords');
+  if (wordsEl) wordsEl.textContent = estWords.toLocaleString();
+
+  // Time saved vs typing at 40 WPM
+  const timeSavedEl = document.getElementById('vtTimeSaved');
+  if (timeSavedEl) {
+    const hoursSaved = (estWords / 40 / 60).toFixed(1);
+    timeSavedEl.textContent = hoursSaved;
+  }
 }
 
 async function loadVtUsage() {
