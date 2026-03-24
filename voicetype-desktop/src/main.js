@@ -256,7 +256,7 @@ function createIndicatorWindow() {
     skipTaskbar: true,
     resizable: false,
     hasShadow: true,
-    focusable: false,
+    focusable: true,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -279,7 +279,7 @@ function createIndicatorWindow() {
       }
       .container {
         display: flex; flex-direction: column; align-items: center; gap: 6px;
-        padding-bottom: 8px;
+        padding-bottom: 8px; position: relative;
       }
 
       /* ── Skill Dropdown (appears above pill) ── */
@@ -371,6 +371,20 @@ function createIndicatorWindow() {
         0%,100% { transform: scaleY(1); } 50% { transform: scaleY(0.4); }
       }
 
+      /* ── Close Button ── */
+      .close-btn {
+        position: absolute; top: -6px; right: -6px;
+        width: 20px; height: 20px; border-radius: 50%;
+        background: rgba(255,255,255,0.15); border: none;
+        color: rgba(255,255,255,0.6); font-size: 12px; line-height: 20px;
+        text-align: center; cursor: pointer;
+        opacity: 0; transition: opacity 0.2s, background 0.15s;
+        -webkit-app-region: no-drag; z-index: 10;
+        display: flex; align-items: center; justify-content: center;
+      }
+      .container:hover .close-btn { opacity: 1; }
+      .close-btn:hover { background: rgba(231,76,60,0.8); color: #fff; }
+
       /* ── Tooltip ── */
       .tooltip {
         font-size: 10px; color: rgba(255,255,255,0.5);
@@ -379,6 +393,9 @@ function createIndicatorWindow() {
     </style></head>
     <body>
       <div class="container" id="container">
+        <!-- Close Button -->
+        <button class="close-btn" id="closeBtn" onclick="closePill()" title="Hide pill (reopen from tray icon)">&#x2715;</button>
+
         <!-- Skill Dropdown (pops up above the pill) -->
         <div class="skill-menu" id="skillMenu"></div>
 
@@ -395,7 +412,7 @@ function createIndicatorWindow() {
           <div class="skill-tag" id="skillTag" onclick="toggleSkillMenu(event)">Raw</div>
         </div>
 
-        <div class="tooltip" id="tooltip">Hold mic to record</div>
+        <div class="tooltip" id="tooltip">Click mic to record</div>
       </div>
 
       <script>
@@ -453,24 +470,31 @@ function createIndicatorWindow() {
           tag.textContent = (skill && skill.name) ? skill.name : 'Raw';
         }
 
-        // ── Push-to-Talk (mouse) ──
+        // ── Mic Button (click-to-toggle) ──
         function onMicDown(e) {
           if (e.button !== 0) return; // left click only
-          if (isRecordingState) return;
-          closeSkillMenu();
-          if (window.voicetype) window.voicetype.pushToTalkStart();
+          e.preventDefault();
+          if (isRecordingState) {
+            // Stop recording
+            if (window.voicetype) window.voicetype.pushToTalkStop();
+          } else {
+            // Start recording
+            closeSkillMenu();
+            if (window.voicetype) window.voicetype.pushToTalkStart();
+          }
         }
 
         function onMicUp(e) {
-          if (e.button !== 0) return;
-          if (window.voicetype) window.voicetype.pushToTalkStop();
+          // no-op: we use click-to-toggle now
         }
 
         function onMicLeave(e) {
-          // If user drags mouse off button while holding, stop recording
-          if (isRecordingState) {
-            if (window.voicetype) window.voicetype.pushToTalkStop();
-          }
+          // no-op: we use click-to-toggle now
+        }
+
+        // Close/hide the floating pill
+        function closePill() {
+          if (window.voicetype) window.voicetype.hidePill();
         }
 
         // Close menu when clicking outside
@@ -495,10 +519,10 @@ function createIndicatorWindow() {
           isRecordingState = (state === 'recording');
 
           if (state === 'idle') {
-            tooltip.textContent = 'Hold mic to record';
+            tooltip.textContent = 'Click mic to record';
             tooltip.style.opacity = '1';
           } else if (state === 'recording') {
-            tooltip.textContent = 'Release to stop';
+            tooltip.textContent = 'Click to stop';
             tooltip.style.opacity = '1';
           } else if (state === 'processing') {
             tooltip.textContent = '';
@@ -621,7 +645,7 @@ function showIndicator(text, opts = {}) {
   indicatorWindow.webContents.executeJavaScript(
     `setState(${JSON.stringify(state)}, ${JSON.stringify(text)}, ${showSkill});`
   );
-  indicatorWindow.show();
+  indicatorWindow.showInactive();
 }
 
 function hideIndicator() {
@@ -640,7 +664,7 @@ function showFloatingButton() {
     `setSkills(${JSON.stringify(skillList)}, ${activeIdx});`
   );
   indicatorWindow.webContents.executeJavaScript(`setState('idle', '', false);`);
-  indicatorWindow.show();
+  indicatorWindow.showInactive();
 }
 
 // ─── Full-Screen Dashboard Window ───
@@ -1129,6 +1153,14 @@ function getDashboardHTML() {
 // IPC: indicator skill selector sends index back to main process
 ipcMain.on('skill-select', (_event, idx) => {
   selectedSkillIdx = idx;
+});
+
+// IPC: Hide floating pill (close button on indicator)
+ipcMain.on('indicator-hide', () => {
+  if (indicatorWindow) {
+    indicatorWindow.hide();
+    updateTrayMenu('Ready');
+  }
 });
 
 // IPC: Push-to-Talk (mouse-based recording from floating button)

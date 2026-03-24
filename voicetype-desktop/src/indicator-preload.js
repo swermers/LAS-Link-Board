@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('voicetype', {
   setSkill: (idx) => ipcRenderer.send('skill-select', idx),
   pushToTalkStart: () => ipcRenderer.send('push-to-talk-start'),
   pushToTalkStop: () => ipcRenderer.send('push-to-talk-stop'),
+  hidePill: () => ipcRenderer.send('indicator-hide'),
   // Browser-based audio recording (fallback when SoX is not installed)
   sendAudioData: (wavArrayBuffer) => ipcRenderer.send('browser-audio-data', wavArrayBuffer),
   onStartBrowserRecording: (cb) => ipcRenderer.on('start-browser-recording', cb),
