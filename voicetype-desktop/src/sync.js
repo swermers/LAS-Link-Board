@@ -11,6 +11,80 @@ const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFz
 const LINKBOARD_API = 'https://las-link-board.vercel.app/api/voicetype/settings';
 
 /**
+ * Refresh the Supabase access token using the stored refresh_token.
+ * Returns true if refresh succeeded, false otherwise.
+ */
+async function refreshToken(store) {
+  const refreshTok = store.get('supabase_refresh_token');
+  if (!refreshTok) return false;
+
+  try {
+    const res = await fetch(SUPABASE_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ refresh_token: refreshTok }),
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!res.ok) {
+      console.warn('Token refresh failed:', res.status);
+      return false;
+    }
+    const data = await res.json();
+    if (data.access_token && data.refresh_token) {
+      store.set('supabase_token', data.access_token);
+      store.set('supabase_refresh_token', data.refresh_token);
+      if (data.user && data.user.email) {
+        store.set('user_email', data.user.email);
+      }
+      if (data.user && data.user.id) {
+        store.set('user_id', data.user.id);
+      }
+      console.log('Token refreshed successfully');
+      return true;
+    }
+    return false;
+  } catch (e) {
+    console.warn('Token refresh error:', e.message);
+    return false;
+  }
+}
+
+/**
+ * Ensure we have a valid token. Try the current one first,
+ * and if it's expired, refresh it automatically.
+ */
+async function ensureValidToken(store) {
+  const token = store.get('supabase_token');
+  if (!token) return false;
+
+  // Quick check: try to validate the current token
+  try {
+    const res = await fetch(SUPABASE_URL + '/auth/v1/user', {
+      headers: {
+        'apikey': SUPABASE_ANON,
+        'Authorization': 'Bearer ' + token
+      },
+      signal: AbortSignal.timeout(5000)
+    });
+    if (res.ok) {
+      const user = await res.json();
+      if (user && user.email) store.set('user_email', user.email);
+      return true; // Token is still valid
+    }
+  } catch (e) {
+    // Network error — don't clear token, might be offline
+    console.warn('Token validation failed (network?):', e.message);
+  }
+
+  // Token is expired or invalid — try to refresh
+  console.log('Token expired, attempting refresh...');
+  return await refreshToken(store);
+}
+
+/**
  * Sync settings from Supabase. Tries the LinkBoard API first,
  * then falls back to direct Supabase REST, then local cache.
  *
@@ -33,7 +107,7 @@ async function syncSettings(store) {
   // Try LinkBoard API first (handles decryption server-side)
   try {
     const res = await fetch(LINKBOARD_API, {
-      headers: { 'Authorization': 'Bearer ' + token },
+      headers: { 'Authorization': 'Bearer ' + store.get('supabase_token') },
       signal: AbortSignal.timeout(8000)
     });
     if (res.ok) {
@@ -41,6 +115,22 @@ async function syncSettings(store) {
       store.set('cached_settings', settings);
       console.log('Settings synced via LinkBoard API');
       return settings;
+    }
+    // If 401, try refreshing token and retry once
+    if (res.status === 401) {
+      const refreshed = await refreshToken(store);
+      if (refreshed) {
+        const retry = await fetch(LINKBOARD_API, {
+          headers: { 'Authorization': 'Bearer ' + store.get('supabase_token') },
+          signal: AbortSignal.timeout(8000)
+        });
+        if (retry.ok) {
+          const settings = await retry.json();
+          store.set('cached_settings', settings);
+          console.log('Settings synced via LinkBoard API (after token refresh)');
+          return settings;
+        }
+      }
     }
   } catch (e) {
     console.warn('LinkBoard API unavailable, trying direct Supabase:', e.message);
@@ -53,7 +143,7 @@ async function syncSettings(store) {
       {
         headers: {
           'apikey': SUPABASE_ANON,
-          'Authorization': 'Bearer ' + token
+          'Authorization': 'Bearer ' + store.get('supabase_token')
         },
         signal: AbortSignal.timeout(8000)
       }
@@ -110,7 +200,9 @@ function clearAuth(store) {
   store.delete('supabase_token');
   store.delete('supabase_refresh_token');
   store.delete('user_id');
+  store.delete('user_email');
   store.delete('cached_settings');
+  store.delete('cached_skills');
 }
 
 /**
@@ -122,7 +214,7 @@ async function saveSettings(store, updates) {
   const token = store.get('supabase_token');
   if (!token) throw new Error('Not signed in');
 
-  const res = await fetch(LINKBOARD_API, {
+  let res = await fetch(LINKBOARD_API, {
     method: 'PUT',
     headers: {
       'Authorization': 'Bearer ' + token,
@@ -131,6 +223,23 @@ async function saveSettings(store, updates) {
     body: JSON.stringify(updates),
     signal: AbortSignal.timeout(8000)
   });
+
+  // If 401, try refreshing token and retry
+  if (res.status === 401) {
+    const refreshed = await refreshToken(store);
+    if (refreshed) {
+      res = await fetch(LINKBOARD_API, {
+        method: 'PUT',
+        headers: {
+          'Authorization': 'Bearer ' + store.get('supabase_token'),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updates),
+        signal: AbortSignal.timeout(8000)
+      });
+    }
+  }
+
   if (!res.ok) {
     const text = await res.text();
     throw new Error('Save failed: ' + text);
@@ -142,4 +251,4 @@ async function saveSettings(store, updates) {
   return cached;
 }
 
-module.exports = { syncSettings, saveSettings, storeAuth, clearAuth };
+module.exports = { syncSettings, saveSettings, storeAuth, clearAuth, refreshToken, ensureValidToken };
