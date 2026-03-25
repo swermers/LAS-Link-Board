@@ -252,7 +252,7 @@ function formatHotkey(key) {
 function createIndicatorWindow() {
   indicatorWindow = new BrowserWindow({
     width: 220,
-    height: 54,
+    height: 62,
     show: false,
     frame: false,
     transparent: true,
@@ -280,7 +280,7 @@ function createIndicatorWindow() {
         display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
         height: 100vh; font-family: -apple-system, BlinkMacSystemFont, sans-serif;
         background: transparent; user-select: none;
-        overflow: hidden;
+        overflow: visible; padding-top: 8px; padding-bottom: 4px;
       }
       .container {
         display: flex; flex-direction: column; align-items: center; gap: 4px;
@@ -290,9 +290,10 @@ function createIndicatorWindow() {
       /* ── Skill Dropdown (appears above pill) ── */
       .skill-menu {
         display: none; flex-direction: column; gap: 2px;
-        background: rgba(11,37,69,0.97); border-radius: 12px;
+        background: #FFFFFF; border-radius: 12px;
         padding: 6px; width: 220px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        border: 1.5px solid rgba(11,37,69,0.12);
+        box-shadow: 0 8px 32px rgba(11,37,69,0.18);
         max-height: 180px; overflow-y: auto;
       }
       .skill-menu.open { display: flex; }
@@ -302,23 +303,24 @@ function createIndicatorWindow() {
         cursor: pointer; transition: background 0.15s;
         -webkit-app-region: no-drag;
       }
-      .skill-menu-item:hover { background: rgba(26,122,109,0.3); }
-      .skill-menu-item.active { background: rgba(26,122,109,0.5); }
+      .skill-menu-item:hover { background: rgba(197,150,59,0.12); }
+      .skill-menu-item.active { background: rgba(197,150,59,0.2); }
       .skill-menu-item .smi-name {
-        font-size: 12px; font-weight: 600; color: #fff;
+        font-size: 12px; font-weight: 600; color: #0B2545;
       }
       .skill-menu-item .smi-cat {
-        font-size: 9px; font-weight: 600; color: #5CEAD8;
-        background: rgba(26,122,109,0.3); border-radius: 3px;
+        font-size: 9px; font-weight: 600; color: #C5963B;
+        background: rgba(197,150,59,0.15); border-radius: 3px;
         padding: 1px 5px; margin-left: auto; text-transform: uppercase;
       }
 
       /* ── Main Pill ── */
       .pill {
         display: flex; align-items: center; gap: 8px;
-        background: rgba(11,37,69,0.95); color: #fff;
+        background: #FFFFFF; color: #0B2545;
+        border: 1.5px solid rgba(11,37,69,0.12);
         border-radius: 24px; padding: 8px 14px; height: 44px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        box-shadow: 0 4px 16px rgba(11,37,69,0.15);
         transition: all 0.2s ease;
         -webkit-app-region: drag;
       }
@@ -330,11 +332,11 @@ function createIndicatorWindow() {
         border: none; cursor: pointer; transition: all 0.15s ease;
         -webkit-app-region: no-drag;
       }
-      .mic-btn.idle { background: #1A7A6D; }
-      .mic-btn.idle:hover { background: #24a08e; transform: scale(1.08); }
+      .mic-btn.idle { background: #C5963B; }
+      .mic-btn.idle:hover { background: #B5862E; transform: scale(1.08); }
       .mic-btn.recording { background: #e74c3c; animation: pulse 1s ease-in-out infinite; }
-      .mic-btn.processing { background: #1A7A6D; animation: spin 1s linear infinite; pointer-events: none; }
-      .mic-btn.done { background: #1A7A6D; animation: none; }
+      .mic-btn.processing { background: #C5963B; animation: spin 1s linear infinite; pointer-events: none; }
+      .mic-btn.done { background: #27ae60; animation: none; }
       .mic-btn svg { width: 16px; height: 16px; fill: #fff; pointer-events: none; }
       @keyframes pulse { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(0.9); opacity: 0.6; } }
       @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -350,13 +352,13 @@ function createIndicatorWindow() {
 
       /* ── Skill Tag (click to open dropdown) ── */
       .skill-tag {
-        font-size: 10px; font-weight: 700; color: #5CEAD8;
-        background: rgba(26,122,109,0.4); border-radius: 4px;
+        font-size: 10px; font-weight: 700; color: #C5963B;
+        background: rgba(197,150,59,0.15); border-radius: 4px;
         padding: 3px 8px; white-space: nowrap; cursor: pointer;
         -webkit-app-region: no-drag; transition: all 0.15s ease;
         max-width: 80px; overflow: hidden; text-overflow: ellipsis;
       }
-      .skill-tag:hover { background: rgba(26,122,109,0.7); }
+      .skill-tag:hover { background: rgba(197,150,59,0.3); }
 
       /* ── Waveform ── */
       .waveform {
@@ -364,7 +366,7 @@ function createIndicatorWindow() {
       }
       .waveform.visible { display: flex; }
       .waveform .bar {
-        width: 3px; border-radius: 2px; background: #5CEAD8;
+        width: 3px; border-radius: 2px; background: #C5963B;
         animation: wave 0.6s ease-in-out infinite;
       }
       .waveform .bar:nth-child(1) { height: 6px; animation-delay: 0s; }
@@ -376,23 +378,22 @@ function createIndicatorWindow() {
         0%,100% { transform: scaleY(1); } 50% { transform: scaleY(0.4); }
       }
 
-      /* ── Close Button ── */
+      /* ── Close Button (always visible) ── */
       .close-btn {
-        position: absolute; top: 2px; right: 2px;
-        width: 16px; height: 16px; border-radius: 50%;
-        background: rgba(255,255,255,0.15); border: none;
-        color: rgba(255,255,255,0.6); font-size: 10px; line-height: 16px;
+        position: absolute; top: -6px; right: -6px;
+        width: 22px; height: 22px; border-radius: 50%;
+        background: rgba(11,37,69,0.12); border: 1.5px solid rgba(11,37,69,0.08);
+        color: #0B2545; font-size: 13px; font-weight: 700; line-height: 22px;
         text-align: center; cursor: pointer;
-        opacity: 0; transition: opacity 0.2s, background 0.15s;
+        opacity: 1; transition: background 0.15s, transform 0.15s;
         -webkit-app-region: no-drag; z-index: 10;
         display: flex; align-items: center; justify-content: center;
       }
-      .container:hover .close-btn { opacity: 1; }
-      .close-btn:hover { background: rgba(231,76,60,0.8); color: #fff; }
+      .close-btn:hover { background: rgba(231,76,60,0.85); color: #fff; transform: scale(1.15); }
 
       /* ── Tooltip (hidden by default, only shown briefly) ── */
       .tooltip {
-        font-size: 10px; color: rgba(255,255,255,0.5);
+        font-size: 10px; color: rgba(11,37,69,0.5);
         text-align: center; transition: opacity 0.2s;
         position: absolute; bottom: -14px; white-space: nowrap;
         pointer-events: none; display: none;
@@ -467,16 +468,16 @@ function createIndicatorWindow() {
           // Expand window to fit dropdown, or shrink back
           if (menuOpen) {
             var menuH = Math.min(skills.length * 36 + 16, 200);
-            if (window.voicetype) window.voicetype.resizePill(220, 54 + menuH + 4);
+            if (window.voicetype) window.voicetype.resizePill(220, 62 + menuH + 4);
           } else {
-            if (window.voicetype) window.voicetype.resizePill(220, 54);
+            if (window.voicetype) window.voicetype.resizePill(220, 62);
           }
         }
 
         function closeSkillMenu() {
           menuOpen = false;
           document.getElementById('skillMenu').classList.remove('open');
-          if (window.voicetype) window.voicetype.resizePill(220, 54);
+          if (window.voicetype) window.voicetype.resizePill(220, 62);
         }
 
         function updateSkillTag() {
@@ -728,7 +729,8 @@ function openDashboard() {
     mode: settings?.transcription_mode || 'cloud',
     localModelReady: localWhisper.isModelDownloaded(),
     whisperCppReady: isWhisperCppAvailable(),
-    isLoggedIn: !!store.get('user_id')
+    isLoggedIn: !!store.get('user_id'),
+    userEmail: store.get('user_email') || ''
   });
 
   // Send current state to dashboard (retry after short delay for page load)
@@ -808,9 +810,10 @@ function getDashboardHTML() {
   .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
   .main-header {
     padding: 52px 32px 0; display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
   }
   .main-header h2 { font-size: 24px; font-weight: 700; color: var(--navy); }
-  .content { flex: 1; overflow-y: auto; padding: 24px 32px 32px; }
+  .content { flex: 1; overflow-y: auto; padding: 24px 32px 32px; min-height: 0; }
 
   /* Cards */
   .card {
@@ -882,8 +885,8 @@ function getDashboardHTML() {
   .toggle.on::after { transform: translateX(20px); }
 
   /* Page sections */
-  .page { display: none; }
-  .page.active { display: block; }
+  .page { display: none; height: 100%; overflow: hidden; }
+  .page.active { display: flex; flex-direction: column; }
 
   /* Form inputs */
   input[type="text"], textarea, select {
@@ -933,6 +936,8 @@ function getDashboardHTML() {
         <div class="status-dot" id="statusDot"></div>
         <span id="statusText">Ready</span>
       </div>
+      <div id="accountInfo" style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:8px;word-break:break-all;"></div>
+      <button class="btn-quit" style="margin-top:8px;" onclick="refreshSettings()">Sync Settings</button>
       <button class="btn-quit" onclick="quitApp()">Quit VoiceType</button>
     </div>
   </div>
@@ -1227,12 +1232,16 @@ function getDashboardHTML() {
       // Status
       const dot = document.getElementById('statusDot');
       const statusText = document.getElementById('statusText');
+      var acctEl = document.getElementById('accountInfo');
       if (data.isLoggedIn) {
         dot.classList.remove('offline');
         statusText.textContent = 'Ready';
+        if (acctEl && data.userEmail) acctEl.textContent = data.userEmail;
+        else if (acctEl) acctEl.textContent = 'Signed in';
       } else {
         dot.classList.add('offline');
         statusText.textContent = 'Not signed in';
+        if (acctEl) acctEl.textContent = 'Click Sync Settings to sign in';
       }
 
       // Skills

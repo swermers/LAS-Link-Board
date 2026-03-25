@@ -96,10 +96,11 @@ function getCachedSettings(store) {
  * Store auth credentials after login.
  * Called from a login flow (future: OAuth window in the app).
  */
-function storeAuth(store, { token, refreshToken, userId }) {
+function storeAuth(store, { token, refreshToken, userId, email }) {
   store.set('supabase_token', token);
   store.set('supabase_refresh_token', refreshToken);
   store.set('user_id', userId);
+  if (email) store.set('user_email', email);
 }
 
 /**

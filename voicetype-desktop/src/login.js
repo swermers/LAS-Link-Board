@@ -221,7 +221,8 @@ function sendAuth(session) {
   const payload = {
     token: session.access_token,
     refreshToken: session.refresh_token,
-    userId: session.user.id
+    userId: session.user.id,
+    email: session.user.email || ''
   };
   // Send to main process via console (picked up by webContents listener)
   console.log('VOICETYPE_AUTH:' + JSON.stringify(payload));
