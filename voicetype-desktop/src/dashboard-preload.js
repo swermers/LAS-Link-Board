@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('dashboard', {
   togglePill: (on) => ipcRenderer.send('dashboard-toggle-pill', on),
   setMode: (mode) => ipcRenderer.send('dashboard-set-mode', mode),
   quitApp: () => ipcRenderer.send('dashboard-quit'),
+  signOut: () => ipcRenderer.send('dashboard-sign-out'),
 
   // Skill CRUD
   createSkill: (skill) => ipcRenderer.invoke('dashboard-create-skill', skill),

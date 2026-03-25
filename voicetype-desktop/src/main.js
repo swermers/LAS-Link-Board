@@ -7,7 +7,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { registerHotkey, unregisterAll } = require('./hotkey');
-const { syncSettings, saveSettings, storeAuth } = require('./sync');
+const { syncSettings, saveSettings, storeAuth, clearAuth, refreshToken, ensureValidToken } = require('./sync');
 const { startRecording, stopRecording, checkSoxInstalled, onBrowserAudioData, isBrowserRecording } = require('./recorder');
 const { transcribe } = require('./whisper');
 const { injectText } = require('./injector');
@@ -60,13 +60,25 @@ app.on('ready', async () => {
   createIndicatorWindow();
   createDashboardWindow();
 
-  // Check if user is logged in — show login window if not
-  const hasToken = store.get('supabase_token') && store.get('user_id');
-  if (!hasToken) {
+  // Always require login on launch — try refreshing existing token first
+  let loggedIn = false;
+  const hasRefreshToken = store.get('supabase_refresh_token');
+  if (hasRefreshToken) {
+    updateTrayMenu('Signing in...');
+    loggedIn = await ensureValidToken(store);
+    if (loggedIn) {
+      console.log('Session restored via token refresh');
+    }
+  }
+
+  if (!loggedIn) {
+    // Clear any stale auth and require fresh login
+    clearAuth(store);
     updateTrayMenu('Awaiting login...');
     try {
       const auth = await showLoginWindow();
       storeAuth(store, auth);
+      loggedIn = true;
     } catch (e) {
       // User closed login window — continue with defaults
       console.log('Login skipped:', e.message);
@@ -101,6 +113,9 @@ app.on('ready', async () => {
 app.on('will-quit', () => {
   stopSkillAutoSync();
   unregisterAll();
+  // Clear access token on quit so login is required next launch.
+  // Keep refresh_token so we can auto-restore the session.
+  store.delete('supabase_token');
 });
 
 // Don't quit when all windows close (tray app)
@@ -936,9 +951,13 @@ function getDashboardHTML() {
         <div class="status-dot" id="statusDot"></div>
         <span id="statusText">Ready</span>
       </div>
-      <div id="accountInfo" style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:8px;word-break:break-all;"></div>
+      <div id="accountSection" style="margin-top:10px;padding:10px;background:rgba(255,255,255,0.08);border-radius:8px;">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.05em;color:rgba(255,255,255,0.4);margin-bottom:4px;">Account</div>
+        <div id="accountEmail" style="font-size:12px;color:#fff;font-weight:600;word-break:break-all;">Not signed in</div>
+      </div>
       <button class="btn-quit" style="margin-top:8px;" onclick="refreshSettings()">Sync Settings</button>
-      <button class="btn-quit" onclick="quitApp()">Quit VoiceType</button>
+      <button class="btn-quit" style="margin-top:4px;" onclick="signOut()">Sign Out</button>
+      <button class="btn-quit" style="margin-top:4px;" onclick="quitApp()">Quit VoiceType</button>
     </div>
   </div>
 
@@ -1189,6 +1208,10 @@ function getDashboardHTML() {
       if (window.dashboard) window.dashboard.refreshSettings();
     }
 
+    function signOut() {
+      if (window.dashboard) window.dashboard.signOut();
+    }
+
     function toggleAutoSubmit() {
       const toggle = document.getElementById('autoSubmitToggle');
       toggle.classList.toggle('on');
@@ -1229,19 +1252,18 @@ function getDashboardHTML() {
       const asToggle = document.getElementById('autoSubmitToggle');
       if (asToggle && data.settings.auto_submit) asToggle.classList.add('on');
 
-      // Status
+      // Status & Account
       const dot = document.getElementById('statusDot');
       const statusText = document.getElementById('statusText');
-      var acctEl = document.getElementById('accountInfo');
+      const acctEmail = document.getElementById('accountEmail');
       if (data.isLoggedIn) {
         dot.classList.remove('offline');
         statusText.textContent = 'Ready';
-        if (acctEl && data.userEmail) acctEl.textContent = data.userEmail;
-        else if (acctEl) acctEl.textContent = 'Signed in';
+        if (acctEmail) acctEmail.textContent = data.userEmail || 'Signed in';
       } else {
         dot.classList.add('offline');
         statusText.textContent = 'Not signed in';
-        if (acctEl) acctEl.textContent = 'Click Sync Settings to sign in';
+        if (acctEmail) acctEmail.textContent = 'Not signed in';
       }
 
       // Skills
@@ -1432,6 +1454,21 @@ ipcMain.on('dashboard-open-linkboard', () => {
 
 ipcMain.on('dashboard-refresh-settings', async () => {
   try {
+    // Ensure token is valid before syncing
+    const valid = await ensureValidToken(store);
+    if (!valid) {
+      // Token expired and can't refresh — force re-login
+      clearAuth(store);
+      updateTrayMenu('Awaiting login...');
+      try {
+        const auth = await showLoginWindow();
+        storeAuth(store, auth);
+      } catch (e) {
+        console.log('Re-login skipped:', e.message);
+        if (dashboardWindow && dashboardWindow.isVisible()) openDashboard();
+        return;
+      }
+    }
     settings = await syncSettings(store);
     await syncSkills();
     unregisterAll();
@@ -1441,6 +1478,26 @@ ipcMain.on('dashboard-refresh-settings', async () => {
   } catch (e) {
     console.error('Settings refresh failed:', e.message);
   }
+});
+
+// Sign out — clear auth and show login window
+ipcMain.on('dashboard-sign-out', async () => {
+  clearAuth(store);
+  settings = null;
+  userSkills = [];
+  updateTrayMenu('Signed out');
+  try {
+    const auth = await showLoginWindow();
+    storeAuth(store, auth);
+    settings = await syncSettings(store);
+    await syncSkills();
+    unregisterAll();
+    registerHotkey(settings?.hotkey || 'CommandOrControl+Shift+Space', onHotkeyDown, onHotkeyUp);
+    updateTrayMenu('Ready');
+  } catch (e) {
+    console.log('Re-login skipped:', e.message);
+  }
+  if (dashboardWindow && dashboardWindow.isVisible()) openDashboard();
 });
 
 ipcMain.on('dashboard-toggle-autosubmit', (_event, on) => {
@@ -1669,10 +1726,22 @@ async function syncSkills() {
   }
 
   try {
-    const res = await fetch(LINKBOARD_SKILLS_API, {
+    let res = await fetch(LINKBOARD_SKILLS_API, {
       headers: { 'Authorization': 'Bearer ' + token },
       signal: AbortSignal.timeout(8000)
     });
+
+    // Auto-refresh token on 401 and retry
+    if (res.status === 401) {
+      const refreshed = await refreshToken(store);
+      if (refreshed) {
+        res = await fetch(LINKBOARD_SKILLS_API, {
+          headers: { 'Authorization': 'Bearer ' + store.get('supabase_token') },
+          signal: AbortSignal.timeout(8000)
+        });
+      }
+    }
+
     if (res.ok) {
       userSkills = await res.json();
       store.set('cached_skills', userSkills);
@@ -1706,26 +1775,39 @@ function stopSkillAutoSync() {
 
 // ─── Skill CRUD (desktop → API → Supabase) ───
 
-ipcMain.handle('dashboard-create-skill', async (_event, skill) => {
-  const token = store.get('supabase_token');
+// Helper: make an authenticated API call with auto token refresh on 401
+async function skillApiCall(method, url, body) {
+  let token = store.get('supabase_token');
   if (!token) return { error: 'Not signed in' };
 
-  try {
-    const res = await fetch(LINKBOARD_SKILLS_API, {
-      method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + token,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(skill),
-      signal: AbortSignal.timeout(10000)
-    });
-    if (!res.ok) {
-      const err = await res.text();
-      return { error: err };
+  const opts = {
+    method,
+    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+    signal: AbortSignal.timeout(10000)
+  };
+  if (body) opts.body = JSON.stringify(body);
+
+  let res = await fetch(url, opts);
+
+  // Auto-refresh on 401 and retry once
+  if (res.status === 401) {
+    const refreshed = await refreshToken(store);
+    if (refreshed) {
+      opts.headers['Authorization'] = 'Bearer ' + store.get('supabase_token');
+      res = await fetch(url, opts);
     }
+  }
+
+  return res;
+}
+
+ipcMain.handle('dashboard-create-skill', async (_event, skill) => {
+  try {
+    const res = await skillApiCall('POST', LINKBOARD_SKILLS_API, skill);
+    if (res.error) return res;
+    if (!res.ok) { const err = await res.text(); return { error: err }; }
     const created = await res.json();
-    await syncSkills(); // re-fetch full list
+    await syncSkills();
     return created;
   } catch (e) {
     return { error: e.message };
@@ -1733,25 +1815,12 @@ ipcMain.handle('dashboard-create-skill', async (_event, skill) => {
 });
 
 ipcMain.handle('dashboard-update-skill', async (_event, skill) => {
-  const token = store.get('supabase_token');
-  if (!token) return { error: 'Not signed in' };
-
   try {
-    const res = await fetch(LINKBOARD_SKILLS_API, {
-      method: 'PUT',
-      headers: {
-        'Authorization': 'Bearer ' + token,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(skill),
-      signal: AbortSignal.timeout(10000)
-    });
-    if (!res.ok) {
-      const err = await res.text();
-      return { error: err };
-    }
+    const res = await skillApiCall('PUT', LINKBOARD_SKILLS_API, skill);
+    if (res.error) return res;
+    if (!res.ok) { const err = await res.text(); return { error: err }; }
     const updated = await res.json();
-    await syncSkills(); // re-fetch full list
+    await syncSkills();
     return updated;
   } catch (e) {
     return { error: e.message };
@@ -1759,20 +1828,11 @@ ipcMain.handle('dashboard-update-skill', async (_event, skill) => {
 });
 
 ipcMain.handle('dashboard-delete-skill', async (_event, id) => {
-  const token = store.get('supabase_token');
-  if (!token) return { error: 'Not signed in' };
-
   try {
-    const res = await fetch(LINKBOARD_SKILLS_API + '?id=' + id, {
-      method: 'DELETE',
-      headers: { 'Authorization': 'Bearer ' + token },
-      signal: AbortSignal.timeout(10000)
-    });
-    if (!res.ok) {
-      const err = await res.text();
-      return { error: err };
-    }
-    await syncSkills(); // re-fetch full list
+    const res = await skillApiCall('DELETE', LINKBOARD_SKILLS_API + '?id=' + id);
+    if (res.error) return res;
+    if (!res.ok) { const err = await res.text(); return { error: err }; }
+    await syncSkills();
     return { ok: true };
   } catch (e) {
     return { error: e.message };
