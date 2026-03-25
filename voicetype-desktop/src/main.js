@@ -80,8 +80,9 @@ app.on('ready', async () => {
     } else {
       registerHotkey('CommandOrControl+Shift+Space', onHotkeyDown, onHotkeyUp);
     }
-    // Sync skills
+    // Sync skills and start periodic auto-sync
     await syncSkills();
+    startSkillAutoSync();
     updateTrayMenu('Ready');
   } catch (e) {
     console.error('Failed to load settings:', e.message);
@@ -97,6 +98,7 @@ app.on('ready', async () => {
 });
 
 app.on('will-quit', () => {
+  stopSkillAutoSync();
   unregisterAll();
 });
 
@@ -859,6 +861,12 @@ function getDashboardHTML() {
   .page { display: none; }
   .page.active { display: block; }
 
+  /* Form inputs */
+  input[type="text"]:focus, textarea:focus, select:focus {
+    border-color: var(--teal) !important;
+  }
+  select option { background: var(--surface); color: var(--text); }
+
   /* Scrollbar */
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -947,15 +955,66 @@ function getDashboardHTML() {
     <div class="page" id="page-skills">
       <div class="main-header">
         <h2>Skills</h2>
-        <button class="btn btn-primary" onclick="openLinkBoard()">Manage on LinkBoard</button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-primary" onclick="showNewSkillEditor()">+ New Skill</button>
+          <button class="btn btn-ghost" onclick="openLinkBoard()">Open LinkBoard</button>
+        </div>
       </div>
       <div class="content">
         <div class="card">
           <h3>Active Skills</h3>
-          <p style="font-size:13px; color:var(--text3); margin-bottom:12px;">
-            Click a skill to set it as default. The skill reformats your speech into the right format.
+          <p style="font-size:13px; color:var(--text3); margin-bottom:4px;">
+            Click a skill to set it as default. Click the edit icon to customize.
+          </p>
+          <p style="font-size:11px; color:var(--text3); margin-bottom:12px;">
+            Changes sync automatically between desktop and web.
           </p>
           <div class="skills-grid" id="skillsGrid"></div>
+        </div>
+
+        <!-- Skill Editor (hidden by default) -->
+        <div class="card" id="skillEditor" style="display:none;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+            <h3 id="editorTitle">Edit Skill</h3>
+            <button class="btn btn-ghost" onclick="hideSkillEditor()" style="padding:4px 10px;font-size:12px;">Cancel</button>
+          </div>
+          <input type="hidden" id="editSkillId" />
+          <div style="margin-bottom:12px;">
+            <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px;">Name</label>
+            <input type="text" id="editSkillName" placeholder="e.g. Meeting Notes"
+              style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);
+              background:var(--surface2);color:var(--text);font-size:14px;outline:none;" />
+          </div>
+          <div style="margin-bottom:12px;">
+            <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px;">Category</label>
+            <select id="editSkillCategory"
+              style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);
+              background:var(--surface2);color:var(--text);font-size:14px;outline:none;">
+              <option value="email">Email</option>
+              <option value="clinical">Clinical</option>
+              <option value="chat">Chat</option>
+              <option value="raw">Raw (no formatting)</option>
+              <option value="custom">Custom</option>
+            </select>
+          </div>
+          <div style="margin-bottom:12px;">
+            <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px;">System Prompt</label>
+            <textarea id="editSkillPrompt" rows="10" placeholder="Instructions for how to format the dictation..."
+              style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);
+              background:var(--surface2);color:var(--text);font-size:13px;line-height:1.5;
+              outline:none;resize:vertical;font-family:inherit;"></textarea>
+          </div>
+          <div style="margin-bottom:16px;">
+            <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px;">Trigger Phrases (comma separated)</label>
+            <input type="text" id="editSkillTriggers" placeholder="e.g. meeting notes, meeting summary"
+              style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);
+              background:var(--surface2);color:var(--text);font-size:14px;outline:none;" />
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-primary" id="editorSaveBtn" onclick="saveSkill()">Save</button>
+            <button class="btn btn-ghost" id="editorDeleteBtn" onclick="deleteSkill()" style="display:none;color:#e74c3c;border-color:rgba(231,76,60,0.3);">Delete</button>
+          </div>
+          <div id="editorStatus" style="font-size:12px;margin-top:8px;color:var(--teal-light);display:none;"></div>
         </div>
       </div>
     </div>
@@ -1133,25 +1192,141 @@ function getDashboardHTML() {
       }
 
       // Skills
+      window.__currentSkills = data.skills || [];
+      renderSkillsGrid(data.skills);
+    };
+
+    function renderSkillsGrid(skills) {
       const grid = document.getElementById('skillsGrid');
       const activeSkillEl = document.getElementById('activeSkill');
-      if (grid && data.skills) {
-        grid.innerHTML = data.skills.map((s, i) => {
-          const isDefault = s.is_default;
-          return '<div class="skill-card ' + (isDefault ? 'active' : '') + '" onclick="selectSkill(' + i + ')">' +
-            '<div class="skill-name">' + (s.name || 'Unnamed') + '</div>' +
-            '<div class="skill-category">' + (s.category || 'custom') + '</div>' +
-            (s.system_prompt ? '<div class="skill-desc">' + s.system_prompt.substring(0, 80) + '...</div>' : '') +
-          '</div>';
-        }).join('');
+      if (!grid || !skills) return;
 
-        const defaultSkill = data.skills.find(s => s.is_default) || data.skills[0];
-        if (activeSkillEl && defaultSkill) activeSkillEl.textContent = defaultSkill.name;
-      }
-    };
+      grid.innerHTML = skills.map((s, i) => {
+        const isDefault = s.is_default;
+        const editBtn = '<span onclick="event.stopPropagation();editSkill(' + i + ')" style="cursor:pointer;opacity:0.5;font-size:14px;position:absolute;top:10px;right:10px;" title="Edit">&#9998;</span>';
+        return '<div class="skill-card ' + (isDefault ? 'active' : '') + '" onclick="selectSkill(' + i + ')" style="position:relative;">' +
+          editBtn +
+          '<div class="skill-name">' + (s.name || 'Unnamed') + '</div>' +
+          '<div class="skill-category">' + (s.category || 'custom') + '</div>' +
+          (s.system_prompt ? '<div class="skill-desc">' + escapeHtml(s.system_prompt.substring(0, 80)) + '...</div>' : '') +
+        '</div>';
+      }).join('');
+
+      const defaultSkill = skills.find(s => s.is_default) || skills[0];
+      if (activeSkillEl && defaultSkill) activeSkillEl.textContent = defaultSkill.name;
+    }
+
+    function escapeHtml(text) {
+      const d = document.createElement('div');
+      d.textContent = text;
+      return d.innerHTML;
+    }
 
     function selectSkill(idx) {
       if (window.dashboard) window.dashboard.selectSkill(idx);
+    }
+
+    // ─── Skill Editor ───
+
+    function showNewSkillEditor() {
+      document.getElementById('editSkillId').value = '';
+      document.getElementById('editSkillName').value = '';
+      document.getElementById('editSkillCategory').value = 'custom';
+      document.getElementById('editSkillPrompt').value = '';
+      document.getElementById('editSkillTriggers').value = '';
+      document.getElementById('editorTitle').textContent = 'New Skill';
+      document.getElementById('editorDeleteBtn').style.display = 'none';
+      document.getElementById('editorStatus').style.display = 'none';
+      document.getElementById('skillEditor').style.display = 'block';
+      document.getElementById('editSkillName').focus();
+    }
+
+    function editSkill(idx) {
+      const skill = window.__currentSkills[idx];
+      if (!skill) return;
+      document.getElementById('editSkillId').value = skill.id || '';
+      document.getElementById('editSkillName').value = skill.name || '';
+      document.getElementById('editSkillCategory').value = skill.category || 'custom';
+      document.getElementById('editSkillPrompt').value = skill.system_prompt || '';
+      document.getElementById('editSkillTriggers').value = (skill.trigger_phrases || []).join(', ');
+      document.getElementById('editorTitle').textContent = 'Edit: ' + skill.name;
+      document.getElementById('editorDeleteBtn').style.display = skill.is_preset ? 'none' : 'inline-block';
+      document.getElementById('editorStatus').style.display = 'none';
+      document.getElementById('skillEditor').style.display = 'block';
+      document.getElementById('editSkillName').focus();
+    }
+
+    function hideSkillEditor() {
+      document.getElementById('skillEditor').style.display = 'none';
+    }
+
+    function showEditorStatus(msg, isError) {
+      const el = document.getElementById('editorStatus');
+      el.textContent = msg;
+      el.style.color = isError ? '#e74c3c' : 'var(--teal-light)';
+      el.style.display = 'block';
+      if (!isError) setTimeout(() => { el.style.display = 'none'; }, 3000);
+    }
+
+    async function saveSkill() {
+      const id = document.getElementById('editSkillId').value;
+      const name = document.getElementById('editSkillName').value.trim();
+      const category = document.getElementById('editSkillCategory').value;
+      const system_prompt = document.getElementById('editSkillPrompt').value.trim();
+      const triggersRaw = document.getElementById('editSkillTriggers').value;
+      const trigger_phrases = triggersRaw ? triggersRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
+
+      if (!name) { showEditorStatus('Name is required', true); return; }
+
+      const btn = document.getElementById('editorSaveBtn');
+      btn.textContent = 'Saving...';
+      btn.disabled = true;
+
+      try {
+        let result;
+        if (id) {
+          result = await window.dashboard.updateSkill({ id, name, category, system_prompt, trigger_phrases });
+        } else {
+          result = await window.dashboard.createSkill({ name, category, system_prompt, trigger_phrases });
+        }
+
+        if (result && result.error) {
+          showEditorStatus('Error: ' + result.error, true);
+        } else {
+          showEditorStatus('Saved!');
+          setTimeout(() => hideSkillEditor(), 1000);
+        }
+      } catch (e) {
+        showEditorStatus('Failed: ' + e.message, true);
+      }
+
+      btn.textContent = 'Save';
+      btn.disabled = false;
+    }
+
+    async function deleteSkill() {
+      const id = document.getElementById('editSkillId').value;
+      if (!id) return;
+      if (!confirm('Delete this skill? This cannot be undone.')) return;
+
+      try {
+        const result = await window.dashboard.deleteSkill(id);
+        if (result && result.error) {
+          showEditorStatus('Error: ' + result.error, true);
+        } else {
+          hideSkillEditor();
+        }
+      } catch (e) {
+        showEditorStatus('Failed: ' + e.message, true);
+      }
+    }
+
+    // Listen for auto-synced skill updates
+    if (window.dashboard && window.dashboard.onSkillsUpdated) {
+      window.dashboard.onSkillsUpdated(function(skills) {
+        window.__currentSkills = skills;
+        renderSkillsGrid(skills);
+      });
     }
   </script>
 </body>
@@ -1418,6 +1593,7 @@ async function logUsage(bufferLength, skill) {
 // ─── Skill Sync ───
 
 const LINKBOARD_SKILLS_API = 'https://las-link-board.vercel.app/api/voicetype/skills';
+let skillSyncInterval = null;
 
 async function syncSkills() {
   const token = store.get('supabase_token');
@@ -1435,6 +1611,11 @@ async function syncSkills() {
       userSkills = await res.json();
       store.set('cached_skills', userSkills);
       console.log('Skills synced:', userSkills.length, 'skills');
+
+      // Notify dashboard of updated skills
+      if (dashboardWindow && !dashboardWindow.isDestroyed()) {
+        dashboardWindow.webContents.send('skills-updated', userSkills);
+      }
       return;
     }
   } catch (e) {
@@ -1444,3 +1625,90 @@ async function syncSkills() {
   // Fallback to cache
   userSkills = store.get('cached_skills') || [];
 }
+
+// Auto-sync skills every 30 seconds to pick up changes from web
+function startSkillAutoSync() {
+  if (skillSyncInterval) return;
+  skillSyncInterval = setInterval(async () => {
+    try { await syncSkills(); } catch (e) { /* silent */ }
+  }, 30000);
+}
+
+function stopSkillAutoSync() {
+  if (skillSyncInterval) { clearInterval(skillSyncInterval); skillSyncInterval = null; }
+}
+
+// ─── Skill CRUD (desktop → API → Supabase) ───
+
+ipcMain.handle('dashboard-create-skill', async (_event, skill) => {
+  const token = store.get('supabase_token');
+  if (!token) return { error: 'Not signed in' };
+
+  try {
+    const res = await fetch(LINKBOARD_SKILLS_API, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(skill),
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      return { error: err };
+    }
+    const created = await res.json();
+    await syncSkills(); // re-fetch full list
+    return created;
+  } catch (e) {
+    return { error: e.message };
+  }
+});
+
+ipcMain.handle('dashboard-update-skill', async (_event, skill) => {
+  const token = store.get('supabase_token');
+  if (!token) return { error: 'Not signed in' };
+
+  try {
+    const res = await fetch(LINKBOARD_SKILLS_API, {
+      method: 'PUT',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(skill),
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      return { error: err };
+    }
+    const updated = await res.json();
+    await syncSkills(); // re-fetch full list
+    return updated;
+  } catch (e) {
+    return { error: e.message };
+  }
+});
+
+ipcMain.handle('dashboard-delete-skill', async (_event, id) => {
+  const token = store.get('supabase_token');
+  if (!token) return { error: 'Not signed in' };
+
+  try {
+    const res = await fetch(LINKBOARD_SKILLS_API + '?id=' + id, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + token },
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      return { error: err };
+    }
+    await syncSkills(); // re-fetch full list
+    return { ok: true };
+  } catch (e) {
+    return { error: e.message };
+  }
+});

@@ -55,6 +55,11 @@ function stripTrigger(transcript, skill) {
 function buildPrompt(skill, transcript) {
   let prompt = skill.system_prompt;
 
+  // Ensure plain-text output for all skills (including custom ones)
+  if (prompt && !prompt.includes('no markdown')) {
+    prompt += '\n\nIMPORTANT: Output PLAIN TEXT only — no markdown formatting, no bold (**), no italics (*), no bullet symbols, no hashtags (#). Use simple line breaks and spacing for structure.';
+  }
+
   const examples = skill.style_examples || [];
   if (examples.length > 0) {
     prompt += '\n\nHere are examples of the user\'s preferred style:\n';
@@ -182,7 +187,7 @@ module.exports = async (req, res) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: 2048,
         messages: [{ role: 'user', content: fullPrompt }]
       })

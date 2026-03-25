@@ -39,6 +39,8 @@ Rules:
 - Do NOT fabricate information not present in the transcript
 - If information for a section is not available, write "Not addressed in this session."
 - Keep it concise but thorough
+- Output PLAIN TEXT only — no markdown, no bold, no italics, no bullet symbols, no hashtags, no asterisks
+- Use simple line breaks and indentation for structure
 
 Format the output exactly as:
 
@@ -69,8 +71,9 @@ Rules:
 - Add an appropriate greeting and sign-off
 - Keep it concise — parents are busy
 - If the speaker mentions their name/role, use it in the sign-off
-
-Format as a ready-to-send email with Subject line, greeting, body, and sign-off.`,
+- Output PLAIN TEXT only — no markdown, no bold, no italics, no asterisks, no hashtags
+- Format as a clean, ready-to-send email: Subject line on its own line, then a blank line, then greeting, body paragraphs, and sign-off
+- Use natural paragraph breaks, not bullet points`,
     trigger_phrases: ['writing an email to a parent', 'email to parent', 'parent email', 'email to mom', 'email to dad', 'email to guardian', 'letter to parent']
   },
   {
@@ -86,6 +89,8 @@ Rules:
 - Do NOT fabricate information
 - Keep it brief and direct — designed for quick EHR entry
 - If vitals or specific data aren't mentioned, omit that section
+- Output PLAIN TEXT only — no markdown, no bold, no italics, no asterisks, no hashtags
+- Use simple labels and line breaks for structure
 
 Format:
 CC: [chief complaint]
@@ -107,7 +112,10 @@ Rules:
 - Organize key points logically
 - Include action items or next steps if mentioned
 - Do not fabricate details
-- Match the level of formality implied by the speaker`,
+- Match the level of formality implied by the speaker
+- Output PLAIN TEXT only — no markdown, no bold, no italics, no asterisks, no hashtags
+- Format as a clean, ready-to-send email: Subject line on its own line, then a blank line, then greeting, body paragraphs, and sign-off
+- Use natural paragraph breaks, not bullet points`,
     trigger_phrases: ['writing an email', 'email to', 'send an email', 'draft an email', 'compose an email']
   },
   {
@@ -120,7 +128,8 @@ Rules:
 - Match the speaker's tone (casual, urgent, informational)
 - No greeting or sign-off unless the speaker includes one
 - Strip filler words and false starts
-- One clear message, ready to paste into Slack/Teams/chat`,
+- One clear message, ready to paste into Slack/Teams/chat
+- Output PLAIN TEXT only — no markdown, no bold, no italics, no asterisks, no hashtags`,
     trigger_phrases: ['quick message', 'slack message', 'chat message', 'teams message', 'text message', 'message to']
   }
 ];
@@ -188,6 +197,11 @@ function stripTrigger(transcript, skill) {
 function buildPrompt(skill, transcript) {
   let prompt = skill.system_prompt;
 
+  // Ensure plain-text output for all skills (including custom ones)
+  if (prompt && !prompt.includes('no markdown')) {
+    prompt += '\n\nIMPORTANT: Output PLAIN TEXT only — no markdown formatting, no bold (**), no italics (*), no bullet symbols, no hashtags (#). Use simple line breaks and spacing for structure.';
+  }
+
   // Inject style examples if the user has saved any (self-learning)
   const examples = skill.style_examples || [];
   if (examples.length > 0) {
@@ -231,7 +245,7 @@ async function formatWithSkill(transcript, skill, options = {}) {
   const fullPrompt = buildPrompt(skill, cleanedTranscript);
 
   const response = await client.messages.create({
-    model: options.model || 'claude-sonnet-4-20250514',
+    model: options.model || 'claude-haiku-4-5-20251001',
     max_tokens: 2048,
     messages: [{ role: 'user', content: fullPrompt }]
   });
