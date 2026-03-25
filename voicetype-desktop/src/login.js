@@ -7,6 +7,9 @@
 // Supports Google OAuth and email/password.
 
 const { BrowserWindow, ipcMain } = require('electron');
+const path = require('path');
+const fs = require('fs');
+const os = require('os');
 
 const SUPABASE_URL = 'https://pmhoeqxuamvqlwsatozu.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBtaG9lcXh1YW12cWx3c2F0b3p1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4MTY2NDYsImV4cCI6MjA4ODM5MjY0Nn0.ktaozIz1XrIUeUrPjtKp3VZ92BptG8xehOFsv_ny12w';
@@ -15,7 +18,7 @@ let loginWindow = null;
 
 /**
  * Show the login window and return a promise that resolves
- * with { token, refreshToken, userId } on successful login.
+ * with { token, refreshToken, userId, email } on successful login.
  */
 function showLoginWindow() {
   return new Promise((resolve, reject) => {
@@ -33,8 +36,12 @@ function showLoginWindow() {
       }
     });
 
+    // Write login HTML to a temp file so it loads from file://
+    // (data: URLs are NOT secure contexts — fetch/XHR/WebSocket fail)
     const html = buildLoginHTML();
-    loginWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html));
+    const tmpPath = path.join(os.tmpdir(), 'voicetype-login.html');
+    fs.writeFileSync(tmpPath, html, 'utf-8');
+    loginWindow.loadFile(tmpPath);
 
     let resolved = false;
 
@@ -65,25 +72,54 @@ function showLoginWindow() {
     loginWindow.webContents.on('did-finish-load', async () => {
       if (resolved) return;
       try {
-        const hash = await loginWindow.webContents.executeJavaScript('window.location.hash');
-        if (hash && hash.includes('access_token=')) {
-          const params = new URLSearchParams(hash.substring(1));
+        const url = await loginWindow.webContents.executeJavaScript('window.location.href');
+        // Only check for tokens on redirect URLs (not the initial login page)
+        if (url && url.includes('access_token=')) {
+          const hashPart = url.split('#')[1];
+          if (hashPart) {
+            const params = new URLSearchParams(hashPart);
+            const accessToken = params.get('access_token');
+            const refreshToken = params.get('refresh_token');
+            if (accessToken) {
+              // Decode JWT payload to extract user ID and email
+              const payload = JSON.parse(
+                Buffer.from(accessToken.split('.')[1], 'base64').toString()
+              );
+              resolveAuth({
+                token: accessToken,
+                refreshToken: refreshToken,
+                userId: payload.sub,
+                email: payload.email || ''
+              });
+            }
+          }
+        }
+      } catch (e) {
+        // Page might not be ready or window closed, ignore
+      }
+    });
+
+    // Also listen for navigation (Google OAuth redirects back to the app)
+    loginWindow.webContents.on('will-redirect', (event, url) => {
+      if (resolved) return;
+      if (url && url.includes('access_token=')) {
+        const hashPart = url.split('#')[1];
+        if (hashPart) {
+          const params = new URLSearchParams(hashPart);
           const accessToken = params.get('access_token');
           const refreshToken = params.get('refresh_token');
           if (accessToken) {
-            // Decode JWT payload to extract user ID (sub claim)
             const payload = JSON.parse(
               Buffer.from(accessToken.split('.')[1], 'base64').toString()
             );
             resolveAuth({
               token: accessToken,
               refreshToken: refreshToken,
-              userId: payload.sub
+              userId: payload.sub,
+              email: payload.email || ''
             });
           }
         }
-      } catch (e) {
-        // Page might not be ready or window closed, ignore
       }
     });
 
@@ -185,9 +221,36 @@ function buildLoginHTML() {
   <div class="status" id="status"></div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
-const sb = supabase.createClient('${SUPABASE_URL}', '${SUPABASE_ANON}');
+// Load Supabase client directly via fetch (file:// can't use <script src="..."> CDN)
+(async function loadSupabase() {
+  try {
+    const response = await fetch('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js');
+    const code = await response.text();
+    const script = document.createElement('script');
+    script.textContent = code;
+    document.head.appendChild(script);
+    window._supabaseReady = true;
+    console.log('Supabase client loaded');
+  } catch (e) {
+    // Fallback: try inline fetch-based auth
+    console.warn('CDN load failed, using fetch-based auth');
+    window._supabaseReady = false;
+  }
+})();
+
+const SUPA_URL = '${SUPABASE_URL}';
+const SUPA_ANON = '${SUPABASE_ANON}';
+
+function getSb() {
+  if (window._supabaseReady && window.supabase) {
+    if (!window._sb) {
+      window._sb = window.supabase.createClient(SUPA_URL, SUPA_ANON);
+    }
+    return window._sb;
+  }
+  return null;
+}
 
 async function emailLogin() {
   const email = document.getElementById('email').value.trim();
@@ -195,26 +258,54 @@ async function emailLogin() {
   if (!email || !password) { showError('Enter email and password'); return; }
 
   showStatus('Signing in...');
-  const { data, error } = await sb.auth.signInWithPassword({ email, password });
-  if (error) { showError(error.message); return; }
 
-  sendAuth(data.session);
+  const sb = getSb();
+  if (sb) {
+    // Use Supabase client
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) { showError(error.message); return; }
+    sendAuth(data.session);
+  } else {
+    // Fallback: direct REST call
+    try {
+      const res = await fetch(SUPA_URL + '/auth/v1/token?grant_type=password', {
+        method: 'POST',
+        headers: {
+          'apikey': SUPA_ANON,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email, password })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        showError(err.error_description || err.msg || 'Login failed');
+        return;
+      }
+      const data = await res.json();
+      sendAuthDirect(data);
+    } catch (e) {
+      showError('Network error: ' + e.message);
+    }
+  }
 }
 
 async function googleLogin() {
   showStatus('Opening Google sign-in...');
-  const { data, error } = await sb.auth.signInWithOAuth({
-    provider: 'google',
-    options: { skipBrowserRedirect: false }
-  });
-  if (error) { showError(error.message); return; }
-
-  // OAuth will redirect — listen for the session
-  sb.auth.onAuthStateChange((event, session) => {
-    if (event === 'SIGNED_IN' && session) {
-      sendAuth(session);
-    }
-  });
+  const sb = getSb();
+  if (sb) {
+    const { data, error } = await sb.auth.signInWithOAuth({
+      provider: 'google',
+      options: { skipBrowserRedirect: false }
+    });
+    if (error) { showError(error.message); return; }
+    sb.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        sendAuth(session);
+      }
+    });
+  } else {
+    showError('Google sign-in requires network access. Please use email/password.');
+  }
 }
 
 function sendAuth(session) {
@@ -224,7 +315,16 @@ function sendAuth(session) {
     userId: session.user.id,
     email: session.user.email || ''
   };
-  // Send to main process via console (picked up by webContents listener)
+  console.log('VOICETYPE_AUTH:' + JSON.stringify(payload));
+}
+
+function sendAuthDirect(data) {
+  const payload = {
+    token: data.access_token,
+    refreshToken: data.refresh_token,
+    userId: data.user ? data.user.id : '',
+    email: data.user ? (data.user.email || '') : ''
+  };
   console.log('VOICETYPE_AUTH:' + JSON.stringify(payload));
 }
 
