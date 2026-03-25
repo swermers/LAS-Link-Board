@@ -14,6 +14,7 @@ const { injectText } = require('./injector');
 const { showLoginWindow } = require('./login');
 const localWhisper = require('./local-whisper');
 const { processTranscription, PRESET_SKILLS } = require('./skill-formatter');
+const { isWhisperCppAvailable } = require('./whisper');
 const Store = require('electron-store');
 
 const store = new Store({ name: 'voicetype-config' });
@@ -80,8 +81,9 @@ app.on('ready', async () => {
     } else {
       registerHotkey('CommandOrControl+Shift+Space', onHotkeyDown, onHotkeyUp);
     }
-    // Sync skills
+    // Sync skills and start periodic auto-sync
     await syncSkills();
+    startSkillAutoSync();
     updateTrayMenu('Ready');
   } catch (e) {
     console.error('Failed to load settings:', e.message);
@@ -97,6 +99,7 @@ app.on('ready', async () => {
 });
 
 app.on('will-quit', () => {
+  stopSkillAutoSync();
   unregisterAll();
 });
 
@@ -153,7 +156,7 @@ function updateTrayMenu(statusText) {
       }
     },
     {
-      label: 'Mode: ' + (settings?.transcription_mode === 'local' ? 'Local (HIPAA)' : 'Cloud'),
+      label: 'Mode: ' + ({ local: 'Local (HIPAA)', groq: 'Groq (Fast)', cloud: 'Cloud' }[settings?.transcription_mode] || 'Cloud'),
       enabled: false
     },
     {
@@ -248,15 +251,15 @@ function formatHotkey(key) {
 
 function createIndicatorWindow() {
   indicatorWindow = new BrowserWindow({
-    width: 260,
-    height: 280,
+    width: 220,
+    height: 54,
     show: false,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
     skipTaskbar: true,
     resizable: false,
-    hasShadow: true,
+    hasShadow: false,
     focusable: true,
     webPreferences: {
       nodeIntegration: false,
@@ -277,10 +280,11 @@ function createIndicatorWindow() {
         display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
         height: 100vh; font-family: -apple-system, BlinkMacSystemFont, sans-serif;
         background: transparent; user-select: none;
+        overflow: hidden;
       }
       .container {
-        display: flex; flex-direction: column; align-items: center; gap: 6px;
-        padding-bottom: 8px; position: relative;
+        display: flex; flex-direction: column; align-items: center; gap: 4px;
+        position: relative;
       }
 
       /* ── Skill Dropdown (appears above pill) ── */
@@ -374,10 +378,10 @@ function createIndicatorWindow() {
 
       /* ── Close Button ── */
       .close-btn {
-        position: absolute; top: -6px; right: -6px;
-        width: 20px; height: 20px; border-radius: 50%;
+        position: absolute; top: 2px; right: 2px;
+        width: 16px; height: 16px; border-radius: 50%;
         background: rgba(255,255,255,0.15); border: none;
-        color: rgba(255,255,255,0.6); font-size: 12px; line-height: 20px;
+        color: rgba(255,255,255,0.6); font-size: 10px; line-height: 16px;
         text-align: center; cursor: pointer;
         opacity: 0; transition: opacity 0.2s, background 0.15s;
         -webkit-app-region: no-drag; z-index: 10;
@@ -386,10 +390,12 @@ function createIndicatorWindow() {
       .container:hover .close-btn { opacity: 1; }
       .close-btn:hover { background: rgba(231,76,60,0.8); color: #fff; }
 
-      /* ── Tooltip ── */
+      /* ── Tooltip (hidden by default, only shown briefly) ── */
       .tooltip {
         font-size: 10px; color: rgba(255,255,255,0.5);
         text-align: center; transition: opacity 0.2s;
+        position: absolute; bottom: -14px; white-space: nowrap;
+        pointer-events: none; display: none;
       }
     </style></head>
     <body>
@@ -458,11 +464,19 @@ function createIndicatorWindow() {
           if (isRecordingState) return; // don't open menu while recording
           menuOpen = !menuOpen;
           document.getElementById('skillMenu').classList.toggle('open', menuOpen);
+          // Expand window to fit dropdown, or shrink back
+          if (menuOpen) {
+            var menuH = Math.min(skills.length * 36 + 16, 200);
+            if (window.voicetype) window.voicetype.resizePill(220, 54 + menuH + 4);
+          } else {
+            if (window.voicetype) window.voicetype.resizePill(220, 54);
+          }
         }
 
         function closeSkillMenu() {
           menuOpen = false;
           document.getElementById('skillMenu').classList.remove('open');
+          if (window.voicetype) window.voicetype.resizePill(220, 54);
         }
 
         function updateSkillTag() {
@@ -635,10 +649,10 @@ function createIndicatorWindow() {
   fs.writeFileSync(indicatorTmpPath, indicatorHTML);
   indicatorWindow.loadFile(indicatorTmpPath);
 
-  // Position at bottom-center of primary display
+  // Position at bottom-center of primary display (tight to the pill)
   const display = screen.getPrimaryDisplay();
-  const x = Math.round(display.bounds.x + display.bounds.width / 2 - 130);
-  const y = display.bounds.y + display.bounds.height - 100;
+  const x = Math.round(display.bounds.x + display.bounds.width / 2 - 110);
+  const y = display.bounds.y + display.bounds.height - 80;
   indicatorWindow.setPosition(x, y);
 }
 
@@ -715,6 +729,7 @@ function openDashboard() {
       hotkey: settings?.hotkey || 'CommandOrControl+Shift+Space',
       mode: settings?.transcription_mode || 'cloud',
       localModelReady: localWhisper.isModelDownloaded(),
+      whisperCppReady: isWhisperCppAvailable(),
       isLoggedIn: !!store.get('user_id')
     })});
   `);
@@ -859,6 +874,12 @@ function getDashboardHTML() {
   .page { display: none; }
   .page.active { display: block; }
 
+  /* Form inputs */
+  input[type="text"]:focus, textarea:focus, select:focus {
+    border-color: var(--teal) !important;
+  }
+  select option { background: var(--surface); color: var(--text); }
+
   /* Scrollbar */
   ::-webkit-scrollbar { width: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -947,15 +968,66 @@ function getDashboardHTML() {
     <div class="page" id="page-skills">
       <div class="main-header">
         <h2>Skills</h2>
-        <button class="btn btn-primary" onclick="openLinkBoard()">Manage on LinkBoard</button>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-primary" onclick="showNewSkillEditor()">+ New Skill</button>
+          <button class="btn btn-ghost" onclick="openLinkBoard()">Open LinkBoard</button>
+        </div>
       </div>
       <div class="content">
         <div class="card">
           <h3>Active Skills</h3>
-          <p style="font-size:13px; color:var(--text3); margin-bottom:12px;">
-            Click a skill to set it as default. The skill reformats your speech into the right format.
+          <p style="font-size:13px; color:var(--text3); margin-bottom:4px;">
+            Click a skill to set it as default. Click the edit icon to customize.
+          </p>
+          <p style="font-size:11px; color:var(--text3); margin-bottom:12px;">
+            Changes sync automatically between desktop and web.
           </p>
           <div class="skills-grid" id="skillsGrid"></div>
+        </div>
+
+        <!-- Skill Editor (hidden by default) -->
+        <div class="card" id="skillEditor" style="display:none;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+            <h3 id="editorTitle">Edit Skill</h3>
+            <button class="btn btn-ghost" onclick="hideSkillEditor()" style="padding:4px 10px;font-size:12px;">Cancel</button>
+          </div>
+          <input type="hidden" id="editSkillId" />
+          <div style="margin-bottom:12px;">
+            <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px;">Name</label>
+            <input type="text" id="editSkillName" placeholder="e.g. Meeting Notes"
+              style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);
+              background:var(--surface2);color:var(--text);font-size:14px;outline:none;" />
+          </div>
+          <div style="margin-bottom:12px;">
+            <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px;">Category</label>
+            <select id="editSkillCategory"
+              style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);
+              background:var(--surface2);color:var(--text);font-size:14px;outline:none;">
+              <option value="email">Email</option>
+              <option value="clinical">Clinical</option>
+              <option value="chat">Chat</option>
+              <option value="raw">Raw (no formatting)</option>
+              <option value="custom">Custom</option>
+            </select>
+          </div>
+          <div style="margin-bottom:12px;">
+            <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px;">System Prompt</label>
+            <textarea id="editSkillPrompt" rows="10" placeholder="Instructions for how to format the dictation..."
+              style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);
+              background:var(--surface2);color:var(--text);font-size:13px;line-height:1.5;
+              outline:none;resize:vertical;font-family:inherit;"></textarea>
+          </div>
+          <div style="margin-bottom:16px;">
+            <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px;">Trigger Phrases (comma separated)</label>
+            <input type="text" id="editSkillTriggers" placeholder="e.g. meeting notes, meeting summary"
+              style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);
+              background:var(--surface2);color:var(--text);font-size:14px;outline:none;" />
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-primary" id="editorSaveBtn" onclick="saveSkill()">Save</button>
+            <button class="btn btn-ghost" id="editorDeleteBtn" onclick="deleteSkill()" style="display:none;color:#e74c3c;border-color:rgba(231,76,60,0.3);">Delete</button>
+          </div>
+          <div id="editorStatus" style="font-size:12px;margin-top:8px;color:var(--teal-light);display:none;"></div>
         </div>
       </div>
     </div>
@@ -987,16 +1059,14 @@ function getDashboardHTML() {
             <span class="label">Mode</span>
             <div style="display:flex;align-items:center;gap:10px;">
               <span class="value" id="settingsMode" style="min-width:80px">Cloud</span>
-              <button class="btn btn-ghost" id="modeToggleBtn" onclick="toggleMode()" style="padding:5px 12px;font-size:12px;">Switch to Local</button>
+              <button class="btn btn-ghost" id="modeToggleBtn" onclick="cycleMode()" style="padding:5px 12px;font-size:12px;">Switch to Groq (Fast)</button>
             </div>
           </div>
           <div class="card-row">
-            <span class="label">Local Whisper Model</span>
-            <span class="value" id="localModelStatus">Not downloaded</span>
+            <span class="label">Local Engine Status</span>
+            <span class="value" id="localModelStatus">Not installed</span>
           </div>
-          <div id="modeHint" style="font-size:11px;color:var(--text3);padding:8px 0 0;line-height:1.5;display:none;">
-            Local mode processes audio on-device (HIPAA-safe). Requires ~150 MB model download from the tray menu.
-          </div>
+          <div id="modeHint" style="font-size:11px;color:var(--text3);padding:8px 0 0;line-height:1.5;display:none;"></div>
         </div>
         <div class="card">
           <h3>Interface</h3>
@@ -1060,19 +1130,33 @@ function getDashboardHTML() {
       if (window.dashboard) window.dashboard.togglePill(toggle.classList.contains('on'));
     }
 
-    function toggleMode() {
-      const modeEl = document.getElementById('settingsMode');
-      const activeEl = document.getElementById('activeMode');
-      const btn = document.getElementById('modeToggleBtn');
-      const hint = document.getElementById('modeHint');
-      const isCloud = modeEl.textContent === 'Cloud';
-      const newMode = isCloud ? 'local' : 'cloud';
-      const newLabel = isCloud ? 'Local (HIPAA)' : 'Cloud';
-      modeEl.textContent = newLabel;
-      if (activeEl) activeEl.textContent = newLabel;
-      btn.textContent = isCloud ? 'Switch to Cloud' : 'Switch to Local';
-      hint.style.display = isCloud ? 'block' : 'none';
-      if (window.dashboard) window.dashboard.setMode(newMode);
+    var __currentMode = 'cloud';
+    var __modeOrder = ['cloud', 'groq', 'local'];
+    var __modeLabels = { cloud: 'Cloud (OpenAI)', groq: 'Groq (Fast)', local: 'Local (HIPAA)' };
+
+    function cycleMode() {
+      var idx = __modeOrder.indexOf(__currentMode);
+      __currentMode = __modeOrder[(idx + 1) % __modeOrder.length];
+      updateModeUI(__currentMode);
+      if (window.dashboard) window.dashboard.setMode(__currentMode);
+    }
+
+    function updateModeUI(mode) {
+      __currentMode = mode;
+      var label = __modeLabels[mode] || 'Cloud (OpenAI)';
+      var modeEl = document.getElementById('settingsMode');
+      var activeEl = document.getElementById('activeMode');
+      var btn = document.getElementById('modeToggleBtn');
+      var hint = document.getElementById('modeHint');
+      if (modeEl) modeEl.textContent = label;
+      if (activeEl) activeEl.textContent = label;
+      var nextIdx = (__modeOrder.indexOf(mode) + 1) % __modeOrder.length;
+      if (btn) btn.textContent = 'Switch to ' + __modeLabels[__modeOrder[nextIdx]];
+      if (hint) {
+        if (mode === 'local') { hint.textContent = 'Local mode processes audio on-device via whisper.cpp (HIPAA-safe). Install: brew install whisper-cpp, then download a model.'; hint.style.display = 'block'; }
+        else if (mode === 'groq') { hint.textContent = 'Groq uses custom LPU hardware for ultra-fast Whisper transcription (<500ms). Requires a free Groq API key from console.groq.com.'; hint.style.display = 'block'; }
+        else { hint.textContent = ''; hint.style.display = 'none'; }
+      }
     }
 
     function openLinkBoard() {
@@ -1098,20 +1182,22 @@ function getDashboardHTML() {
       });
 
       // Mode
-      const modeName = data.mode === 'local' ? 'Local (HIPAA)' : 'Cloud';
-      const modeEl = document.getElementById('activeMode');
-      const settingsModeEl = document.getElementById('settingsMode');
-      const modeBtnEl = document.getElementById('modeToggleBtn');
-      const modeHintEl = document.getElementById('modeHint');
-      if (modeEl) modeEl.textContent = modeName;
-      if (settingsModeEl) settingsModeEl.textContent = modeName;
-      if (modeBtnEl) modeBtnEl.textContent = data.mode === 'local' ? 'Switch to Cloud' : 'Switch to Local';
-      if (modeHintEl) modeHintEl.style.display = data.mode === 'local' ? 'block' : 'none';
+      updateModeUI(data.mode || 'cloud');
 
-      // Local model
+      // Local model / whisper.cpp status
       const localEl = document.getElementById('localModelStatus');
-      if (localEl) localEl.textContent = data.localModelReady ? 'Ready' : 'Not downloaded';
-      if (localEl && data.localModelReady) localEl.style.color = 'var(--teal-light)';
+      if (localEl) {
+        if (data.whisperCppReady) {
+          localEl.textContent = 'whisper.cpp ready (native Metal)';
+          localEl.style.color = 'var(--teal-light)';
+        } else if (data.localModelReady) {
+          localEl.textContent = 'ONNX model ready (slower)';
+          localEl.style.color = 'var(--gold)';
+        } else {
+          localEl.textContent = 'Not installed';
+          localEl.style.color = 'var(--text3)';
+        }
+      }
 
       // Language
       const langEl = document.getElementById('settingsLang');
@@ -1133,25 +1219,141 @@ function getDashboardHTML() {
       }
 
       // Skills
+      window.__currentSkills = data.skills || [];
+      renderSkillsGrid(data.skills);
+    };
+
+    function renderSkillsGrid(skills) {
       const grid = document.getElementById('skillsGrid');
       const activeSkillEl = document.getElementById('activeSkill');
-      if (grid && data.skills) {
-        grid.innerHTML = data.skills.map((s, i) => {
-          const isDefault = s.is_default;
-          return '<div class="skill-card ' + (isDefault ? 'active' : '') + '" onclick="selectSkill(' + i + ')">' +
-            '<div class="skill-name">' + (s.name || 'Unnamed') + '</div>' +
-            '<div class="skill-category">' + (s.category || 'custom') + '</div>' +
-            (s.system_prompt ? '<div class="skill-desc">' + s.system_prompt.substring(0, 80) + '...</div>' : '') +
-          '</div>';
-        }).join('');
+      if (!grid || !skills) return;
 
-        const defaultSkill = data.skills.find(s => s.is_default) || data.skills[0];
-        if (activeSkillEl && defaultSkill) activeSkillEl.textContent = defaultSkill.name;
-      }
-    };
+      grid.innerHTML = skills.map((s, i) => {
+        const isDefault = s.is_default;
+        const editBtn = '<span onclick="event.stopPropagation();editSkill(' + i + ')" style="cursor:pointer;opacity:0.5;font-size:14px;position:absolute;top:10px;right:10px;" title="Edit">&#9998;</span>';
+        return '<div class="skill-card ' + (isDefault ? 'active' : '') + '" onclick="selectSkill(' + i + ')" style="position:relative;">' +
+          editBtn +
+          '<div class="skill-name">' + (s.name || 'Unnamed') + '</div>' +
+          '<div class="skill-category">' + (s.category || 'custom') + '</div>' +
+          (s.system_prompt ? '<div class="skill-desc">' + escapeHtml(s.system_prompt.substring(0, 80)) + '...</div>' : '') +
+        '</div>';
+      }).join('');
+
+      const defaultSkill = skills.find(s => s.is_default) || skills[0];
+      if (activeSkillEl && defaultSkill) activeSkillEl.textContent = defaultSkill.name;
+    }
+
+    function escapeHtml(text) {
+      const d = document.createElement('div');
+      d.textContent = text;
+      return d.innerHTML;
+    }
 
     function selectSkill(idx) {
       if (window.dashboard) window.dashboard.selectSkill(idx);
+    }
+
+    // ─── Skill Editor ───
+
+    function showNewSkillEditor() {
+      document.getElementById('editSkillId').value = '';
+      document.getElementById('editSkillName').value = '';
+      document.getElementById('editSkillCategory').value = 'custom';
+      document.getElementById('editSkillPrompt').value = '';
+      document.getElementById('editSkillTriggers').value = '';
+      document.getElementById('editorTitle').textContent = 'New Skill';
+      document.getElementById('editorDeleteBtn').style.display = 'none';
+      document.getElementById('editorStatus').style.display = 'none';
+      document.getElementById('skillEditor').style.display = 'block';
+      document.getElementById('editSkillName').focus();
+    }
+
+    function editSkill(idx) {
+      const skill = window.__currentSkills[idx];
+      if (!skill) return;
+      document.getElementById('editSkillId').value = skill.id || '';
+      document.getElementById('editSkillName').value = skill.name || '';
+      document.getElementById('editSkillCategory').value = skill.category || 'custom';
+      document.getElementById('editSkillPrompt').value = skill.system_prompt || '';
+      document.getElementById('editSkillTriggers').value = (skill.trigger_phrases || []).join(', ');
+      document.getElementById('editorTitle').textContent = 'Edit: ' + skill.name;
+      document.getElementById('editorDeleteBtn').style.display = skill.is_preset ? 'none' : 'inline-block';
+      document.getElementById('editorStatus').style.display = 'none';
+      document.getElementById('skillEditor').style.display = 'block';
+      document.getElementById('editSkillName').focus();
+    }
+
+    function hideSkillEditor() {
+      document.getElementById('skillEditor').style.display = 'none';
+    }
+
+    function showEditorStatus(msg, isError) {
+      const el = document.getElementById('editorStatus');
+      el.textContent = msg;
+      el.style.color = isError ? '#e74c3c' : 'var(--teal-light)';
+      el.style.display = 'block';
+      if (!isError) setTimeout(() => { el.style.display = 'none'; }, 3000);
+    }
+
+    async function saveSkill() {
+      const id = document.getElementById('editSkillId').value;
+      const name = document.getElementById('editSkillName').value.trim();
+      const category = document.getElementById('editSkillCategory').value;
+      const system_prompt = document.getElementById('editSkillPrompt').value.trim();
+      const triggersRaw = document.getElementById('editSkillTriggers').value;
+      const trigger_phrases = triggersRaw ? triggersRaw.split(',').map(t => t.trim()).filter(Boolean) : [];
+
+      if (!name) { showEditorStatus('Name is required', true); return; }
+
+      const btn = document.getElementById('editorSaveBtn');
+      btn.textContent = 'Saving...';
+      btn.disabled = true;
+
+      try {
+        let result;
+        if (id) {
+          result = await window.dashboard.updateSkill({ id, name, category, system_prompt, trigger_phrases });
+        } else {
+          result = await window.dashboard.createSkill({ name, category, system_prompt, trigger_phrases });
+        }
+
+        if (result && result.error) {
+          showEditorStatus('Error: ' + result.error, true);
+        } else {
+          showEditorStatus('Saved!');
+          setTimeout(() => hideSkillEditor(), 1000);
+        }
+      } catch (e) {
+        showEditorStatus('Failed: ' + e.message, true);
+      }
+
+      btn.textContent = 'Save';
+      btn.disabled = false;
+    }
+
+    async function deleteSkill() {
+      const id = document.getElementById('editSkillId').value;
+      if (!id) return;
+      if (!confirm('Delete this skill? This cannot be undone.')) return;
+
+      try {
+        const result = await window.dashboard.deleteSkill(id);
+        if (result && result.error) {
+          showEditorStatus('Error: ' + result.error, true);
+        } else {
+          hideSkillEditor();
+        }
+      } catch (e) {
+        showEditorStatus('Failed: ' + e.message, true);
+      }
+    }
+
+    // Listen for auto-synced skill updates
+    if (window.dashboard && window.dashboard.onSkillsUpdated) {
+      window.dashboard.onSkillsUpdated(function(skills) {
+        window.__currentSkills = skills;
+        renderSkillsGrid(skills);
+      });
     }
   </script>
 </body>
@@ -1162,6 +1364,16 @@ function getDashboardHTML() {
 ipcMain.on('skill-select', (_event, idx) => {
   selectedSkillIdx = idx;
   pillSkillOverride = true; // user explicitly chose a skill on the pill
+});
+
+// IPC: Resize indicator window (expand for dropdown, shrink for pill-only)
+ipcMain.on('indicator-resize', (_event, width, height) => {
+  if (!indicatorWindow) return;
+  const [curX, curY] = indicatorWindow.getPosition();
+  const [curW, curH] = indicatorWindow.getSize();
+  // Anchor bottom — grow upward
+  const newY = curY + curH - height;
+  indicatorWindow.setBounds({ x: curX, y: newY, width, height });
 });
 
 // IPC: Hide floating pill (close button on indicator)
@@ -1316,7 +1528,7 @@ async function onHotkeyUp() {
     const mode = settings?.transcription_mode || store.get('transcription_mode') || 'cloud';
     const apiKey = settings?.openai_api_key || store.get('openai_api_key');
 
-    if (mode !== 'local' && !apiKey) {
+    if (mode !== 'local' && mode !== 'groq' && !apiKey) {
       hideIndicator();
       updateTrayMenu('No API key');
       console.error('No OpenAI API key configured');
@@ -1325,10 +1537,13 @@ async function onHotkeyUp() {
 
     if (mode === 'local') {
       showIndicator('Local transcription...', { processing: true });
+    } else if (mode === 'groq') {
+      showIndicator('Groq transcription...', { processing: true });
     }
 
     const authToken = store.get('supabase_token');
-    const text = await transcribe(apiKey, audioBuffer, settings?.language || 'en', authToken, mode);
+    const groqKey = settings?.groq_api_key || store.get('groq_api_key') || '';
+    const text = await transcribe(apiKey, audioBuffer, settings?.language || 'en', authToken, mode, { groq_api_key: groqKey });
 
     if (text && text.trim()) {
       let finalText = text.trim();
@@ -1418,6 +1633,7 @@ async function logUsage(bufferLength, skill) {
 // ─── Skill Sync ───
 
 const LINKBOARD_SKILLS_API = 'https://las-link-board.vercel.app/api/voicetype/skills';
+let skillSyncInterval = null;
 
 async function syncSkills() {
   const token = store.get('supabase_token');
@@ -1435,6 +1651,11 @@ async function syncSkills() {
       userSkills = await res.json();
       store.set('cached_skills', userSkills);
       console.log('Skills synced:', userSkills.length, 'skills');
+
+      // Notify dashboard of updated skills
+      if (dashboardWindow && !dashboardWindow.isDestroyed()) {
+        dashboardWindow.webContents.send('skills-updated', userSkills);
+      }
       return;
     }
   } catch (e) {
@@ -1444,3 +1665,90 @@ async function syncSkills() {
   // Fallback to cache
   userSkills = store.get('cached_skills') || [];
 }
+
+// Auto-sync skills every 30 seconds to pick up changes from web
+function startSkillAutoSync() {
+  if (skillSyncInterval) return;
+  skillSyncInterval = setInterval(async () => {
+    try { await syncSkills(); } catch (e) { /* silent */ }
+  }, 30000);
+}
+
+function stopSkillAutoSync() {
+  if (skillSyncInterval) { clearInterval(skillSyncInterval); skillSyncInterval = null; }
+}
+
+// ─── Skill CRUD (desktop → API → Supabase) ───
+
+ipcMain.handle('dashboard-create-skill', async (_event, skill) => {
+  const token = store.get('supabase_token');
+  if (!token) return { error: 'Not signed in' };
+
+  try {
+    const res = await fetch(LINKBOARD_SKILLS_API, {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(skill),
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      return { error: err };
+    }
+    const created = await res.json();
+    await syncSkills(); // re-fetch full list
+    return created;
+  } catch (e) {
+    return { error: e.message };
+  }
+});
+
+ipcMain.handle('dashboard-update-skill', async (_event, skill) => {
+  const token = store.get('supabase_token');
+  if (!token) return { error: 'Not signed in' };
+
+  try {
+    const res = await fetch(LINKBOARD_SKILLS_API, {
+      method: 'PUT',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(skill),
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      return { error: err };
+    }
+    const updated = await res.json();
+    await syncSkills(); // re-fetch full list
+    return updated;
+  } catch (e) {
+    return { error: e.message };
+  }
+});
+
+ipcMain.handle('dashboard-delete-skill', async (_event, id) => {
+  const token = store.get('supabase_token');
+  if (!token) return { error: 'Not signed in' };
+
+  try {
+    const res = await fetch(LINKBOARD_SKILLS_API + '?id=' + id, {
+      method: 'DELETE',
+      headers: { 'Authorization': 'Bearer ' + token },
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      return { error: err };
+    }
+    await syncSkills(); // re-fetch full list
+    return { ok: true };
+  } catch (e) {
+    return { error: e.message };
+  }
+});

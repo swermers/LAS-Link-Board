@@ -47,7 +47,7 @@ Here is the raw transcript:
  * @param {Object} options
  * @param {string} [options.apiKey] - Anthropic API key
  * @param {string} [options.baseURL] - Custom API base URL (e.g., AWS Bedrock endpoint)
- * @param {string} [options.model] - Model ID (default: claude-sonnet-4-20250514)
+ * @param {string} [options.model] - Model ID (default: claude-haiku-4-5-20251001)
  * @returns {Promise<string>} - Formatted SOAP note
  */
 async function formatSOAPNote(transcript, options = {}) {
@@ -64,7 +64,7 @@ async function formatSOAPNote(transcript, options = {}) {
   const client = new Anthropic(clientOptions);
 
   const response = await client.messages.create({
-    model: options.model || 'claude-sonnet-4-20250514',
+    model: options.model || 'claude-haiku-4-5-20251001',
     max_tokens: 2048,
     messages: [
       {
