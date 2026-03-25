@@ -33,6 +33,14 @@ jobs:
         working-directory: voicetype-desktop
         run: npm ci || npm install
 
+      # Sync package version from the git tag (e.g. voicetype-v2.7.4 → 2.7.4)
+      - name: Set version from tag
+        working-directory: voicetype-desktop
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#voicetype-v}"
+          echo "Setting version to $TAG_VERSION"
+          npm version "$TAG_VERSION" --no-git-tag-version --allow-same-version
+
       # ── macOS build (unsigned — no Apple certs configured) ──
       - name: Build Electron app (macOS)
         if: runner.os == 'macOS'
