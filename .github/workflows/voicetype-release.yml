@@ -36,6 +36,7 @@ jobs:
       # Sync package version from the git tag (e.g. voicetype-v2.7.4 → 2.7.4)
       - name: Set version from tag
         working-directory: voicetype-desktop
+        shell: bash
         run: |
           TAG_VERSION="${GITHUB_REF_NAME#voicetype-v}"
           echo "Setting version to $TAG_VERSION"
