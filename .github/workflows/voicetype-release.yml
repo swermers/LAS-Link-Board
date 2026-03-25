@@ -33,28 +33,17 @@ jobs:
         working-directory: voicetype-desktop
         run: npm ci || npm install
 
-      # Force-set version from git tag in BOTH package.json and package-lock.json
-      # This ensures electron-builder uses the correct version in filenames
+      # Force-set version from git tag so electron-builder names files correctly
       - name: Set version from tag
         working-directory: voicetype-desktop
         shell: bash
         run: |
           TAG_VERSION="${GITHUB_REF_NAME#voicetype-v}"
-          echo "::notice::Setting version to $TAG_VERSION from tag $GITHUB_REF_NAME"
-          cat > /tmp/set-version.js << 'SCRIPT'
-          const fs = require('fs');
-          const v = process.argv[1];
-          const pkg = JSON.parse(fs.readFileSync('package.json','utf8'));
-          pkg.version = v;
-          fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-          const lock = JSON.parse(fs.readFileSync('package-lock.json','utf8'));
-          lock.version = v;
-          if (lock.packages && lock.packages['']) lock.packages[''].version = v;
-          fs.writeFileSync('package-lock.json', JSON.stringify(lock, null, 2) + '\n');
-          console.log('Set version to', v);
-          SCRIPT
-          node /tmp/set-version.js "$TAG_VERSION"
-          echo "Verify: $(node -p "require('./package.json').version")"
+          echo "Setting version to $TAG_VERSION"
+          sed -i.bak "s/\"version\": \"[^\"]*\"/\"version\": \"$TAG_VERSION\"/" package.json
+          sed -i.bak "s/\"version\": \"[^\"]*\"/\"version\": \"$TAG_VERSION\"/" package-lock.json
+          rm -f package.json.bak package-lock.json.bak
+          grep '"version"' package.json | head -1
 
       # ── macOS build (unsigned — no Apple certs configured) ──
       - name: Build Electron app (macOS)
