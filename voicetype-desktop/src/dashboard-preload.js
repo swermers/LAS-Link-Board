@@ -16,5 +16,9 @@ contextBridge.exposeInMainWorld('dashboard', {
   deleteSkill: (id) => ipcRenderer.invoke('dashboard-delete-skill', id),
 
   // Listen for skill updates (from periodic sync)
-  onSkillsUpdated: (callback) => ipcRenderer.on('skills-updated', (_e, skills) => callback(skills))
+  onSkillsUpdated: (callback) => ipcRenderer.on('skills-updated', (_e, skills) => callback(skills)),
+
+  // Voice Notes mode
+  setVoiceNotesMode: (enabled) => ipcRenderer.send('set-voice-notes-mode', enabled),
+  getVoiceNotesMode: () => ipcRenderer.invoke('get-voice-notes-mode')
 });

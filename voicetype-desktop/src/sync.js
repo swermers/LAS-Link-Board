@@ -251,4 +251,136 @@ async function saveSettings(store, updates) {
   return cached;
 }
 
-module.exports = { syncSettings, saveSettings, storeAuth, clearAuth, refreshToken, ensureValidToken };
+// ═══════════════════════════════════════
+//  Voice Notes — Save & Sync
+// ═══════════════════════════════════════
+
+/**
+ * Fetch the user's todo categories from Supabase.
+ */
+async function fetchVoiceNoteCategories(store) {
+  const token = store.get('supabase_token');
+  const userId = store.get('user_id');
+  if (!token || !userId) return store.get('cached_vn_categories') || [];
+
+  try {
+    const res = await fetch(
+      SUPABASE_URL + '/rest/v1/todo_categories?user_id=eq.' + userId + '&order=sort_order.asc',
+      {
+        headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + token },
+        signal: AbortSignal.timeout(8000)
+      }
+    );
+    if (res.ok) {
+      const cats = await res.json();
+      store.set('cached_vn_categories', cats);
+      return cats;
+    }
+    if (res.status === 401) {
+      const refreshed = await refreshToken(store);
+      if (refreshed) return fetchVoiceNoteCategories(store); // retry once
+    }
+  } catch (e) {
+    console.warn('Failed to fetch voice note categories:', e.message);
+  }
+  return store.get('cached_vn_categories') || [];
+}
+
+/**
+ * Save a voice note to Supabase (voice_notes table).
+ * @param {Object} note - { transcript, title, category_id, priority, tagged_student, tagged_student_id, duration_seconds }
+ */
+async function saveVoiceNote(store, note) {
+  const token = store.get('supabase_token');
+  const userId = store.get('user_id');
+  if (!token || !userId) throw new Error('Not signed in');
+
+  const payload = {
+    user_id: userId,
+    transcript: note.transcript || '',
+    title: note.title || note.transcript.split(/[.!?\n]/)[0].substring(0, 80),
+    category_id: note.category_id || null,
+    priority: note.priority || 'normal',
+    tagged_student: note.tagged_student || '',
+    tagged_student_id: note.tagged_student_id || '',
+    duration_seconds: note.duration_seconds || 0,
+    status: 'pending'
+  };
+
+  let res = await fetch(SUPABASE_URL + '/rest/v1/voice_notes', {
+    method: 'POST',
+    headers: {
+      'apikey': SUPABASE_ANON,
+      'Authorization': 'Bearer ' + token,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=representation'
+    },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(10000)
+  });
+
+  if (res.status === 401) {
+    const refreshed = await refreshToken(store);
+    if (refreshed) {
+      res = await fetch(SUPABASE_URL + '/rest/v1/voice_notes', {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_ANON,
+          'Authorization': 'Bearer ' + store.get('supabase_token'),
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(10000)
+      });
+    }
+  }
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error('Failed to save voice note: ' + text);
+  }
+  const created = await res.json();
+  return created[0] || created;
+}
+
+/**
+ * Fetch students from Orah via the LinkBoard proxy.
+ * @param {Object} orahConfig - { region, api_key }
+ * @param {string} query - search string
+ */
+async function fetchOrahStudents(store, orahConfig, query) {
+  const token = store.get('supabase_token');
+  if (!token || !orahConfig || !orahConfig.api_key) return [];
+
+  try {
+    const res = await fetch('https://las-link-board.vercel.app/api/voicenotes/orah-proxy', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + token,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        region: orahConfig.region || 'https://open-api-ireland.orah.com/open-api',
+        api_key: orahConfig.api_key,
+        endpoint: 'students/list',
+        body: query ? { search: query, limit: 20 } : { limit: 200 }
+      }),
+      signal: AbortSignal.timeout(15000)
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const students = data.students || data.data || data || [];
+      // Cache the roster locally
+      if (!query) store.set('cached_orah_students', students);
+      return students;
+    }
+  } catch (e) {
+    console.warn('Orah student fetch error:', e.message);
+  }
+
+  return store.get('cached_orah_students') || [];
+}
+
+module.exports = { syncSettings, saveSettings, storeAuth, clearAuth, refreshToken, ensureValidToken, saveVoiceNote, fetchOrahStudents, fetchVoiceNoteCategories };

@@ -2060,6 +2060,17 @@ body {
             </div>
           </div>
 
+          <!-- Desktop App Tip -->
+          <div id="vnDesktopTip" style="background:linear-gradient(135deg,#FFFDF5,var(--surface));border:1.5px solid rgba(197,150,59,0.3);border-radius:12px;padding:1rem 1.25rem;margin-bottom:1rem;display:flex;align-items:center;gap:1rem;box-shadow:var(--shadow)">
+            <div style="font-size:1.5rem;flex-shrink:0">&#128187;</div>
+            <div style="flex:1">
+              <div style="font-family:Montserrat,sans-serif;font-size:0.82rem;font-weight:700;color:var(--navy);margin-bottom:0.15rem">Use the Desktop App for Free Local Transcription</div>
+              <div style="font-size:0.75rem;color:var(--text-muted)">The VoiceType desktop app includes local Whisper transcription — no API key needed. Enable "Voice Notes mode" in the app to save directly here.</div>
+            </div>
+            <button class="btn btn-gold btn-sm" onclick="switchTab('voicetype');setTimeout(()=>switchVtTab('download'),100)" style="white-space:nowrap">Download App</button>
+            <button onclick="document.getElementById('vnDesktopTip').style.display='none'" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:1rem;padding:4px">&times;</button>
+          </div>
+
           <!-- To-Do List -->
           <div class="vn-todo-list" id="vnTodoList">
             <!-- Populated by JS -->

@@ -7,7 +7,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { registerHotkey, unregisterAll } = require('./hotkey');
-const { syncSettings, saveSettings, storeAuth, clearAuth, refreshToken, ensureValidToken } = require('./sync');
+const { syncSettings, saveSettings, storeAuth, clearAuth, refreshToken, ensureValidToken, saveVoiceNote, fetchOrahStudents, fetchVoiceNoteCategories } = require('./sync');
 const { startRecording, stopRecording, checkSoxInstalled, onBrowserAudioData, isBrowserRecording } = require('./recorder');
 const { transcribe } = require('./whisper');
 const { injectText } = require('./injector');
@@ -26,6 +26,11 @@ let settings = null;
 let userSkills = [];       // user's skill list from Supabase
 let selectedSkillIdx = 0;  // index into userSkills for the indicator selector
 let pillSkillOverride = false; // true when user explicitly picked a skill on the pill
+
+// Voice Notes mode
+let voiceNotesMode = false;    // when true, saves to voice_notes instead of clipboard
+let vnCategories = [];         // cached categories
+let orahStudents = [];         // cached Orah student roster for name matching
 
 // Prevent multiple instances — if another instance launches, focus this one
 const gotLock = app.requestSingleInstanceLock();
@@ -96,6 +101,10 @@ app.on('ready', async () => {
     // Sync skills and start periodic auto-sync
     await syncSkills();
     startSkillAutoSync();
+    // Restore Voice Notes mode if previously enabled
+    if (store.get('voice_notes_mode')) {
+      setVoiceNotesMode(true);
+    }
     updateTrayMenu('Ready');
   } catch (e) {
     console.error('Failed to load settings:', e.message);
@@ -1653,9 +1662,24 @@ async function onHotkeyUp() {
         }
       }
 
-      // Inject at cursor (tries paste, always copies to clipboard)
-      await injectText(finalText, !!settings?.auto_submit);
-      showIndicator(usedSkill ? usedSkill.name : 'Done', { done: true });
+      // Voice Notes mode: save to Supabase instead of injecting
+      if (voiceNotesMode) {
+        showIndicator('Saving note...', { processing: true });
+        try {
+          const noteData = await categorizeForVoiceNote(text.trim(), finalText, audioBuffer.length);
+          await saveVoiceNote(store, noteData);
+          showIndicator('Note saved!', { done: true });
+        } catch (e) {
+          console.error('Voice note save failed:', e);
+          // Fallback: copy to clipboard
+          await injectText(finalText, false);
+          showIndicator('Save failed — copied', { done: true });
+        }
+      } else {
+        // Normal mode: inject at cursor (tries paste, always copies to clipboard)
+        await injectText(finalText, !!settings?.auto_submit);
+        showIndicator(usedSkill ? usedSkill.name : 'Done', { done: true });
+      }
 
       // Log usage with skill info
       logUsage(audioBuffer.length, usedSkill);
@@ -1712,6 +1736,104 @@ async function logUsage(bufferLength, skill) {
     console.error('Failed to log usage:', e.message);
   }
 }
+
+// ─── Voice Notes Mode ───
+
+/**
+ * Categorize a transcript for saving as a voice note.
+ * Uses Claude to extract category, title, student name, and priority.
+ * Also matches student names against the cached Orah roster.
+ */
+async function categorizeForVoiceNote(rawTranscript, formattedText, bufferLength) {
+  const durationSeconds = Math.max(1, Math.round(bufferLength / 32000));
+
+  const noteData = {
+    transcript: rawTranscript,
+    title: rawTranscript.split(/[.!?\n]/)[0].substring(0, 80),
+    category_id: null,
+    priority: 'normal',
+    tagged_student: '',
+    tagged_student_id: '',
+    duration_seconds: durationSeconds
+  };
+
+  // Try AI categorization via Claude
+  const anthropicKey = settings?.anthropic_api_key || store.get('anthropic_api_key');
+  if (anthropicKey && vnCategories.length > 0) {
+    try {
+      const catNames = vnCategories.map(c => c.name).join(', ');
+      const Anthropic = require('@anthropic-ai/sdk');
+      const client = new Anthropic({ apiKey: anthropicKey, baseURL: settings?.anthropic_base_url || undefined });
+      const msg = await client.messages.create({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 256,
+        messages: [{ role: 'user', content: rawTranscript }],
+        system: `You are a voice note categorizer for a boarding school. Given the transcript, respond ONLY with valid JSON (no markdown):
+{"category":"<one of: ${catNames}>","title":"<short 5-10 word title>","student":"<student name if mentioned, else empty>","priority":"<low|normal|high|urgent>"}
+Pick the most appropriate category. Extract any student name mentioned. If time-sensitive, mark priority accordingly.`
+      });
+      const text = msg.content[0]?.text || '';
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.category) {
+          const cat = vnCategories.find(c => c.name.toLowerCase() === parsed.category.toLowerCase());
+          if (cat) noteData.category_id = cat.id;
+        }
+        if (parsed.title) noteData.title = parsed.title;
+        if (parsed.student) noteData.tagged_student = parsed.student;
+        if (parsed.priority) noteData.priority = parsed.priority;
+      }
+    } catch (e) {
+      console.warn('AI categorization failed:', e.message);
+    }
+  }
+
+  // Match tagged student against Orah roster for student ID
+  if (noteData.tagged_student && orahStudents.length > 0) {
+    const name = noteData.tagged_student.toLowerCase();
+    const match = orahStudents.find(s => {
+      const fullName = (s.name || (s.first_name + ' ' + s.last_name) || '').toLowerCase();
+      return fullName === name || fullName.includes(name) || name.includes(fullName);
+    });
+    if (match) {
+      noteData.tagged_student = match.name || (match.first_name + ' ' + match.last_name);
+      noteData.tagged_student_id = match.id || '';
+    }
+  }
+
+  return noteData;
+}
+
+/**
+ * Toggle Voice Notes mode on/off.
+ */
+function setVoiceNotesMode(enabled) {
+  voiceNotesMode = !!enabled;
+  store.set('voice_notes_mode', voiceNotesMode);
+  console.log('Voice Notes mode:', voiceNotesMode ? 'ON' : 'OFF');
+
+  // Pre-load categories and Orah roster when enabling
+  if (voiceNotesMode) {
+    fetchVoiceNoteCategories(store).then(cats => { vnCategories = cats; });
+    // Load Orah settings and fetch roster
+    const orahConfig = store.get('cached_orah_config');
+    if (orahConfig && orahConfig.api_key) {
+      fetchOrahStudents(store, orahConfig).then(students => { orahStudents = students; });
+    }
+  }
+}
+
+// IPC: toggle voice notes mode
+ipcMain.on('set-voice-notes-mode', (_, enabled) => {
+  setVoiceNotesMode(enabled);
+  if (indicatorWindow) indicatorWindow.webContents.send('voice-notes-mode-changed', voiceNotesMode);
+});
+ipcMain.on('toggle-voice-notes-mode', () => {
+  setVoiceNotesMode(!voiceNotesMode);
+  if (indicatorWindow) indicatorWindow.webContents.send('voice-notes-mode-changed', voiceNotesMode);
+});
+ipcMain.handle('get-voice-notes-mode', () => voiceNotesMode);
 
 // ─── Skill Sync ───
 
