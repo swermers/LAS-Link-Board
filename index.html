@@ -1111,6 +1111,252 @@ body {
   .rule-editor-row { flex-direction: column; }
   .toast { bottom: calc(0.75rem + env(safe-area-inset-bottom)); right: 0.75rem; left: 0.75rem; text-align: center; }
 }
+
+/* ═══ VOICE NOTES & TRANSPORT ═══ */
+.vn-layout { display: flex; gap: 0; min-height: calc(100vh - 120px); position: relative; }
+.vn-main { flex: 1; padding: 1.5rem; max-width: 100%; transition: margin-right 0.3s; }
+.vn-main.sidebar-open { margin-right: 420px; }
+
+/* ─── Voice Notes Stats ─── */
+.vn-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin-bottom: 1.5rem; }
+.vn-stat-card {
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 12px; padding: 1rem 1.25rem; box-shadow: var(--shadow);
+}
+.vn-stat-card .vn-stat-label { font-family: 'Montserrat', sans-serif; font-size: 0.7rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.vn-stat-card .vn-stat-val { font-family: 'Montserrat', sans-serif; font-size: 1.6rem; font-weight: 800; color: var(--navy); margin-top: 0.25rem; }
+
+/* ─── Voice Recorder (compact) ─── */
+.vn-recorder {
+  background: linear-gradient(135deg, var(--navy) 0%, #134074 100%);
+  border-radius: 16px; padding: 1.5rem; margin-bottom: 1.5rem;
+  display: flex; align-items: center; gap: 1.25rem;
+  box-shadow: 0 4px 20px rgba(11,37,69,0.2);
+}
+.vn-rec-btn {
+  width: 64px; height: 64px; border-radius: 50%; border: none;
+  background: var(--gold); cursor: pointer; display: flex;
+  align-items: center; justify-content: center; flex-shrink: 0;
+  transition: transform 0.15s, box-shadow 0.15s;
+  box-shadow: 0 4px 16px rgba(197,150,59,0.4);
+}
+.vn-rec-btn:hover { transform: scale(1.05); box-shadow: 0 6px 24px rgba(197,150,59,0.5); }
+.vn-rec-btn.recording { background: var(--crimson); animation: vn-pulse 1.5s ease-in-out infinite; }
+@keyframes vn-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(164,37,71,0.4); } 50% { box-shadow: 0 0 0 12px rgba(164,37,71,0); } }
+.vn-rec-info { flex: 1; color: #fff; }
+.vn-rec-title { font-family: 'Montserrat', sans-serif; font-size: 1rem; font-weight: 700; margin-bottom: 0.25rem; }
+.vn-rec-sub { font-size: 0.82rem; opacity: 0.7; }
+.vn-rec-timer { font-family: 'Montserrat', sans-serif; font-size: 2rem; font-weight: 800; color: var(--gold); display: none; }
+.vn-rec-wave { display: none; gap: 3px; align-items: center; height: 32px; }
+.vn-rec-wave span { width: 3px; background: var(--gold); border-radius: 2px; animation: vn-wave 1.2s ease-in-out infinite; }
+.vn-rec-wave span:nth-child(1) { animation-delay: 0s; height: 8px; }
+.vn-rec-wave span:nth-child(2) { animation-delay: 0.15s; height: 16px; }
+.vn-rec-wave span:nth-child(3) { animation-delay: 0.3s; height: 24px; }
+.vn-rec-wave span:nth-child(4) { animation-delay: 0.45s; height: 16px; }
+.vn-rec-wave span:nth-child(5) { animation-delay: 0.6s; height: 8px; }
+@keyframes vn-wave { 0%, 100% { transform: scaleY(0.5); } 50% { transform: scaleY(1); } }
+
+/* ─── Category Pills ─── */
+.vn-category-bar { display: flex; gap: 0.5rem; margin-bottom: 1.25rem; flex-wrap: wrap; align-items: center; }
+.vn-cat-pill {
+  padding: 0.4rem 1rem; border-radius: 20px; font-size: 0.78rem; font-weight: 600;
+  border: 1.5px solid var(--border); background: var(--surface); color: var(--text);
+  cursor: pointer; transition: all 0.2s; font-family: 'Inter', sans-serif;
+}
+.vn-cat-pill:hover { border-color: var(--gold); }
+.vn-cat-pill.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+.vn-cat-pill.add-cat { border-style: dashed; color: var(--text-muted); }
+.vn-cat-pill .cat-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+.vn-cat-count { font-size: 0.68rem; opacity: 0.7; margin-left: 4px; }
+
+/* ─── To-Do List ─── */
+.vn-todo-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.vn-todo-item {
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 12px; padding: 1rem 1.25rem;
+  display: flex; align-items: flex-start; gap: 0.75rem;
+  transition: all 0.2s; box-shadow: var(--shadow);
+  cursor: pointer;
+}
+.vn-todo-item:hover { border-color: var(--gold); box-shadow: 0 2px 8px rgba(197,150,59,0.1); }
+.vn-todo-item.completed { opacity: 0.5; }
+.vn-todo-item.completed .vn-todo-title { text-decoration: line-through; }
+.vn-todo-item.priority-high { border-left: 3px solid var(--orange); }
+.vn-todo-item.priority-urgent { border-left: 3px solid var(--crimson); }
+
+.vn-todo-check {
+  width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--border);
+  cursor: pointer; flex-shrink: 0; margin-top: 2px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s; background: var(--surface);
+}
+.vn-todo-check:hover { border-color: var(--gold); }
+.vn-todo-check.checked { background: var(--gold); border-color: var(--gold); }
+.vn-todo-check.checked::after { content: '✓'; color: #fff; font-size: 0.72rem; font-weight: 700; }
+
+.vn-todo-body { flex: 1; min-width: 0; }
+.vn-todo-title { font-weight: 600; font-size: 0.9rem; margin-bottom: 0.2rem; color: var(--text); }
+.vn-todo-transcript { font-size: 0.78rem; color: var(--text-muted); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.vn-todo-meta { display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap; align-items: center; }
+.vn-todo-tag {
+  font-size: 0.68rem; font-weight: 600; padding: 2px 8px;
+  border-radius: 4px; background: var(--teal-light); color: var(--teal);
+}
+.vn-todo-tag.student { background: var(--gold-light); color: var(--gold-hover); }
+.vn-todo-tag.transport { background: var(--crimson-light); color: var(--crimson); cursor: pointer; }
+.vn-todo-tag.time { background: var(--surface-alt); color: var(--text-muted); font-weight: 400; }
+.vn-todo-actions { display: flex; gap: 0.25rem; flex-shrink: 0; opacity: 0; transition: opacity 0.2s; }
+.vn-todo-item:hover .vn-todo-actions { opacity: 1; }
+.vn-todo-act-btn {
+  width: 30px; height: 30px; border: none; border-radius: 6px;
+  background: var(--surface-alt); color: var(--text-muted); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; font-size: 0.78rem;
+  transition: all 0.15s;
+}
+.vn-todo-act-btn:hover { background: var(--navy); color: #fff; }
+.vn-todo-act-btn.danger:hover { background: var(--danger); color: #fff; }
+
+.vn-empty {
+  text-align: center; padding: 3rem 1rem; color: var(--text-muted);
+}
+.vn-empty-icon { font-size: 3rem; margin-bottom: 0.5rem; opacity: 0.3; }
+.vn-empty h3 { font-family: 'Montserrat', sans-serif; font-size: 1rem; font-weight: 700; color: var(--text); margin-bottom: 0.25rem; }
+
+/* ─── Transport Sidebar ─── */
+.vn-sidebar-toggle {
+  position: fixed; right: 0; top: 50%; transform: translateY(-50%);
+  writing-mode: vertical-rl; text-orientation: mixed;
+  background: var(--navy); color: #fff; border: none;
+  padding: 1rem 0.5rem; border-radius: 8px 0 0 8px;
+  font-family: 'Montserrat', sans-serif; font-size: 0.72rem;
+  font-weight: 700; letter-spacing: 0.05em; cursor: pointer;
+  z-index: 100; transition: all 0.2s;
+  box-shadow: -2px 0 10px rgba(11,37,69,0.15);
+}
+.vn-sidebar-toggle:hover { background: var(--gold); }
+.vn-sidebar-toggle.active { background: var(--gold); }
+
+.vn-sidebar {
+  position: fixed; right: -420px; top: 0; width: 420px; height: 100vh;
+  background: var(--surface); border-left: 2px solid var(--border);
+  box-shadow: -4px 0 20px rgba(11,37,69,0.08);
+  z-index: 99; transition: right 0.3s ease;
+  overflow-y: auto; padding: 0;
+}
+.vn-sidebar.open { right: 0; }
+.vn-sidebar-header {
+  background: var(--navy); color: #fff; padding: 1.25rem 1.5rem;
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 1;
+}
+.vn-sidebar-header h3 { font-family: 'Montserrat', sans-serif; font-size: 0.95rem; font-weight: 700; }
+.vn-sidebar-close {
+  background: none; border: none; color: rgba(255,255,255,0.7); cursor: pointer;
+  font-size: 1.25rem; padding: 4px; line-height: 1;
+}
+.vn-sidebar-close:hover { color: #fff; }
+.vn-sidebar-body { padding: 1.5rem; }
+
+/* ─── Transport Form ─── */
+.vn-form-group { margin-bottom: 1rem; }
+.vn-form-group label {
+  display: block; font-family: 'Montserrat', sans-serif;
+  font-size: 0.7rem; font-weight: 700; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.3rem;
+}
+.vn-form-group input, .vn-form-group select, .vn-form-group textarea {
+  width: 100%; padding: 0.6rem 0.8rem;
+  background: var(--surface-alt); border: 1.5px solid var(--border);
+  border-radius: 8px; color: var(--text);
+  font-family: inherit; font-size: 0.88rem; transition: all 0.2s;
+}
+.vn-form-group input:focus, .vn-form-group select:focus, .vn-form-group textarea:focus {
+  outline: none; border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(197,150,59,0.15); background: var(--surface);
+}
+.vn-form-group textarea { resize: vertical; min-height: 60px; }
+.vn-form-hint { font-size: 0.7rem; color: var(--text-muted); margin-top: 0.2rem; }
+
+.vn-student-search {
+  position: relative;
+}
+.vn-student-results {
+  position: absolute; top: 100%; left: 0; right: 0;
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 8px; box-shadow: var(--shadow-lg);
+  max-height: 200px; overflow-y: auto; z-index: 10;
+  display: none;
+}
+.vn-student-results.show { display: block; }
+.vn-student-result {
+  padding: 0.6rem 0.8rem; cursor: pointer; font-size: 0.85rem;
+  border-bottom: 1px solid var(--border); transition: background 0.15s;
+}
+.vn-student-result:hover { background: var(--gold-light); }
+.vn-student-result:last-child { border-bottom: none; }
+.vn-student-result .student-house { font-size: 0.72rem; color: var(--text-muted); }
+
+/* ─── Transport Request List in Sidebar ─── */
+.vn-transport-tabs { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 1rem; }
+.vn-transport-tab {
+  padding: 0.5rem 1rem; font-family: 'Montserrat', sans-serif;
+  font-size: 0.72rem; font-weight: 700; color: var(--text-muted);
+  background: none; border: none; cursor: pointer;
+  border-bottom: 3px solid transparent; margin-bottom: -2px;
+  transition: color 0.2s, border-color 0.2s;
+}
+.vn-transport-tab:hover { color: var(--navy); }
+.vn-transport-tab.active { color: var(--navy); border-bottom-color: var(--gold); }
+
+.vn-transport-card {
+  background: var(--surface-alt); border: 1.5px solid var(--border);
+  border-radius: 10px; padding: 0.85rem; margin-bottom: 0.5rem;
+  cursor: pointer; transition: all 0.2s;
+}
+.vn-transport-card:hover { border-color: var(--gold); }
+.vn-transport-card .tr-student { font-weight: 600; font-size: 0.88rem; }
+.vn-transport-card .tr-dest { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.15rem; }
+.vn-transport-card .tr-date { font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem; }
+.vn-transport-status {
+  display: inline-block; font-size: 0.65rem; font-weight: 700;
+  padding: 2px 8px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.04em;
+}
+.vn-transport-status.draft { background: var(--surface-alt); color: var(--text-muted); }
+.vn-transport-status.submitted { background: var(--teal-light); color: var(--teal); }
+.vn-transport-status.approved { background: #E8F5E9; color: #2E7D32; }
+.vn-transport-status.completed { background: var(--gold-light); color: var(--gold-hover); }
+.vn-transport-status.cancelled { background: var(--danger-light); color: var(--danger); }
+
+/* ─── Category Editor Modal ─── */
+.vn-color-picker { display: flex; gap: 0.35rem; flex-wrap: wrap; margin-top: 0.35rem; }
+.vn-color-swatch {
+  width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+  border: 2.5px solid transparent; transition: all 0.15s;
+}
+.vn-color-swatch:hover { transform: scale(1.15); }
+.vn-color-swatch.selected { border-color: var(--navy); box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--navy); }
+
+/* ─── Aura Connection Badge ─── */
+.vn-aura-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 0.35rem 0.75rem; border-radius: 20px;
+  font-size: 0.72rem; font-weight: 600;
+  background: var(--surface-alt); color: var(--text-muted);
+  border: 1.5px solid var(--border);
+}
+.vn-aura-badge.connected { background: #E8F5E9; color: #2E7D32; border-color: #C8E6C9; }
+.vn-aura-badge .aura-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); }
+.vn-aura-badge.connected .aura-dot { background: #4CAF50; }
+
+@media (max-width: 768px) {
+  .vn-stats { grid-template-columns: repeat(2, 1fr); }
+  .vn-recorder { flex-direction: column; text-align: center; }
+  .vn-sidebar { width: 100%; right: -100%; }
+  .vn-main.sidebar-open { margin-right: 0; }
+}
+@media (max-width: 500px) {
+  .vn-stats { grid-template-columns: 1fr; }
+}
 </style>
 </head>
 <body>
@@ -1188,6 +1434,7 @@ body {
       <button class="tab" id="tabCampaigns" onclick="switchTab('campaigns')" style="display:none">Campaigns</button>
       <button class="tab" id="tabAnalytics" onclick="switchTab('analytics')">Analytics</button>
       <button class="tab" id="tabVoicetype" onclick="switchTab('voicetype')">VoiceType</button>
+      <button class="tab" id="tabVoicenotes" onclick="switchTab('voicenotes')">Voice Notes</button>
     </div>
     <div class="main" id="linksSection">
       <div class="stats">
@@ -1743,6 +1990,302 @@ body {
         </div>
 
       </div>
+    </div>
+
+    <!-- ═══ VOICE NOTES SECTION ═══ -->
+    <div id="voicenotesSection" style="display:none">
+      <div class="vn-layout">
+        <div class="vn-main" id="vnMain">
+
+          <!-- Stats Row -->
+          <div class="vn-stats">
+            <div class="vn-stat-card">
+              <div class="vn-stat-label">Total Notes</div>
+              <div class="vn-stat-val" id="vnStatTotal">0</div>
+            </div>
+            <div class="vn-stat-card">
+              <div class="vn-stat-label">Pending</div>
+              <div class="vn-stat-val" id="vnStatPending">0</div>
+            </div>
+            <div class="vn-stat-card">
+              <div class="vn-stat-label">Completed</div>
+              <div class="vn-stat-val" id="vnStatCompleted">0</div>
+            </div>
+            <div class="vn-stat-card">
+              <div class="vn-stat-label">Transport Requests</div>
+              <div class="vn-stat-val" id="vnStatTransport">0</div>
+            </div>
+          </div>
+
+          <!-- Voice Recorder Bar -->
+          <div class="vn-recorder" id="vnRecorder">
+            <button class="vn-rec-btn" id="vnRecordBtn" onclick="toggleVnRecording()">
+              <svg id="vnMicIcon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+              <svg id="vnStopIcon" style="display:none" width="24" height="24" viewBox="0 0 24 24" fill="#fff"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+            </button>
+            <div class="vn-rec-info">
+              <div class="vn-rec-title" id="vnRecTitle">Record a voice note</div>
+              <div class="vn-rec-sub" id="vnRecSub">Tap to start — your voice will be transcribed and added as a to-do item</div>
+            </div>
+            <div class="vn-rec-timer" id="vnRecTimer">0:00</div>
+            <div class="vn-rec-wave" id="vnRecWave">
+              <span></span><span></span><span></span><span></span><span></span>
+            </div>
+          </div>
+
+          <!-- Category Filter Bar -->
+          <div class="vn-category-bar" id="vnCategoryBar">
+            <button class="vn-cat-pill active" onclick="filterVnCategory(null)" data-cat="all">All<span class="vn-cat-count" id="vnCatCountAll"></span></button>
+            <!-- Categories populated by JS -->
+            <button class="vn-cat-pill add-cat" onclick="openCategoryEditor()">+ Category</button>
+          </div>
+
+          <!-- Filter / Sort Controls -->
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+            <div style="display:flex;gap:0.5rem;align-items:center">
+              <select id="vnStatusFilter" onchange="renderVnTodos()" style="padding:0.35rem 0.65rem;border:1.5px solid var(--border);border-radius:8px;font-size:0.78rem;background:var(--surface)">
+                <option value="active">Active</option>
+                <option value="all">All</option>
+                <option value="pending">Pending</option>
+                <option value="completed">Completed</option>
+                <option value="archived">Archived</option>
+              </select>
+              <div class="vn-aura-badge" id="vnAuraBadge">
+                <span class="aura-dot"></span>
+                <span id="vnOrahStatus">Orah: Not connected</span>
+              </div>
+            </div>
+            <div style="display:flex;gap:0.5rem">
+              <button class="btn btn-outline btn-sm" onclick="openOrahSettings()" style="font-size:0.72rem">Orah Settings</button>
+            </div>
+          </div>
+
+          <!-- To-Do List -->
+          <div class="vn-todo-list" id="vnTodoList">
+            <!-- Populated by JS -->
+          </div>
+          <div class="vn-empty" id="vnEmpty" style="display:none">
+            <div class="vn-empty-icon">&#127908;</div>
+            <h3>No voice notes yet</h3>
+            <p>Hit the record button above and speak your note. It'll be transcribed and added here automatically.</p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Transport Sidebar Toggle (vertical tab) -->
+      <button class="vn-sidebar-toggle" id="vnSidebarToggle" onclick="toggleTransportSidebar()">
+        Transport Requests
+      </button>
+
+      <!-- Transport Sidebar -->
+      <div class="vn-sidebar" id="vnSidebar">
+        <div class="vn-sidebar-header">
+          <h3>Transport Requests</h3>
+          <button class="vn-sidebar-close" onclick="toggleTransportSidebar()">&times;</button>
+        </div>
+        <div class="vn-sidebar-body">
+          <!-- Sidebar Tabs -->
+          <div class="vn-transport-tabs">
+            <button class="vn-transport-tab active" onclick="switchTransportTab('form')">New Request</button>
+            <button class="vn-transport-tab" onclick="switchTransportTab('history')">History</button>
+            <button class="vn-transport-tab" onclick="switchTransportTab('settings')">Settings</button>
+          </div>
+
+          <!-- New Request Form -->
+          <div id="vnTransportForm" class="vn-transport-panel">
+            <div class="vn-form-group vn-student-search">
+              <label>Student Name</label>
+              <input type="text" id="trStudentName" placeholder="Start typing to search Orah..." oninput="searchOrahStudent(this.value)" autocomplete="off">
+              <div class="vn-student-results" id="trStudentResults"></div>
+              <input type="hidden" id="trStudentId">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem">
+              <div class="vn-form-group">
+                <label>House</label>
+                <input type="text" id="trStudentHouse" placeholder="e.g. Alpine">
+              </div>
+              <div class="vn-form-group">
+                <label>Year / Grade</label>
+                <input type="text" id="trStudentYear" placeholder="e.g. Year 10">
+              </div>
+            </div>
+            <div class="vn-form-group">
+              <label>Appointment Type</label>
+              <select id="trAppointmentType">
+                <option value="medical">Medical</option>
+                <option value="dental">Dental</option>
+                <option value="specialist">Specialist</option>
+                <option value="therapy">Therapy / Counselling</option>
+                <option value="legal">Legal / Immigration</option>
+                <option value="family">Family Visit</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="vn-form-group">
+              <label>Destination</label>
+              <input type="text" id="trDestination" placeholder="e.g. Dr. Smith Clinic, 123 Main St">
+            </div>
+            <div class="vn-form-group">
+              <label>Pickup Location</label>
+              <input type="text" id="trPickupLocation" placeholder="e.g. School Reception" value="School Reception">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem">
+              <div class="vn-form-group">
+                <label>Date & Departure Time</label>
+                <input type="datetime-local" id="trDateTime">
+              </div>
+              <div class="vn-form-group">
+                <label>Estimated Return</label>
+                <input type="datetime-local" id="trReturnTime">
+              </div>
+            </div>
+            <div class="vn-form-group">
+              <label>Appointment Details</label>
+              <textarea id="trAppointmentDetails" rows="3" placeholder="Brief description of the appointment..."></textarea>
+            </div>
+            <div class="vn-form-group">
+              <label>Special Instructions</label>
+              <textarea id="trSpecialInstructions" rows="2" placeholder="Any special requirements (wheelchair access, medication, etc.)"></textarea>
+            </div>
+            <input type="hidden" id="trVoiceNoteId">
+            <div style="display:flex;gap:0.5rem;margin-top:1rem">
+              <button class="btn btn-gold" onclick="submitTransportRequest()" style="flex:1">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                Send Request
+              </button>
+              <button class="btn btn-outline" onclick="saveTransportDraft()" style="font-size:0.78rem">Save Draft</button>
+            </div>
+            <div class="vn-form-hint" style="text-align:center;margin-top:0.5rem" id="trSubmitHint">
+              Will send to your configured transport email or Google Sheet
+            </div>
+          </div>
+
+          <!-- Transport History -->
+          <div id="vnTransportHistory" class="vn-transport-panel" style="display:none">
+            <div id="trHistoryList">
+              <p style="color:var(--text-muted);font-size:0.82rem;text-align:center;padding:2rem 0">No transport requests yet</p>
+            </div>
+          </div>
+
+          <!-- Transport/Aura Settings -->
+          <div id="vnTransportSettings" class="vn-transport-panel" style="display:none">
+            <div class="vn-form-group">
+              <label>Orah Region</label>
+              <select id="orahRegion">
+                <option value="https://open-api-ireland.orah.com/open-api">Europe / Middle East / Africa</option>
+                <option value="https://open-api-virginia.orah.com/open-api">Americas</option>
+                <option value="https://open-api-sydney.orah.com/open-api">Asia-Pacific</option>
+              </select>
+              <div class="vn-form-hint">Select the region matching your Orah instance</div>
+            </div>
+            <div class="vn-form-group">
+              <label>Orah API Key</label>
+              <input type="password" id="orahApiKey" placeholder="Enter API key...">
+              <div class="vn-form-hint">Generate in Orah Admin Console. Contact your CSM if Open API isn't enabled.</div>
+            </div>
+            <div class="vn-form-group">
+              <label>School Name / ID</label>
+              <input type="text" id="orahSchoolId" placeholder="e.g. LAS">
+            </div>
+            <hr style="border:none;border-top:1px solid var(--border);margin:1.25rem 0">
+            <div class="vn-form-group">
+              <label>Transport Department Email</label>
+              <input type="email" id="trTransportEmail" placeholder="transport@school.edu">
+              <div class="vn-form-hint">Transport requests will be emailed here as a formatted PDF</div>
+            </div>
+            <div class="vn-form-group">
+              <label>Google Sheets ID (Optional)</label>
+              <input type="text" id="trGoogleSheetsId" placeholder="Spreadsheet ID from URL">
+              <div class="vn-form-hint">Alternatively log requests to a shared Google Sheet</div>
+            </div>
+            <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem">
+              <button class="btn btn-outline btn-sm" onclick="testOrahConnection()">Test Orah Connection</button>
+              <button class="btn btn-gold" onclick="saveOrahSettings()">Save Settings</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Category Editor Modal -->
+      <div class="overlay" id="vnCategoryOverlay">
+        <div class="modal" style="max-width:400px">
+          <h3 id="vnCatEditorTitle">New Category</h3>
+          <input type="hidden" id="vnCatEditId">
+          <div class="field" style="margin-bottom:0.75rem">
+            <label>Category Name</label>
+            <input type="text" id="vnCatEditName" placeholder="e.g. Medical, Admin, Follow-up...">
+          </div>
+          <div class="field" style="margin-bottom:0.75rem">
+            <label>Color</label>
+            <div class="vn-color-picker" id="vnColorPicker">
+              <div class="vn-color-swatch selected" style="background:#13507C" data-color="#13507C" onclick="selectVnColor(this)"></div>
+              <div class="vn-color-swatch" style="background:#C5963B" data-color="#C5963B" onclick="selectVnColor(this)"></div>
+              <div class="vn-color-swatch" style="background:#a42547" data-color="#a42547" onclick="selectVnColor(this)"></div>
+              <div class="vn-color-swatch" style="background:#ea6733" data-color="#ea6733" onclick="selectVnColor(this)"></div>
+              <div class="vn-color-swatch" style="background:#2E7D32" data-color="#2E7D32" onclick="selectVnColor(this)"></div>
+              <div class="vn-color-swatch" style="background:#1565C0" data-color="#1565C0" onclick="selectVnColor(this)"></div>
+              <div class="vn-color-swatch" style="background:#6A1B9A" data-color="#6A1B9A" onclick="selectVnColor(this)"></div>
+              <div class="vn-color-swatch" style="background:#00838F" data-color="#00838F" onclick="selectVnColor(this)"></div>
+            </div>
+          </div>
+          <div class="modal-foot">
+            <button class="btn btn-outline" onclick="closeModal('vnCategoryOverlay')">Cancel</button>
+            <button class="btn btn-danger-ghost btn-sm" id="vnCatDeleteBtn" onclick="deleteCategory()" style="display:none">Delete</button>
+            <button class="btn btn-gold" onclick="saveCategory()">Save</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Voice Note Detail / Edit Modal -->
+      <div class="overlay" id="vnNoteOverlay">
+        <div class="modal" style="max-width:520px">
+          <h3 id="vnNoteTitle">Voice Note</h3>
+          <input type="hidden" id="vnNoteEditId">
+          <div class="field" style="margin-bottom:0.75rem">
+            <label>Title</label>
+            <input type="text" id="vnNoteEditTitle" placeholder="Short summary...">
+          </div>
+          <div class="field" style="margin-bottom:0.75rem">
+            <label>Transcript</label>
+            <textarea id="vnNoteEditTranscript" rows="4" style="font-size:0.85rem;line-height:1.5"></textarea>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem">
+            <div class="field" style="margin-bottom:0.75rem">
+              <label>Category</label>
+              <select id="vnNoteEditCategory">
+                <!-- Populated by JS -->
+              </select>
+            </div>
+            <div class="field" style="margin-bottom:0.75rem">
+              <label>Priority</label>
+              <select id="vnNoteEditPriority">
+                <option value="low">Low</option>
+                <option value="normal" selected>Normal</option>
+                <option value="high">High</option>
+                <option value="urgent">Urgent</option>
+              </select>
+            </div>
+          </div>
+          <div class="field" style="margin-bottom:0.75rem">
+            <label>Due Date</label>
+            <input type="datetime-local" id="vnNoteEditDue">
+          </div>
+          <div class="field" style="margin-bottom:0.75rem">
+            <label>Tagged Student</label>
+            <input type="text" id="vnNoteEditStudent" placeholder="Student name from Orah...">
+          </div>
+          <div class="modal-foot">
+            <button class="btn btn-outline" onclick="closeModal('vnNoteOverlay')">Cancel</button>
+            <button class="btn btn-crimson btn-sm" onclick="generateTransportFromNote()" style="border-radius:20px">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:4px"><rect x="1" y="3" width="15" height="13" rx="2" ry="2"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+              Create Transport Request
+            </button>
+            <button class="btn btn-gold" onclick="saveVnNote()">Save</button>
+          </div>
+        </div>
+      </div>
+
     </div>
 
   <!-- ═══ GOAL MODAL ═══ -->
@@ -3168,13 +3711,16 @@ function switchTab(tab) {
   document.getElementById('tabCampaigns').classList.toggle('active', tab === 'campaigns');
   document.getElementById('tabAnalytics').classList.toggle('active', tab === 'analytics');
   document.getElementById('tabVoicetype').classList.toggle('active', tab === 'voicetype');
+  document.getElementById('tabVoicenotes').classList.toggle('active', tab === 'voicenotes');
   document.getElementById('linksSection').style.display = tab === 'links' ? 'block' : 'none';
   document.getElementById('campaignsSection').style.display = tab === 'campaigns' ? 'block' : 'none';
   document.getElementById('analyticsSection').style.display = tab === 'analytics' ? 'block' : 'none';
   document.getElementById('voicetypeSection').style.display = tab === 'voicetype' ? 'block' : 'none';
+  document.getElementById('voicenotesSection').style.display = tab === 'voicenotes' ? 'block' : 'none';
   if (tab === 'campaigns') loadCampaigns();
   if (tab === 'analytics') loadAnalyticsDashboard();
   if (tab === 'voicetype') loadVtSettings();
+  if (tab === 'voicenotes') loadVoiceNotes();
 }
 
 async function loadCampaigns() {
@@ -4963,6 +5509,927 @@ document.getElementById('regPassword').addEventListener('keydown', e => { if(e.k
     }
   });
 })();
+
+// ═══════════════════════════════════════════════════════════════
+// VOICE NOTES & TRANSPORT REQUESTS
+// ═══════════════════════════════════════════════════════════════
+
+let vnNotes = [];
+let vnCategories = [];
+let vnTransportRequests = [];
+let vnOrahSettings = null;
+let vnOrahStudents = [];
+let vnActiveCategory = null;
+let vnMediaRecorder = null;
+let vnAudioChunks = [];
+let vnRecordingTimer = null;
+let vnRecordingSeconds = 0;
+
+async function loadVoiceNotes() {
+  if (!currentUser) return;
+  const token = currentSession?.access_token || SUPABASE_ANON;
+  const headers = { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + token };
+
+  const [catRes, notesRes, trRes, orahRes] = await Promise.all([
+    fetch(SUPABASE_URL + '/rest/v1/todo_categories?user_id=eq.' + currentUser.id + '&order=sort_order.asc', { headers }),
+    fetch(SUPABASE_URL + '/rest/v1/voice_notes?user_id=eq.' + currentUser.id + '&order=created_at.desc', { headers }),
+    fetch(SUPABASE_URL + '/rest/v1/transport_requests?user_id=eq.' + currentUser.id + '&order=created_at.desc', { headers }),
+    fetch(SUPABASE_URL + '/rest/v1/orah_settings?user_id=eq.' + currentUser.id + '&limit=1', { headers })
+  ]);
+
+  if (catRes.ok) vnCategories = await catRes.json();
+  if (notesRes.ok) vnNotes = await notesRes.json();
+  if (trRes.ok) vnTransportRequests = await trRes.json();
+  if (orahRes.ok) {
+    const arr = await orahRes.json();
+    vnOrahSettings = arr.length ? arr[0] : null;
+  }
+
+  if (vnCategories.length === 0) {
+    const defaults = [
+      { name: 'General', color: '#13507C', sort_order: 0 },
+      { name: 'Medical', color: '#a42547', sort_order: 1 },
+      { name: 'Admin', color: '#C5963B', sort_order: 2 },
+      { name: 'Follow-up', color: '#ea6733', sort_order: 3 },
+      { name: 'Transport', color: '#2E7D32', sort_order: 4 }
+    ];
+    for (const cat of defaults) {
+      await fetch(SUPABASE_URL + '/rest/v1/todo_categories', {
+        method: 'POST', headers: { ...headers, 'Content-Type': 'application/json', 'Prefer': 'return=representation' },
+        body: JSON.stringify({ user_id: currentUser.id, ...cat })
+      });
+    }
+    const reload = await fetch(SUPABASE_URL + '/rest/v1/todo_categories?user_id=eq.' + currentUser.id + '&order=sort_order.asc', { headers });
+    if (reload.ok) vnCategories = await reload.json();
+  }
+
+  updateVnStats();
+  renderVnCategories();
+  renderVnTodos();
+  updateVnOrahBadge();
+  loadTransportHistory();
+  populateVnCategorySelectors();
+}
+
+function updateVnStats() {
+  document.getElementById('vnStatTotal').textContent = vnNotes.length;
+  document.getElementById('vnStatPending').textContent = vnNotes.filter(n => n.status === 'pending' || n.status === 'in_progress').length;
+  document.getElementById('vnStatCompleted').textContent = vnNotes.filter(n => n.status === 'completed').length;
+  document.getElementById('vnStatTransport').textContent = vnTransportRequests.length;
+}
+
+function updateVnOrahBadge() {
+  const badge = document.getElementById('vnOrahBadge');
+  const status = document.getElementById('vnOrahStatus');
+  if (vnOrahSettings && vnOrahSettings.orah_api_key) {
+    badge.classList.add('connected');
+    status.textContent = 'Orah: Connected';
+  } else {
+    badge.classList.remove('connected');
+    status.textContent = 'Orah: Not connected';
+  }
+}
+
+function populateVnCategorySelectors() {
+  const sel = document.getElementById('vnNoteEditCategory');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Uncategorized</option>' +
+    vnCategories.map(c => '<option value="' + c.id + '">' + esc(c.name) + '</option>').join('');
+}
+
+// ─── Voice Notes Recording ───
+async function toggleVnRecording() {
+  const btn = document.getElementById('vnRecordBtn');
+  if (vnMediaRecorder && vnMediaRecorder.state === 'recording') {
+    vnMediaRecorder.stop();
+    btn.classList.remove('recording');
+    document.getElementById('vnRecTitle').textContent = 'Transcribing...';
+    document.getElementById('vnRecSub').textContent = 'Processing your voice note...';
+    document.getElementById('vnRecWave').style.display = 'none';
+    clearInterval(vnRecordingTimer);
+    return;
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    vnAudioChunks = [];
+    vnRecordingSeconds = 0;
+
+    vnMediaRecorder = new MediaRecorder(stream, { mimeType: getMimeType() });
+
+    vnMediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) vnAudioChunks.push(e.data);
+    };
+
+    vnMediaRecorder.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop());
+      document.getElementById('vnRecTimer').style.display = 'none';
+
+      if (vnAudioChunks.length === 0) {
+        resetVnRecordBtn();
+        return;
+      }
+
+      const blob = new Blob(vnAudioChunks, { type: vnMediaRecorder.mimeType });
+      document.getElementById('vnRecTitle').textContent = 'Sending to Whisper API...';
+
+      try {
+        const text = await sendVnAudioToProxy(blob);
+        await createVoiceNote(text, vnRecordingSeconds);
+        toast('Voice note added!', true);
+      } catch (e) {
+        toast('Transcription error: ' + e.message);
+      }
+      resetVnRecordBtn();
+    };
+
+    vnMediaRecorder.start(250);
+    btn.classList.add('recording');
+    document.getElementById('vnRecTitle').textContent = 'Recording...';
+    document.getElementById('vnRecSub').textContent = 'Click to stop and save';
+    document.getElementById('vnMicIcon').style.display = 'none';
+    document.getElementById('vnStopIcon').style.display = 'block';
+    document.getElementById('vnRecWave').style.display = 'flex';
+    document.getElementById('vnRecTimer').style.display = 'block';
+    document.getElementById('vnRecTimer').textContent = '0:00';
+
+    vnRecordingTimer = setInterval(() => {
+      vnRecordingSeconds++;
+      const m = Math.floor(vnRecordingSeconds / 60);
+      const s = vnRecordingSeconds % 60;
+      document.getElementById('vnRecTimer').textContent = m + ':' + String(s).padStart(2, '0');
+    }, 1000);
+
+  } catch (e) {
+    if (e.name === 'NotAllowedError') {
+      toast('Microphone access denied. Please allow in browser settings.');
+    } else {
+      toast('Mic error: ' + e.message);
+    }
+  }
+}
+
+function resetVnRecordBtn() {
+  const btn = document.getElementById('vnRecordBtn');
+  btn.classList.remove('recording');
+  document.getElementById('vnRecTitle').textContent = 'Record a voice note';
+  document.getElementById('vnRecSub').textContent = 'Tap to start — your voice will be transcribed and added as a to-do item';
+  document.getElementById('vnMicIcon').style.display = 'block';
+  document.getElementById('vnStopIcon').style.display = 'none';
+  document.getElementById('vnRecWave').style.display = 'none';
+  document.getElementById('vnRecTimer').style.display = 'none';
+}
+
+async function sendVnAudioToProxy(blob) {
+  const token = currentSession?.access_token || SUPABASE_ANON;
+  const formData = new FormData();
+  const ext = blob.type.includes('webm') ? 'webm' : blob.type.includes('mp4') ? 'mp4' : 'ogg';
+  formData.append('file', blob, 'voice-note.' + ext);
+  formData.append('language', 'en');
+
+  const res = await fetch('/api/voicetype/transcribe', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + token },
+    body: formData
+  });
+  if (!res.ok) throw new Error('Transcription failed (' + res.status + ')');
+  const data = await res.json();
+  return data.text || '';
+}
+
+async function createVoiceNote(transcript, durationSec) {
+  if (!currentUser || !transcript.trim()) return;
+  const token = currentSession?.access_token || SUPABASE_ANON;
+  const headers = { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
+
+  // Auto-categorize using AI via the format endpoint
+  let categoryId = null;
+  let title = transcript.split(/[.!?\n]/)[0].substring(0, 80);
+  let taggedStudent = '';
+  let priority = 'normal';
+
+  try {
+    const catResult = await categorizeVoiceNote(transcript);
+    if (catResult) {
+      if (catResult.category) {
+        const match = vnCategories.find(c => c.name.toLowerCase() === catResult.category.toLowerCase());
+        if (match) categoryId = match.id;
+      }
+      if (catResult.title) title = catResult.title;
+      if (catResult.student) taggedStudent = catResult.student;
+      if (catResult.priority) priority = catResult.priority;
+    }
+  } catch (e) { console.warn('Auto-categorize failed:', e); }
+
+  const note = {
+    user_id: currentUser.id,
+    transcript: transcript.trim(),
+    title: title,
+    category_id: categoryId,
+    tagged_student: taggedStudent,
+    priority: priority,
+    duration_seconds: durationSec || 0,
+    status: 'pending'
+  };
+
+  const res = await fetch(SUPABASE_URL + '/rest/v1/voice_notes', {
+    method: 'POST', headers, body: JSON.stringify(note)
+  });
+  if (res.ok) {
+    const created = await res.json();
+    vnNotes.unshift(created[0] || created);
+    updateVnStats();
+    renderVnTodos();
+  }
+}
+
+async function categorizeVoiceNote(transcript) {
+  const token = currentSession?.access_token || SUPABASE_ANON;
+  const catNames = vnCategories.map(c => c.name).join(', ');
+  try {
+    const res = await fetch('/api/voicetype/format', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: transcript,
+        system_prompt: `You are a voice note categorizer for a boarding school. Given the transcript, respond ONLY with valid JSON (no markdown):
+{"category":"<one of: ${catNames}>","title":"<short 5-10 word title>","student":"<student name if mentioned, else empty>","priority":"<low|normal|high|urgent>"}
+Pick the most appropriate category. If a student name is mentioned, extract it. If something is urgent or time-sensitive, mark priority accordingly.`
+      })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const text = data.text || data.formatted || '';
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) return JSON.parse(jsonMatch[0]);
+    }
+  } catch (e) { console.warn('Categorize error:', e); }
+  return null;
+}
+
+// ─── Todo List Rendering ───
+function renderVnTodos() {
+  const list = document.getElementById('vnTodoList');
+  const empty = document.getElementById('vnEmpty');
+  const statusFilter = document.getElementById('vnStatusFilter').value;
+
+  let filtered = vnNotes;
+  if (vnActiveCategory) {
+    filtered = filtered.filter(n => n.category_id === vnActiveCategory);
+  }
+  if (statusFilter === 'active') {
+    filtered = filtered.filter(n => n.status !== 'completed' && n.status !== 'archived');
+  } else if (statusFilter !== 'all') {
+    filtered = filtered.filter(n => n.status === statusFilter);
+  }
+
+  if (filtered.length === 0) {
+    list.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  list.innerHTML = filtered.map(n => {
+    const cat = vnCategories.find(c => c.id === n.category_id);
+    const isComplete = n.status === 'completed';
+    const prioClass = (n.priority === 'high' || n.priority === 'urgent') ? ' priority-' + n.priority : '';
+    return `<div class="vn-todo-item${isComplete ? ' completed' : ''}${prioClass}" data-id="${n.id}">
+      <div class="vn-todo-check${isComplete ? ' checked' : ''}" onclick="toggleVnComplete('${n.id}')"></div>
+      <div class="vn-todo-body" onclick="openVnNote('${n.id}')">
+        <div class="vn-todo-title">${esc(n.title || n.transcript.substring(0, 60))}</div>
+        <div class="vn-todo-transcript">${esc(n.transcript)}</div>
+        <div class="vn-todo-meta">
+          ${cat ? '<span class="vn-todo-tag" style="background:' + cat.color + '15;color:' + cat.color + '"><span class="cat-dot" style="background:' + cat.color + '"></span>' + esc(cat.name) + '</span>' : ''}
+          ${n.tagged_student ? '<span class="vn-todo-tag student">' + esc(n.tagged_student) + '</span>' : ''}
+          ${n.transport_request_id ? '<span class="vn-todo-tag transport" onclick="event.stopPropagation();openTransportFromNote(\'' + n.transport_request_id + '\')">Transport</span>' : ''}
+          <span class="vn-todo-tag time">${timeAgo(n.created_at)}</span>
+          ${n.duration_seconds ? '<span class="vn-todo-tag time">' + Math.ceil(n.duration_seconds / 60) + 'min</span>' : ''}
+        </div>
+      </div>
+      <div class="vn-todo-actions">
+        <button class="vn-todo-act-btn" onclick="event.stopPropagation();openVnNote('${n.id}')" title="Edit">&#9998;</button>
+        <button class="vn-todo-act-btn danger" onclick="event.stopPropagation();deleteVnNote('${n.id}')" title="Delete">&#10005;</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function toggleVnComplete(noteId) {
+  const note = vnNotes.find(n => n.id === noteId);
+  if (!note) return;
+  const newStatus = note.status === 'completed' ? 'pending' : 'completed';
+  const token = currentSession?.access_token || SUPABASE_ANON;
+  const body = { status: newStatus, updated_at: new Date().toISOString() };
+  if (newStatus === 'completed') body.completed_at = new Date().toISOString();
+  else body.completed_at = null;
+
+  await fetch(SUPABASE_URL + '/rest/v1/voice_notes?id=eq.' + noteId, {
+    method: 'PATCH',
+    headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  note.status = newStatus;
+  note.completed_at = body.completed_at;
+  updateVnStats();
+  renderVnTodos();
+}
+
+function openVnNote(noteId) {
+  const note = vnNotes.find(n => n.id === noteId);
+  if (!note) return;
+  document.getElementById('vnNoteEditId').value = noteId;
+  document.getElementById('vnNoteEditTitle').value = note.title || '';
+  document.getElementById('vnNoteEditTranscript').value = note.transcript || '';
+  document.getElementById('vnNoteEditCategory').value = note.category_id || '';
+  document.getElementById('vnNoteEditPriority').value = note.priority || 'normal';
+  document.getElementById('vnNoteEditDue').value = note.due_date ? note.due_date.slice(0, 16) : '';
+  document.getElementById('vnNoteEditStudent').value = note.tagged_student || '';
+  document.getElementById('vnNoteTitle').textContent = note.title || 'Voice Note';
+  openModal('vnNoteOverlay');
+}
+
+async function saveVnNote() {
+  const noteId = document.getElementById('vnNoteEditId').value;
+  if (!noteId) return;
+  const token = currentSession?.access_token || SUPABASE_ANON;
+  const updates = {
+    title: document.getElementById('vnNoteEditTitle').value.trim(),
+    transcript: document.getElementById('vnNoteEditTranscript').value.trim(),
+    category_id: document.getElementById('vnNoteEditCategory').value || null,
+    priority: document.getElementById('vnNoteEditPriority').value,
+    due_date: document.getElementById('vnNoteEditDue').value || null,
+    tagged_student: document.getElementById('vnNoteEditStudent').value.trim(),
+    updated_at: new Date().toISOString()
+  };
+
+  await fetch(SUPABASE_URL + '/rest/v1/voice_notes?id=eq.' + noteId, {
+    method: 'PATCH',
+    headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates)
+  });
+
+  const note = vnNotes.find(n => n.id === noteId);
+  if (note) Object.assign(note, updates);
+  closeModal('vnNoteOverlay');
+  renderVnTodos();
+  toast('Note updated', true);
+}
+
+async function deleteVnNote(noteId) {
+  if (!confirm('Delete this voice note?')) return;
+  const token = currentSession?.access_token || SUPABASE_ANON;
+  await fetch(SUPABASE_URL + '/rest/v1/voice_notes?id=eq.' + noteId, {
+    method: 'DELETE',
+    headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + token }
+  });
+  vnNotes = vnNotes.filter(n => n.id !== noteId);
+  updateVnStats();
+  renderVnTodos();
+  toast('Note deleted', true);
+}
+
+// ─── Category Management ───
+function renderVnCategories() {
+  const bar = document.getElementById('vnCategoryBar');
+  const allCount = vnNotes.length;
+  let html = `<button class="vn-cat-pill${!vnActiveCategory ? ' active' : ''}" onclick="filterVnCategory(null)" data-cat="all">All<span class="vn-cat-count">${allCount}</span></button>`;
+  vnCategories.forEach(c => {
+    const count = vnNotes.filter(n => n.category_id === c.id).length;
+    html += `<button class="vn-cat-pill${vnActiveCategory === c.id ? ' active' : ''}" onclick="filterVnCategory('${c.id}')" data-cat="${c.id}">
+      <span class="cat-dot" style="background:${c.color}"></span>${esc(c.name)}<span class="vn-cat-count">${count}</span>
+    </button>`;
+  });
+  html += '<button class="vn-cat-pill add-cat" onclick="openCategoryEditor()">+ Category</button>';
+  bar.innerHTML = html;
+}
+
+function filterVnCategory(catId) {
+  vnActiveCategory = catId;
+  renderVnCategories();
+  renderVnTodos();
+}
+
+let vnEditCatColor = '#13507C';
+
+function openCategoryEditor(catId) {
+  const cat = catId ? vnCategories.find(c => c.id === catId) : null;
+  document.getElementById('vnCatEditorTitle').textContent = cat ? 'Edit Category' : 'New Category';
+  document.getElementById('vnCatEditId').value = catId || '';
+  document.getElementById('vnCatEditName').value = cat ? cat.name : '';
+  vnEditCatColor = cat ? cat.color : '#13507C';
+  document.querySelectorAll('#vnColorPicker .vn-color-swatch').forEach(s => {
+    s.classList.toggle('selected', s.dataset.color === vnEditCatColor);
+  });
+  document.getElementById('vnCatDeleteBtn').style.display = cat ? '' : 'none';
+  openModal('vnCategoryOverlay');
+}
+
+function selectVnColor(el) {
+  vnEditCatColor = el.dataset.color;
+  document.querySelectorAll('#vnColorPicker .vn-color-swatch').forEach(s => s.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+async function saveCategory() {
+  const catId = document.getElementById('vnCatEditId').value;
+  const name = document.getElementById('vnCatEditName').value.trim();
+  if (!name) { toast('Category name is required'); return; }
+  const token = currentSession?.access_token || SUPABASE_ANON;
+  const headers = { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
+
+  if (catId) {
+    await fetch(SUPABASE_URL + '/rest/v1/todo_categories?id=eq.' + catId, {
+      method: 'PATCH', headers, body: JSON.stringify({ name, color: vnEditCatColor })
+    });
+    const cat = vnCategories.find(c => c.id === catId);
+    if (cat) { cat.name = name; cat.color = vnEditCatColor; }
+  } else {
+    const res = await fetch(SUPABASE_URL + '/rest/v1/todo_categories', {
+      method: 'POST', headers,
+      body: JSON.stringify({ user_id: currentUser.id, name, color: vnEditCatColor, sort_order: vnCategories.length })
+    });
+    if (res.ok) {
+      const created = await res.json();
+      vnCategories.push(created[0] || created);
+    }
+  }
+  closeModal('vnCategoryOverlay');
+  renderVnCategories();
+  populateVnCategorySelectors();
+  toast(catId ? 'Category updated' : 'Category created', true);
+}
+
+async function deleteCategory() {
+  const catId = document.getElementById('vnCatEditId').value;
+  if (!catId || !confirm('Delete this category? Notes in it will become uncategorized.')) return;
+  const token = currentSession?.access_token || SUPABASE_ANON;
+  await fetch(SUPABASE_URL + '/rest/v1/todo_categories?id=eq.' + catId, {
+    method: 'DELETE', headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + token }
+  });
+  vnCategories = vnCategories.filter(c => c.id !== catId);
+  vnNotes.forEach(n => { if (n.category_id === catId) n.category_id = null; });
+  if (vnActiveCategory === catId) vnActiveCategory = null;
+  closeModal('vnCategoryOverlay');
+  renderVnCategories();
+  renderVnTodos();
+  populateVnCategorySelectors();
+  toast('Category deleted', true);
+}
+
+// ─── Transport Sidebar ───
+function toggleTransportSidebar() {
+  const sidebar = document.getElementById('vnSidebar');
+  const toggle = document.getElementById('vnSidebarToggle');
+  const main = document.getElementById('vnMain');
+  sidebar.classList.toggle('open');
+  toggle.classList.toggle('active');
+  main.classList.toggle('sidebar-open');
+}
+
+function switchTransportTab(panel) {
+  document.querySelectorAll('.vn-transport-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.vn-transport-panel').forEach(p => p.style.display = 'none');
+  const btn = [...document.querySelectorAll('.vn-transport-tab')].find(t => t.textContent.toLowerCase().includes(panel === 'form' ? 'new' : panel));
+  if (btn) btn.classList.add('active');
+  const panels = { form: 'vnTransportForm', history: 'vnTransportHistory', settings: 'vnTransportSettings' };
+  const el = document.getElementById(panels[panel]);
+  if (el) el.style.display = 'block';
+  if (panel === 'history') loadTransportHistory();
+  if (panel === 'settings') loadOrahSettingsForm();
+}
+
+function openOrahSettings() {
+  const sidebar = document.getElementById('vnSidebar');
+  if (!sidebar.classList.contains('open')) toggleTransportSidebar();
+  switchTransportTab('settings');
+}
+
+function loadOrahSettingsForm() {
+  if (vnOrahSettings) {
+    document.getElementById('orahRegion').value = vnOrahSettings.orah_region || 'https://open-api-ireland.orah.com/open-api';
+    document.getElementById('orahApiKey').value = vnOrahSettings.orah_api_key || '';
+    document.getElementById('orahSchoolId').value = vnOrahSettings.school_id || '';
+    document.getElementById('trTransportEmail').value = vnOrahSettings.transport_email || '';
+    document.getElementById('trGoogleSheetsId').value = vnOrahSettings.google_sheets_id || '';
+  }
+}
+
+async function saveOrahSettings() {
+  if (!currentUser) return;
+  const token = currentSession?.access_token || SUPABASE_ANON;
+  const headers = { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
+  const data = {
+    user_id: currentUser.id,
+    orah_region: document.getElementById('orahRegion').value,
+    orah_api_key: document.getElementById('orahApiKey').value.trim(),
+    school_id: document.getElementById('orahSchoolId').value.trim(),
+    transport_email: document.getElementById('trTransportEmail').value.trim(),
+    google_sheets_id: document.getElementById('trGoogleSheetsId').value.trim(),
+    updated_at: new Date().toISOString()
+  };
+
+  if (vnOrahSettings && vnOrahSettings.id) {
+    await fetch(SUPABASE_URL + '/rest/v1/orah_settings?id=eq.' + vnOrahSettings.id, {
+      method: 'PATCH', headers, body: JSON.stringify(data)
+    });
+    Object.assign(vnOrahSettings, data);
+  } else {
+    const res = await fetch(SUPABASE_URL + '/rest/v1/orah_settings', {
+      method: 'POST', headers, body: JSON.stringify(data)
+    });
+    if (res.ok) {
+      const created = await res.json();
+      vnOrahSettings = created[0] || created;
+    }
+  }
+  updateVnOrahBadge();
+  toast('Orah settings saved', true);
+}
+
+async function testOrahConnection() {
+  if (!vnOrahSettings || !document.getElementById('orahApiKey').value.trim()) {
+    toast('Enter an Orah API key first');
+    return;
+  }
+  toast('Testing Orah connection...');
+  try {
+    const res = await fetch('/api/voicenotes/orah-proxy', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + (currentSession?.access_token || SUPABASE_ANON), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        region: document.getElementById('orahRegion').value,
+        api_key: document.getElementById('orahApiKey').value.trim(),
+        endpoint: 'students/list',
+        body: { limit: 1 }
+      })
+    });
+    if (res.ok) {
+      toast('Orah connection successful!', true);
+    } else {
+      const err = await res.text();
+      toast('Orah connection failed: ' + err);
+    }
+  } catch (e) {
+    toast('Orah connection error: ' + e.message);
+  }
+}
+
+// ─── Orah Student Search ───
+let vnOrahSearchTimeout = null;
+
+function searchOrahStudent(query) {
+  clearTimeout(vnOrahSearchTimeout);
+  const resultsEl = document.getElementById('trStudentResults');
+  if (!query || query.length < 2) {
+    resultsEl.classList.remove('show');
+    return;
+  }
+  // First check cached students
+  const cached = vnOrahStudents.filter(s =>
+    (s.name || '').toLowerCase().includes(query.toLowerCase())
+  );
+  if (cached.length > 0) {
+    showOrahStudentResults(cached.slice(0, 8));
+    return;
+  }
+  vnOrahSearchTimeout = setTimeout(() => fetchOrahStudents(query), 400);
+}
+
+async function fetchOrahStudents(query) {
+  if (!vnOrahSettings || !vnOrahSettings.orah_api_key) {
+    // No Orah connected - just show the text input
+    return;
+  }
+  try {
+    const res = await fetch('/api/voicenotes/orah-proxy', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + (currentSession?.access_token || SUPABASE_ANON), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        region: vnOrahSettings.orah_region,
+        api_key: vnOrahSettings.orah_api_key,
+        endpoint: 'students/list',
+        body: { search: query, limit: 10 }
+      })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const students = data.students || data.data || data || [];
+      vnOrahStudents = [...vnOrahStudents, ...students.filter(s => !vnOrahStudents.find(e => e.id === s.id))];
+      showOrahStudentResults(students.slice(0, 8));
+    }
+  } catch (e) { console.warn('Orah search error:', e); }
+}
+
+function showOrahStudentResults(students) {
+  const el = document.getElementById('trStudentResults');
+  if (!students.length) { el.classList.remove('show'); return; }
+  el.innerHTML = students.map(s => {
+    const name = s.name || (s.first_name + ' ' + s.last_name) || 'Unknown';
+    const house = s.house || s.boarding_house || '';
+    const year = s.year_group || s.grade || '';
+    return `<div class="vn-student-result" onclick="selectOrahStudent('${esc(s.id || '')}','${esc(name)}','${esc(house)}','${esc(year)}')">
+      <div><strong>${esc(name)}</strong></div>
+      <div class="student-house">${house ? esc(house) : ''}${year ? ' · Year ' + esc(year) : ''}</div>
+    </div>`;
+  }).join('');
+  el.classList.add('show');
+}
+
+function selectOrahStudent(id, name, house, year) {
+  document.getElementById('trStudentName').value = name;
+  document.getElementById('trStudentId').value = id;
+  document.getElementById('trStudentHouse').value = house;
+  document.getElementById('trStudentYear').value = year;
+  document.getElementById('trStudentResults').classList.remove('show');
+}
+
+// Close student results on outside click
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.vn-student-search')) {
+    const el = document.getElementById('trStudentResults');
+    if (el) el.classList.remove('show');
+  }
+});
+
+// ─── Generate Transport from Voice Note ───
+function generateTransportFromNote() {
+  const noteId = document.getElementById('vnNoteEditId').value;
+  const note = vnNotes.find(n => n.id === noteId);
+  if (!note) return;
+  closeModal('vnNoteOverlay');
+
+  // Open sidebar and populate form
+  const sidebar = document.getElementById('vnSidebar');
+  if (!sidebar.classList.contains('open')) toggleTransportSidebar();
+  switchTransportTab('form');
+
+  // Pre-fill from note data
+  document.getElementById('trVoiceNoteId').value = noteId;
+  if (note.tagged_student) document.getElementById('trStudentName').value = note.tagged_student;
+  if (note.tagged_student_id) document.getElementById('trStudentId').value = note.tagged_student_id;
+  document.getElementById('trAppointmentDetails').value = note.transcript || '';
+
+  // Try to detect appointment type from transcript
+  const t = (note.transcript || '').toLowerCase();
+  if (t.includes('dental') || t.includes('dentist')) document.getElementById('trAppointmentType').value = 'dental';
+  else if (t.includes('doctor') || t.includes('medical') || t.includes('hospital')) document.getElementById('trAppointmentType').value = 'medical';
+  else if (t.includes('specialist')) document.getElementById('trAppointmentType').value = 'specialist';
+  else if (t.includes('therapy') || t.includes('counsel')) document.getElementById('trAppointmentType').value = 'therapy';
+}
+
+function openTransportFromNote(trId) {
+  const sidebar = document.getElementById('vnSidebar');
+  if (!sidebar.classList.contains('open')) toggleTransportSidebar();
+  switchTransportTab('history');
+}
+
+// ─── Transport Request Submit & PDF ───
+async function saveTransportDraft() {
+  await submitOrSaveTransport('draft');
+}
+
+async function submitTransportRequest() {
+  await submitOrSaveTransport('submitted');
+}
+
+async function submitOrSaveTransport(status) {
+  const studentName = document.getElementById('trStudentName').value.trim();
+  const destination = document.getElementById('trDestination').value.trim();
+  if (!studentName) { toast('Student name is required'); return; }
+  if (!destination && status === 'submitted') { toast('Destination is required'); return; }
+
+  const token = currentSession?.access_token || SUPABASE_ANON;
+  const headers = { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
+
+  const tr = {
+    user_id: currentUser.id,
+    voice_note_id: document.getElementById('trVoiceNoteId').value || null,
+    student_name: studentName,
+    student_id: document.getElementById('trStudentId').value || '',
+    student_house: document.getElementById('trStudentHouse').value.trim(),
+    student_year: document.getElementById('trStudentYear').value.trim(),
+    destination: destination,
+    pickup_location: document.getElementById('trPickupLocation').value.trim(),
+    appointment_type: document.getElementById('trAppointmentType').value,
+    appointment_details: document.getElementById('trAppointmentDetails').value.trim(),
+    date_time: document.getElementById('trDateTime').value || null,
+    return_time: document.getElementById('trReturnTime').value || null,
+    special_instructions: document.getElementById('trSpecialInstructions').value.trim(),
+    status: status,
+    submitted_at: status === 'submitted' ? new Date().toISOString() : null,
+    submitted_to: status === 'submitted' ? (vnOrahSettings?.transport_email || 'email') : ''
+  };
+
+  const res = await fetch(SUPABASE_URL + '/rest/v1/transport_requests', {
+    method: 'POST', headers, body: JSON.stringify(tr)
+  });
+
+  if (res.ok) {
+    const created = await res.json();
+    const record = created[0] || created;
+    vnTransportRequests.unshift(record);
+
+    // Link voice note to transport request if applicable
+    if (tr.voice_note_id) {
+      await fetch(SUPABASE_URL + '/rest/v1/voice_notes?id=eq.' + tr.voice_note_id, {
+        method: 'PATCH', headers,
+        body: JSON.stringify({ transport_request_id: record.id })
+      });
+      const note = vnNotes.find(n => n.id === tr.voice_note_id);
+      if (note) note.transport_request_id = record.id;
+    }
+
+    if (status === 'submitted') {
+      // Generate PDF and send
+      await sendTransportRequest(record);
+      toast('Transport request submitted!', true);
+    } else {
+      toast('Draft saved', true);
+    }
+
+    clearTransportForm();
+    updateVnStats();
+    renderVnTodos();
+    loadTransportHistory();
+  } else {
+    toast('Failed to save transport request');
+  }
+}
+
+async function sendTransportRequest(tr) {
+  // Generate PDF using jsPDF (already loaded)
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  // Header
+  doc.setFillColor(11, 37, 69);
+  doc.rect(0, 0, 210, 35, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Transport Request', 15, 18);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Generated: ' + new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }), 15, 28);
+
+  // Student info
+  doc.setTextColor(11, 37, 69);
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Student Information', 15, 48);
+  doc.setDrawColor(197, 150, 59);
+  doc.setLineWidth(0.5);
+  doc.line(15, 51, 195, 51);
+
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'normal');
+  const fields = [
+    ['Name', tr.student_name],
+    ['House', tr.student_house || 'N/A'],
+    ['Year', tr.student_year || 'N/A'],
+    ['Student ID', tr.student_id || 'N/A']
+  ];
+  let y = 58;
+  fields.forEach(([label, value]) => {
+    doc.setFont('helvetica', 'bold');
+    doc.text(label + ':', 15, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(value, 60, y);
+    y += 7;
+  });
+
+  // Transport details
+  y += 5;
+  doc.setFontSize(12);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Transport Details', 15, y);
+  doc.line(15, y + 3, 195, y + 3);
+  y += 10;
+
+  doc.setFontSize(10);
+  const details = [
+    ['Appointment Type', (tr.appointment_type || 'Other').charAt(0).toUpperCase() + (tr.appointment_type || 'other').slice(1)],
+    ['Destination', tr.destination || 'N/A'],
+    ['Pickup Location', tr.pickup_location || 'School Reception'],
+    ['Date & Time', tr.date_time ? new Date(tr.date_time).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'TBD'],
+    ['Estimated Return', tr.return_time ? new Date(tr.return_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : 'TBD']
+  ];
+  details.forEach(([label, value]) => {
+    doc.setFont('helvetica', 'bold');
+    doc.text(label + ':', 15, y);
+    doc.setFont('helvetica', 'normal');
+    doc.text(value, 60, y);
+    y += 7;
+  });
+
+  // Appointment details
+  if (tr.appointment_details) {
+    y += 5;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Appointment Details:', 15, y);
+    y += 6;
+    doc.setFont('helvetica', 'normal');
+    const lines = doc.splitTextToSize(tr.appointment_details, 170);
+    doc.text(lines, 15, y);
+    y += lines.length * 5;
+  }
+
+  // Special instructions
+  if (tr.special_instructions) {
+    y += 5;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Special Instructions:', 15, y);
+    y += 6;
+    doc.setFont('helvetica', 'normal');
+    const lines = doc.splitTextToSize(tr.special_instructions, 170);
+    doc.text(lines, 15, y);
+  }
+
+  // Footer
+  doc.setFillColor(241, 243, 245);
+  doc.rect(0, 275, 210, 22, 'F');
+  doc.setFontSize(8);
+  doc.setTextColor(107, 124, 141);
+  doc.text('This transport request was generated via LAS LinkBoard Voice Notes.', 15, 283);
+  doc.text('Request ID: ' + tr.id, 15, 288);
+
+  const pdfBlob = doc.output('blob');
+
+  // Send via API endpoint (email or Google Sheets)
+  try {
+    const formData = new FormData();
+    formData.append('pdf', pdfBlob, 'transport-request-' + tr.student_name.replace(/\s/g, '-') + '.pdf');
+    formData.append('transport_request', JSON.stringify(tr));
+    formData.append('transport_email', vnOrahSettings?.transport_email || '');
+    formData.append('google_sheets_id', vnOrahSettings?.google_sheets_id || '');
+
+    const res = await fetch('/api/voicenotes/send-transport', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + (currentSession?.access_token || SUPABASE_ANON) },
+      body: formData
+    });
+
+    if (!res.ok) {
+      // Fallback: download PDF locally
+      doc.save('transport-request-' + tr.student_name.replace(/\s/g, '-') + '.pdf');
+      toast('Email send failed — PDF downloaded instead');
+    }
+  } catch (e) {
+    // Fallback: download PDF
+    doc.save('transport-request-' + tr.student_name.replace(/\s/g, '-') + '.pdf');
+    toast('PDF downloaded (email not configured)');
+  }
+}
+
+function clearTransportForm() {
+  ['trStudentName', 'trStudentId', 'trStudentHouse', 'trStudentYear',
+   'trDestination', 'trAppointmentDetails', 'trSpecialInstructions',
+   'trDateTime', 'trReturnTime', 'trVoiceNoteId'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('trPickupLocation').value = 'School Reception';
+  document.getElementById('trAppointmentType').value = 'medical';
+}
+
+// ─── Transport History ───
+function loadTransportHistory() {
+  const el = document.getElementById('trHistoryList');
+  if (!vnTransportRequests.length) {
+    el.innerHTML = '<p style="color:var(--text-muted);font-size:0.82rem;text-align:center;padding:2rem 0">No transport requests yet</p>';
+    return;
+  }
+  el.innerHTML = vnTransportRequests.map(tr => {
+    const dateStr = tr.date_time ? new Date(tr.date_time).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'No date set';
+    return `<div class="vn-transport-card" onclick="viewTransportRequest('${tr.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span class="tr-student">${esc(tr.student_name)}</span>
+        <span class="vn-transport-status ${tr.status}">${tr.status}</span>
+      </div>
+      <div class="tr-dest">${esc(tr.destination || 'No destination')}</div>
+      <div class="tr-date">${esc(tr.appointment_type || 'other')} · ${dateStr}</div>
+    </div>`;
+  }).join('');
+}
+
+function viewTransportRequest(trId) {
+  const tr = vnTransportRequests.find(t => t.id === trId);
+  if (!tr) return;
+  // Populate form with existing data for viewing/re-sending
+  switchTransportTab('form');
+  document.getElementById('trStudentName').value = tr.student_name || '';
+  document.getElementById('trStudentId').value = tr.student_id || '';
+  document.getElementById('trStudentHouse').value = tr.student_house || '';
+  document.getElementById('trStudentYear').value = tr.student_year || '';
+  document.getElementById('trDestination').value = tr.destination || '';
+  document.getElementById('trPickupLocation').value = tr.pickup_location || 'School Reception';
+  document.getElementById('trAppointmentType').value = tr.appointment_type || 'medical';
+  document.getElementById('trAppointmentDetails').value = tr.appointment_details || '';
+  document.getElementById('trDateTime').value = tr.date_time ? tr.date_time.slice(0, 16) : '';
+  document.getElementById('trReturnTime').value = tr.return_time ? tr.return_time.slice(0, 16) : '';
+  document.getElementById('trSpecialInstructions').value = tr.special_instructions || '';
+  document.getElementById('trVoiceNoteId').value = tr.voice_note_id || '';
+}
 
 // Register service worker for PWA
 if ('serviceWorker' in navigator) {
