@@ -384,6 +384,26 @@ function createIndicatorWindow() {
       }
       .skill-tag:hover { background: rgba(197,150,59,0.3); }
 
+      /* ── Voice Notes Mode Toggle ── */
+      .vn-toggle {
+        width: 24px; height: 24px; border-radius: 6px; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+        border: 1.5px solid rgba(11,37,69,0.12); cursor: pointer;
+        transition: all 0.15s ease; background: transparent;
+        -webkit-app-region: no-drag;
+      }
+      .vn-toggle:hover { background: rgba(197,150,59,0.12); }
+      .vn-toggle.active { background: #0B2545; border-color: #0B2545; }
+      .vn-toggle svg { width: 14px; height: 14px; pointer-events: none; }
+      .vn-toggle.active svg { stroke: #fff; }
+      .vn-mode-dot {
+        position: absolute; top: -2px; right: -2px;
+        width: 7px; height: 7px; border-radius: 50%;
+        background: #27ae60; border: 1.5px solid #fff;
+        display: none;
+      }
+      .vn-toggle.active .vn-mode-dot { display: block; }
+
       /* ── Waveform ── */
       .waveform {
         display: none; align-items: center; gap: 2px; height: 16px;
@@ -441,6 +461,12 @@ function createIndicatorWindow() {
             <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
           </div>
           <div class="label" id="label"></div>
+          <div style="position:relative">
+            <button class="vn-toggle" id="vnToggle" onclick="toggleVnMode(event)" title="Voice Notes mode — save to notebook instead of clipboard">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#0B2545" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              <span class="vn-mode-dot"></span>
+            </button>
+          </div>
           <div class="skill-tag" id="skillTag" onclick="toggleSkillMenu(event)">Raw</div>
         </div>
 
@@ -535,6 +561,30 @@ function createIndicatorWindow() {
         // Close/hide the floating pill
         function closePill() {
           if (window.voicetype) window.voicetype.hidePill();
+        }
+
+        // Voice Notes mode toggle
+        let vnModeActive = false;
+        function toggleVnMode(event) {
+          event.stopPropagation();
+          vnModeActive = !vnModeActive;
+          const toggle = document.getElementById('vnToggle');
+          toggle.classList.toggle('active', vnModeActive);
+          // Update tooltip to reflect mode
+          const tooltip = document.getElementById('tooltip');
+          tooltip.textContent = vnModeActive ? 'Voice Notes: saves to notebook' : 'Click mic to record';
+          tooltip.style.display = 'block';
+          setTimeout(() => { tooltip.style.display = 'none'; }, 2000);
+          // Notify main process
+          if (window.voicetype) window.voicetype.toggleVoiceNotesMode();
+        }
+        // Listen for mode changes from main process (e.g. restored on launch)
+        if (window.voicetype) {
+          window.voicetype.onVoiceNotesModeChanged((enabled) => {
+            vnModeActive = enabled;
+            const toggle = document.getElementById('vnToggle');
+            if (toggle) toggle.classList.toggle('active', enabled);
+          });
         }
 
         // Close menu when clicking outside
@@ -711,6 +761,10 @@ function showFloatingButton() {
     `setSkills(${JSON.stringify(skillList)}, ${activeIdx});`
   );
   indicatorWindow.webContents.executeJavaScript(`setState('idle', '', false);`);
+  // Sync Voice Notes mode state to pill
+  if (voiceNotesMode) {
+    indicatorWindow.webContents.send('voice-notes-mode-changed', true);
+  }
   indicatorWindow.showInactive();
 }
 

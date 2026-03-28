@@ -6596,6 +6596,8 @@ async function submitOrSaveTransport(status) {
       await sendTransportRequest(record);
       // Create Google Calendar event
       addTransportToGoogleCalendar(record);
+      // Create Orah Pass (if connected and student has Orah ID)
+      await createOrahPass(record);
       toast('Transport request submitted!', true);
     } else {
       toast('Draft saved', true);
@@ -6836,6 +6838,60 @@ function addCurrentFormToCalendar() {
   if (!tr.student_name) { toast('Enter a student name first'); return; }
   if (!tr.date_time) { toast('Set a date/time first'); return; }
   addTransportToGoogleCalendar(tr);
+}
+
+// ─── Orah Pass Creation ───
+async function createOrahPass(tr) {
+  // Only create pass if Orah is connected and student has an Orah ID
+  if (!vnOrahSettings || !vnOrahSettings.orah_api_key) return;
+  if (!tr.student_id) {
+    console.log('Skipping Orah pass — no student ID');
+    return;
+  }
+  if (!tr.date_time) return;
+
+  try {
+    const res = await fetch('/api/voicenotes/orah-proxy', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + (currentSession?.access_token || SUPABASE_ANON),
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        region: vnOrahSettings.orah_region || 'https://open-api-ireland.orah.com/open-api',
+        api_key: vnOrahSettings.orah_api_key,
+        endpoint: 'passes/create',
+        body: {
+          student_id: tr.student_id,
+          type: 'transport',
+          departure_time: tr.date_time,
+          return_time: tr.return_time || null,
+          destination: tr.destination || '',
+          reason: buildOrahPassReason(tr),
+          approved: true,
+          notes: 'Auto-created via LAS LinkBoard Transport Request'
+        }
+      })
+    });
+
+    if (res.ok) {
+      toast('Orah pass created for ' + tr.student_name, true);
+    } else {
+      const errText = await res.text();
+      console.warn('Orah pass creation failed:', errText);
+      // Don't block the transport request — just warn
+      toast('Transport sent (Orah pass failed — check settings)');
+    }
+  } catch (e) {
+    console.warn('Orah pass error:', e.message);
+  }
+}
+
+function buildOrahPassReason(tr) {
+  const type = (tr.appointment_type || 'appointment').charAt(0).toUpperCase() + (tr.appointment_type || 'appointment').slice(1);
+  let reason = type + ' at ' + (tr.destination || 'off-campus');
+  if (tr.appointment_details) reason += ' — ' + tr.appointment_details.substring(0, 200);
+  return reason;
 }
 
 // Register service worker for PWA
