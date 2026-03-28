@@ -593,14 +593,22 @@ body {
 .analytics-toolbar .date-range { display: flex; gap: 0.35rem; align-items: center; }
 .analytics-toolbar .date-range input { font-size: 0.76rem; padding: 0.3rem 0.4rem; border: 1.5px solid var(--border); border-radius: 6px; }
 
-.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem; }
-.kpi-card { background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 1rem; text-align: center; }
-.kpi-card .kpi-val { font-family: 'Montserrat', sans-serif; font-size: 1.6rem; font-weight: 800; color: var(--navy); }
-.kpi-card .kpi-label { font-size: 0.72rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; margin-top: 0.2rem; }
-.kpi-card .kpi-change { font-size: 0.7rem; font-weight: 700; margin-top: 0.25rem; }
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 0.75rem; margin-bottom: 1.5rem; }
+.kpi-card { background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 1.15rem 1rem 0.85rem; text-align: center; position: relative; overflow: hidden; }
+.kpi-card .kpi-val { font-family: 'Montserrat', sans-serif; font-size: 1.8rem; font-weight: 800; color: var(--navy); line-height: 1; }
+.kpi-card .kpi-label { font-size: 0.68rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.35rem; }
+.kpi-card .kpi-change { font-size: 0.68rem; font-weight: 700; margin-top: 0.2rem; }
 .kpi-card .kpi-change.up { color: #1A7A6D; }
+.kpi-card .kpi-change.up::before { content: '▲ '; font-size: 0.55rem; }
 .kpi-card .kpi-change.down { color: var(--crimson); }
+.kpi-card .kpi-change.down::before { content: '▼ '; font-size: 0.55rem; }
 .kpi-card .kpi-change.flat { color: var(--text-muted); }
+.kpi-card .kpi-sparkline { margin-top: 0.5rem; height: 28px; }
+.kpi-card .kpi-sparkline canvas { width: 100%; height: 28px; }
+
+.export-bar { display: flex; gap: 0.35rem; }
+.export-bar .btn { background: var(--navy); color: #fff; border-color: var(--navy); font-size: 0.72rem; padding: 0.4rem 0.85rem; border-radius: 8px; }
+.export-bar .btn:hover { background: var(--gold); border-color: var(--gold); }
 
 .chart-section { background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; }
 .chart-section h3 { font-family: 'Montserrat', sans-serif; font-size: 0.88rem; font-weight: 700; color: var(--navy); margin-bottom: 0.75rem; }
@@ -1694,14 +1702,42 @@ body {
 
       <!-- KPI Cards -->
       <div class="kpi-grid" id="kpiGrid">
-        <div class="kpi-card"><div class="kpi-val" id="kpiScans">0</div><div class="kpi-label">Total Scans</div><div class="kpi-change flat" id="kpiScansChange">—</div></div>
-        <div class="kpi-card" style="display:none"><div class="kpi-val" id="kpiOpens">0</div><div class="kpi-label">Email Opens</div><div class="kpi-change flat" id="kpiOpensChange">—</div></div>
-        <div class="kpi-card" style="display:none"><div class="kpi-val" id="kpiUniqueOpens">0</div><div class="kpi-label">Unique Opens</div><div class="kpi-change flat" id="kpiUniqueChange">—</div></div>
-        <div class="kpi-card"><div class="kpi-val" id="kpiActiveQR">0</div><div class="kpi-label">Active QR Codes</div><div class="kpi-change flat" id="kpiQRChange">—</div></div>
-        <div class="kpi-card" style="display:none"><div class="kpi-val" id="kpiActiveCamp">0</div><div class="kpi-label">Campaigns</div><div class="kpi-change flat" id="kpiCampChange">—</div></div>
-        <div class="kpi-card"><div class="kpi-val" id="kpiVtWords">0</div><div class="kpi-label">Words Dictated</div></div>
-        <div class="kpi-card"><div class="kpi-val" id="kpiVtMinutes">0</div><div class="kpi-label">Minutes Transcribed</div></div>
-        <div class="kpi-card"><div class="kpi-val" id="kpiVtTranscriptions">0</div><div class="kpi-label">Transcriptions</div></div>
+        <div class="kpi-card">
+          <div class="kpi-val" id="kpiScans">0</div>
+          <div class="kpi-label">Total Scans</div>
+          <div class="kpi-change flat" id="kpiScansChange">—</div>
+          <div class="kpi-sparkline"><canvas id="kpiScansSparkline"></canvas></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-val" id="kpiActiveQR">0</div>
+          <div class="kpi-label">Active QR Codes</div>
+          <div class="kpi-change flat" id="kpiQRChange">—</div>
+          <div class="kpi-sparkline"><canvas id="kpiQRSparkline"></canvas></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-val" id="kpiVtWords">0</div>
+          <div class="kpi-label">Words Dictated</div>
+          <div class="kpi-change flat" id="kpiVtWordsChange">—</div>
+          <div class="kpi-sparkline"><canvas id="kpiWordsSparkline"></canvas></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-val" id="kpiVtMinutes">0</div>
+          <div class="kpi-label">Minutes Transcribed</div>
+          <div class="kpi-change flat" id="kpiVtMinutesChange">—</div>
+          <div class="kpi-sparkline"><canvas id="kpiMinutesSparkline"></canvas></div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-val" id="kpiVtTranscriptions">0</div>
+          <div class="kpi-label">Transcriptions</div>
+          <div class="kpi-change flat" id="kpiVtTransChange">—</div>
+          <div class="kpi-sparkline"><canvas id="kpiTransSparkline"></canvas></div>
+        </div>
+      </div>
+      <!-- Hidden KPI elements for backwards compat -->
+      <div style="display:none">
+        <span id="kpiOpens">0</span><span id="kpiOpensChange"></span>
+        <span id="kpiUniqueOpens">0</span><span id="kpiUniqueChange"></span>
+        <span id="kpiActiveCamp">0</span><span id="kpiCampChange"></span>
       </div>
 
       <!-- Time Series Charts -->
@@ -4353,6 +4389,9 @@ function renderKPICards() {
     const priorUnique = new Set(priorOpens.map(o => o.ip_hash)).size;
     setKPIChange('kpiUniqueChange', uniqueOpens, priorUnique);
   }
+
+  // Render sparklines
+  renderKPISparklines(scans);
 }
 
 function setKPIChange(elId, current, prior) {
@@ -4362,6 +4401,65 @@ function setKPIChange(elId, current, prior) {
   const pct = Math.round(((current - prior) / prior) * 100);
   el.textContent = (pct >= 0 ? '+' : '') + pct + '%';
   el.className = 'kpi-change ' + (pct > 0 ? 'up' : pct < 0 ? 'down' : 'flat');
+}
+
+function renderKPISparklines(scans) {
+  // Build 7-day data for sparklines
+  const days = 7;
+  const today = new Date();
+  const scansByDay = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const ds = d.toISOString().split('T')[0];
+    scansByDay.push(scans.filter(s => s.scanned_at && s.scanned_at.startsWith(ds)).length);
+  }
+
+  drawSparkline('kpiScansSparkline', scansByDay, '#0B2545');
+  // QR sparkline: just show total active as flat line
+  const qrCount = myLinks.filter(l => !l.expires_at || new Date(l.expires_at) > new Date()).length;
+  drawSparkline('kpiQRSparkline', Array(7).fill(qrCount), '#C5963B');
+  // Voice sparklines use placeholder data (real data loaded async)
+  drawSparkline('kpiWordsSparkline', Array(7).fill(0), '#1A7A6D');
+  drawSparkline('kpiMinutesSparkline', Array(7).fill(0), '#13507C');
+  drawSparkline('kpiTransSparkline', Array(7).fill(0), '#ea6733');
+}
+
+function drawSparkline(canvasId, data, color) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.parentElement.offsetWidth || 120;
+  const h = 28;
+  canvas.width = w * 2; canvas.height = h * 2;
+  canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+  ctx.scale(2, 2);
+
+  const max = Math.max(...data, 1);
+  const pad = 2;
+  const step = (w - pad * 2) / (data.length - 1 || 1);
+
+  ctx.beginPath();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.lineJoin = 'round';
+  data.forEach((v, i) => {
+    const x = pad + i * step;
+    const y = h - pad - ((v / max) * (h - pad * 2));
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+
+  // Fill under the line with gradient
+  ctx.lineTo(pad + (data.length - 1) * step, h);
+  ctx.lineTo(pad, h);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  grad.addColorStop(0, color + '20');
+  grad.addColorStop(1, color + '05');
+  ctx.fillStyle = grad;
+  ctx.fill();
 }
 
 // ─── Time Series Charts ───
