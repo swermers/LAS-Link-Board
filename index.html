@@ -1323,10 +1323,10 @@ body {
   box-shadow: -2px 0 10px rgba(11,37,69,0.15);
 }
 .vn-sidebar-toggle:hover { background: var(--gold); }
-.vn-sidebar-toggle.active { background: var(--gold); }
+.vn-sidebar-toggle.active { background: var(--gold); right: 460px; }
 
 .vn-sidebar {
-  position: fixed; right: -420px; top: 0; width: 420px; height: 100vh;
+  position: fixed; right: -460px; top: 0; width: 460px; height: 100dvh; height: 100vh;
   background: var(--surface); border-left: 2px solid var(--border);
   box-shadow: -4px 0 20px rgba(11,37,69,0.08);
   z-index: 99; transition: right 0.3s ease;
@@ -1335,7 +1335,7 @@ body {
 }
 .vn-sidebar.open { right: 0; }
 .vn-sidebar-header {
-  background: var(--navy); color: #fff; padding: 1.25rem 1.5rem;
+  background: var(--navy); color: #fff; padding: 1rem 1.25rem;
   display: flex; align-items: center; justify-content: space-between;
   flex-shrink: 0;
   position: sticky; top: 0; z-index: 1;
@@ -1346,7 +1346,7 @@ body {
   font-size: 1.25rem; padding: 4px; line-height: 1;
 }
 .vn-sidebar-close:hover { color: #fff; }
-.vn-sidebar-body { padding: 1.5rem; flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.vn-sidebar-body { padding: 1.25rem 1.25rem 2rem; flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 
 /* ─── Transport Form ─── */
 .vn-form-group { margin-bottom: 1rem; }
@@ -2041,9 +2041,7 @@ body {
               <div class="vt-hint"><a href="https://developers.google.com/chat/how-tos/webhooks" target="_blank" style="color:var(--gold);font-weight:600">How to create a webhook</a></div>
             </div>
             <div style="display:flex;flex-direction:column;gap:0.5rem;margin-top:0.5rem">
-              <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.82rem;cursor:pointer">
-                <input type="checkbox" id="vtChatOnNote" checked> Notify on new voice notes
-              </label>
+              <input type="hidden" id="vtChatOnNote" value="false">
               <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.82rem;cursor:pointer">
                 <input type="checkbox" id="vtChatOnTransport" checked> Notify on transport requests
               </label>
@@ -2179,6 +2177,10 @@ body {
                 <option value="">Category</option>
               </select>
               <button class="btn btn-gold" onclick="addQuickNote()" style="border-radius:10px;padding:0.4rem 1rem;font-size:0.78rem;white-space:nowrap">+ Add</button>
+              <button class="btn btn-outline" onclick="smartOrganize()" id="vnSmartOrganizeBtn" style="border-radius:10px;padding:0.4rem 0.75rem;font-size:0.72rem;white-space:nowrap" title="AI: reorganize and prioritize all notes">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:3px"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                Organize
+              </button>
             </div>
             <!-- Compact Stats -->
             <div style="display:flex;gap:0.75rem;align-items:center;font-size:0.75rem;color:var(--text-muted);flex-shrink:0">
@@ -2224,7 +2226,7 @@ body {
           </div>
 
           <!-- Date Strip (carousel view) -->
-          <div id="vnDateCarousel" style="display:flex;gap:0.5rem;overflow-x:auto;padding:0.25rem 0 0.5rem;margin-bottom:0.75rem;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:thin">
+          <div id="vnDateCarousel" style="display:flex;gap:0.5rem;overflow-x:auto;padding:0.25rem 0 0.75rem;margin-bottom:0.75rem;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:thin;cursor:grab">
           </div>
 
           <!-- Month Grid (hidden by default) -->
@@ -2426,11 +2428,9 @@ body {
                 <label style="font-family:'Montserrat',sans-serif;font-size:0.7rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em">Send to Chat when:</label>
               </div>
               <div style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:1rem">
+                <input type="hidden" id="trChatOnNote" value="false">
                 <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.82rem;cursor:pointer">
-                  <input type="checkbox" id="trChatOnNote" checked> New voice note is created
-                </label>
-                <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.82rem;cursor:pointer">
-                  <input type="checkbox" id="trChatOnTransport" checked> Transport request is submitted
+                  <input type="checkbox" id="trChatOnTransport" checked> Notify on transport requests
                 </label>
               </div>
               <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem">
@@ -5847,6 +5847,70 @@ async function loadVoiceNotes() {
   populateVnCategorySelectors();
 }
 
+async function smartOrganize() {
+  const activeNotes = vnNotes.filter(n => n.status !== 'completed' && n.status !== 'archived');
+  if (activeNotes.length === 0) { toast('No active notes to organize'); return; }
+
+  const btn = document.getElementById('vnSmartOrganizeBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="vt-format-spinner"></span> Organizing...';
+
+  const token = currentSession?.access_token || SUPABASE_ANON;
+  const catNames = vnCategories.map(c => '- ' + c.name + ' (id: ' + c.id + ')').join('\n');
+  const notesSummary = activeNotes.map(n => {
+    const cat = vnCategories.find(c => c.id === n.category_id);
+    return '{ id: "' + n.id + '", title: "' + (n.title || '').replace(/"/g, '') + '", transcript: "' + (n.transcript || '').substring(0, 100).replace(/"/g, '') + '", category: "' + (cat ? cat.name : 'Uncategorized') + '", priority: "' + (n.priority || 'normal') + '", due: "' + (n.due_date || 'none') + '" }';
+  }).join('\n');
+
+  try {
+    const res = await fetch('/api/voicetype/format', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: notesSummary,
+        system_prompt: 'You are a task organizer for a boarding school admin. Given these to-do notes, reorganize them by assigning the best category and priority.\n\nAvailable categories:\n' + catNames + '\n\nRespond ONLY with a JSON array (no markdown):\n[{"id":"note-id","category_id":"cat-id","priority":"low|normal|high|urgent"},...]\n\nRules:\n- Match notes to the most appropriate category based on content\n- Medical/health → Medical, transport → Transport, admin tasks → Admin, etc.\n- Set priority: urgent for time-sensitive/safety items, high for important, normal for routine, low for nice-to-have\n- Only include notes that should change (skip ones already correctly categorized and prioritized)'
+      })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const text = data.text || data.formatted || '';
+      const jsonMatch = text.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        const updates = JSON.parse(jsonMatch[0]);
+        let changed = 0;
+        const headers = { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+        for (const u of updates) {
+          const note = vnNotes.find(n => n.id === u.id);
+          if (!note) continue;
+          const patch = {};
+          if (u.category_id && u.category_id !== note.category_id) patch.category_id = u.category_id;
+          if (u.priority && u.priority !== note.priority) patch.priority = u.priority;
+          if (Object.keys(patch).length === 0) continue;
+          patch.updated_at = new Date().toISOString();
+          await fetch(SUPABASE_URL + '/rest/v1/voice_notes?id=eq.' + u.id, {
+            method: 'PATCH', headers, body: JSON.stringify(patch)
+          });
+          Object.assign(note, patch);
+          changed++;
+        }
+        renderVnTodos();
+        renderVnCategories();
+        toast(changed + ' note(s) reorganized by AI', true);
+      } else {
+        toast('AI returned unexpected format');
+      }
+    } else {
+      toast('Organize failed — check Anthropic API key in Settings');
+    }
+  } catch (e) {
+    toast('Organize error: ' + e.message);
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:3px"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg> Organize';
+}
+
 async function rolloverPastDueNotes() {
   const todayStr = toDateStr(new Date());
   const todayDate = todayStr + 'T09:00:00';
@@ -5980,7 +6044,6 @@ async function addQuickNote() {
     renderVnCategories();
     if (vnCurrentView === 'month') renderVnMonthGrid();
     else renderVnCarousel();
-    sendVoiceNoteToChat(newNote);
     input.value = '';
     document.getElementById('vnQuickCategory').value = '';
     toast('Note added', true);
@@ -6133,8 +6196,6 @@ async function createVoiceNote(transcript, durationSec) {
     vnNotes.unshift(newNote);
     updateVnStats();
     renderVnTodos();
-    // Send to Google Chat if configured
-    sendVoiceNoteToChat(newNote);
   }
 }
 
@@ -6365,11 +6426,28 @@ const VN_CAROUSEL_DAYS = 14; // show 14 days at a time
 function initVnCarousel() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  // Start 2 days before today so today is visible near the left
   vnCarouselStart = new Date(today);
   vnCarouselStart.setDate(vnCarouselStart.getDate() - 2);
   vnSelectedDate = toDateStr(today);
   renderVnCarousel();
+
+  // Enable mouse-drag scrolling on the carousel
+  const el = document.getElementById('vnDateCarousel');
+  let isDown = false, startX, scrollLeft;
+  el.addEventListener('mousedown', (e) => {
+    if (e.target.closest('.vn-date-square')) return; // don't hijack clicks
+    isDown = true; el.style.cursor = 'grabbing';
+    startX = e.pageX - el.offsetLeft;
+    scrollLeft = el.scrollLeft;
+  });
+  el.addEventListener('mouseleave', () => { isDown = false; el.style.cursor = 'grab'; });
+  el.addEventListener('mouseup', () => { isDown = false; el.style.cursor = 'grab'; });
+  el.addEventListener('mousemove', (e) => {
+    if (!isDown) return;
+    e.preventDefault();
+    const x = e.pageX - el.offsetLeft;
+    el.scrollLeft = scrollLeft - (x - startX);
+  });
 }
 
 function toDateStr(d) {
@@ -7407,8 +7485,9 @@ function addTransportToGoogleCalendar(tr) {
   const start = new Date(tr.date_time);
   const end = tr.return_time ? new Date(tr.return_time) : new Date(start.getTime() + 2 * 60 * 60 * 1000); // default 2hr
 
-  // Format dates for Google Calendar URL (YYYYMMDDTHHmmss)
-  const fmt = (d) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  // Format dates for Google Calendar URL (YYYYMMDDTHHmmss — local time, no Z)
+  const pad = (n) => String(n).padStart(2, '0');
+  const fmt = (d) => d.getFullYear() + pad(d.getMonth()+1) + pad(d.getDate()) + 'T' + pad(d.getHours()) + pad(d.getMinutes()) + '00';
   const dates = fmt(start) + '/' + fmt(end);
 
   const title = encodeURIComponent('Transport: ' + tr.student_name + ' — ' + (tr.appointment_type || 'Appointment'));
