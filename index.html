@@ -2374,6 +2374,7 @@ body {
                 </div>
               </div>
               <div style="display:flex;gap:0.5rem;justify-content:flex-end">
+                <button class="btn btn-danger-ghost btn-sm" onclick="clearAllSettings()" style="margin-right:auto">Clear All Settings</button>
                 <button class="btn btn-outline btn-sm" onclick="testOrahConnection()">Test Orah</button>
                 <button class="btn btn-gold btn-sm" onclick="showSettingsEditMode()">Edit Settings</button>
               </div>
@@ -6641,6 +6642,34 @@ function renderSettingsSavedCard() {
 function showSettingsEditMode() {
   document.getElementById('vnSettingsSaved').style.display = 'none';
   document.getElementById('vnSettingsEdit').style.display = 'block';
+}
+
+async function clearAllSettings() {
+  if (!confirm('Clear all settings? This will remove your Orah API key, transport email, Google Chat webhook, and Google Sheets ID. This cannot be undone.')) return;
+  if (!vnOrahSettings || !vnOrahSettings.id) { toast('No settings to clear'); return; }
+
+  const token = currentSession?.access_token || SUPABASE_ANON;
+  await fetch(SUPABASE_URL + '/rest/v1/orah_settings?id=eq.' + vnOrahSettings.id, {
+    method: 'DELETE',
+    headers: { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + token }
+  });
+
+  vnOrahSettings = null;
+
+  // Clear form fields
+  ['orahApiKey', 'orahSchoolId', 'trTransportEmail', 'trGoogleSheetsId', 'trGoogleChatWebhook'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  document.getElementById('orahRegion').value = 'https://open-api-ireland.orah.com/open-api';
+  document.getElementById('trChatOnNote').checked = true;
+  document.getElementById('trChatOnTransport').checked = true;
+
+  updateVnOrahBadge();
+  // Show edit form (since there are no saved settings now)
+  document.getElementById('vnSettingsSaved').style.display = 'none';
+  document.getElementById('vnSettingsEdit').style.display = 'block';
+  toast('All settings cleared', true);
 }
 
 function cancelSettingsEdit() {
