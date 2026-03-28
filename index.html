@@ -7475,8 +7475,9 @@ function addTransportToGoogleCalendar(tr) {
   const start = new Date(tr.date_time);
   const end = tr.return_time ? new Date(tr.return_time) : new Date(start.getTime() + 2 * 60 * 60 * 1000); // default 2hr
 
-  // Format dates for Google Calendar URL (YYYYMMDDTHHmmss)
-  const fmt = (d) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  // Format dates for Google Calendar URL (YYYYMMDDTHHmmss — local time, no Z)
+  const pad = (n) => String(n).padStart(2, '0');
+  const fmt = (d) => d.getFullYear() + pad(d.getMonth()+1) + pad(d.getDate()) + 'T' + pad(d.getHours()) + pad(d.getMinutes()) + '00';
   const dates = fmt(start) + '/' + fmt(end);
 
   const title = encodeURIComponent('Transport: ' + tr.student_name + ' — ' + (tr.appointment_type || 'Appointment'));
