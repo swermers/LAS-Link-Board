@@ -11,6 +11,7 @@
     { "source": "/api/voicetype/skills", "destination": "/api/voicetype/skills" },
     { "source": "/api/voicenotes/orah-proxy", "destination": "/api/voicenotes/orah-proxy" },
     { "source": "/api/voicenotes/send-transport", "destination": "/api/voicenotes/send-transport" },
+    { "source": "/api/voicenotes/google-chat", "destination": "/api/voicenotes/google-chat" },
     { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]

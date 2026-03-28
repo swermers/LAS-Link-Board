@@ -2327,6 +2327,23 @@ body {
               <input type="text" id="trGoogleSheetsId" placeholder="Spreadsheet ID from URL">
               <div class="vn-form-hint">Alternatively log requests to a shared Google Sheet</div>
             </div>
+            <hr style="border:none;border-top:1px solid var(--border);margin:1.25rem 0">
+            <div class="vn-form-group">
+              <label>Google Chat Webhook URL</label>
+              <input type="text" id="trGoogleChatWebhook" placeholder="https://chat.googleapis.com/v1/spaces/...">
+              <div class="vn-form-hint">Voice notes and transport requests will be posted to this Chat space. <a href="https://developers.google.com/chat/how-tos/webhooks" target="_blank" style="color:var(--gold);font-weight:600">How to create a webhook</a></div>
+            </div>
+            <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.75rem">
+              <label style="font-family:'Montserrat',sans-serif;font-size:0.7rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.06em">Send to Chat when:</label>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:1rem">
+              <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.82rem;cursor:pointer">
+                <input type="checkbox" id="trChatOnNote" checked> New voice note is created
+              </label>
+              <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.82rem;cursor:pointer">
+                <input type="checkbox" id="trChatOnTransport" checked> Transport request is submitted
+              </label>
+            </div>
             <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1rem">
               <button class="btn btn-outline btn-sm" onclick="testOrahConnection()">Test Orah Connection</button>
               <button class="btn btn-gold" onclick="saveOrahSettings()">Save Settings</button>
@@ -5867,9 +5884,12 @@ async function createVoiceNote(transcript, durationSec) {
   });
   if (res.ok) {
     const created = await res.json();
-    vnNotes.unshift(created[0] || created);
+    const newNote = created[0] || created;
+    vnNotes.unshift(newNote);
     updateVnStats();
     renderVnTodos();
+    // Send to Google Chat if configured
+    sendVoiceNoteToChat(newNote);
   }
 }
 
@@ -6363,6 +6383,9 @@ function loadOrahSettingsForm() {
     document.getElementById('orahSchoolId').value = vnOrahSettings.school_id || '';
     document.getElementById('trTransportEmail').value = vnOrahSettings.transport_email || '';
     document.getElementById('trGoogleSheetsId').value = vnOrahSettings.google_sheets_id || '';
+    document.getElementById('trGoogleChatWebhook').value = vnOrahSettings.google_chat_webhook || '';
+    document.getElementById('trChatOnNote').checked = vnOrahSettings.chat_on_note !== false;
+    document.getElementById('trChatOnTransport').checked = vnOrahSettings.chat_on_transport !== false;
   }
 }
 
@@ -6377,6 +6400,9 @@ async function saveOrahSettings() {
     school_id: document.getElementById('orahSchoolId').value.trim(),
     transport_email: document.getElementById('trTransportEmail').value.trim(),
     google_sheets_id: document.getElementById('trGoogleSheetsId').value.trim(),
+    google_chat_webhook: document.getElementById('trGoogleChatWebhook').value.trim(),
+    chat_on_note: document.getElementById('trChatOnNote').checked,
+    chat_on_transport: document.getElementById('trChatOnTransport').checked,
     updated_at: new Date().toISOString()
   };
 
@@ -6598,6 +6624,8 @@ async function submitOrSaveTransport(status) {
       addTransportToGoogleCalendar(record);
       // Create Orah Pass (if connected and student has Orah ID)
       await createOrahPass(record);
+      // Send to Google Chat if configured
+      sendTransportToChat(record);
       toast('Transport request submitted!', true);
     } else {
       toast('Draft saved', true);
@@ -6892,6 +6920,95 @@ function buildOrahPassReason(tr) {
   let reason = type + ' at ' + (tr.destination || 'off-campus');
   if (tr.appointment_details) reason += ' — ' + tr.appointment_details.substring(0, 200);
   return reason;
+}
+
+// ─── Google Chat Integration ───
+async function sendToGoogleChat(cardPayload) {
+  if (!vnOrahSettings || !vnOrahSettings.google_chat_webhook) return;
+  try {
+    await fetch('/api/voicenotes/google-chat', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + (currentSession?.access_token || SUPABASE_ANON),
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        webhook_url: vnOrahSettings.google_chat_webhook,
+        message: cardPayload
+      })
+    });
+  } catch (e) {
+    console.warn('Google Chat send failed:', e.message);
+  }
+}
+
+function sendVoiceNoteToChat(note) {
+  if (!vnOrahSettings || !vnOrahSettings.chat_on_note) return;
+  const cat = vnCategories.find(c => c.id === note.category_id);
+  const card = {
+    cardsV2: [{
+      cardId: 'voiceNote_' + note.id,
+      card: {
+        header: {
+          title: '🎙️ New Voice Note',
+          subtitle: note.title || 'Untitled',
+          imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/mic/default/48px.svg',
+          imageType: 'CIRCLE'
+        },
+        sections: [{
+          widgets: [
+            { decoratedText: { topLabel: 'Transcript', text: note.transcript.substring(0, 500) } },
+            { decoratedText: { topLabel: 'Category', text: cat ? cat.name : 'Uncategorized' } },
+            ...(note.tagged_student ? [{ decoratedText: { topLabel: 'Student', text: note.tagged_student } }] : []),
+            { decoratedText: { topLabel: 'Priority', text: (note.priority || 'normal').charAt(0).toUpperCase() + (note.priority || 'normal').slice(1) } },
+            { decoratedText: { topLabel: 'Created', text: new Date(note.created_at || Date.now()).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) } }
+          ]
+        }]
+      }
+    }]
+  };
+  sendToGoogleChat(card);
+}
+
+function sendTransportToChat(tr) {
+  if (!vnOrahSettings || !vnOrahSettings.chat_on_transport) return;
+  const dateStr = tr.date_time
+    ? new Date(tr.date_time).toLocaleString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
+    : 'TBD';
+  const card = {
+    cardsV2: [{
+      cardId: 'transport_' + tr.id,
+      card: {
+        header: {
+          title: '🚗 Transport Request',
+          subtitle: tr.student_name + ' — ' + (tr.appointment_type || 'Appointment'),
+          imageUrl: 'https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/directions_car/default/48px.svg',
+          imageType: 'CIRCLE'
+        },
+        sections: [{
+          header: 'Student',
+          widgets: [
+            { decoratedText: { topLabel: 'Name', text: tr.student_name } },
+            ...(tr.student_house ? [{ decoratedText: { topLabel: 'House', text: tr.student_house } }] : []),
+            ...(tr.student_year ? [{ decoratedText: { topLabel: 'Year', text: tr.student_year } }] : [])
+          ]
+        }, {
+          header: 'Details',
+          widgets: [
+            { decoratedText: { topLabel: 'Type', text: (tr.appointment_type || 'Other').charAt(0).toUpperCase() + (tr.appointment_type || 'other').slice(1) } },
+            { decoratedText: { topLabel: 'Destination', text: tr.destination || 'N/A' } },
+            { decoratedText: { topLabel: 'Pickup', text: tr.pickup_location || 'School Reception' } },
+            { decoratedText: { topLabel: 'Date & Time', text: dateStr } },
+            ...(tr.return_time ? [{ decoratedText: { topLabel: 'Return', text: new Date(tr.return_time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) } }] : [])
+          ]
+        },
+        ...(tr.appointment_details ? [{ widgets: [{ decoratedText: { topLabel: 'Appointment Details', text: tr.appointment_details.substring(0, 300) } }] }] : []),
+        ...(tr.special_instructions ? [{ widgets: [{ decoratedText: { topLabel: 'Special Instructions', text: tr.special_instructions.substring(0, 200) } }] }] : [])
+        ]
+      }
+    }]
+  };
+  sendToGoogleChat(card);
 }
 
 // Register service worker for PWA
