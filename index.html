@@ -1326,7 +1326,7 @@ body {
 .vn-sidebar-toggle.active { background: var(--gold); }
 
 .vn-sidebar {
-  position: fixed; right: -420px; top: 0; width: 420px; height: 100vh;
+  position: fixed; right: -420px; top: 0; width: 420px; height: 100dvh; height: 100vh;
   background: var(--surface); border-left: 2px solid var(--border);
   box-shadow: -4px 0 20px rgba(11,37,69,0.08);
   z-index: 99; transition: right 0.3s ease;
@@ -1335,7 +1335,7 @@ body {
 }
 .vn-sidebar.open { right: 0; }
 .vn-sidebar-header {
-  background: var(--navy); color: #fff; padding: 1.25rem 1.5rem;
+  background: var(--navy); color: #fff; padding: 1rem 1.25rem;
   display: flex; align-items: center; justify-content: space-between;
   flex-shrink: 0;
   position: sticky; top: 0; z-index: 1;
@@ -1346,7 +1346,7 @@ body {
   font-size: 1.25rem; padding: 4px; line-height: 1;
 }
 .vn-sidebar-close:hover { color: #fff; }
-.vn-sidebar-body { padding: 1.5rem; flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.vn-sidebar-body { padding: 1.25rem 1.25rem 2rem; flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 
 /* ─── Transport Form ─── */
 .vn-form-group { margin-bottom: 1rem; }
@@ -2179,6 +2179,10 @@ body {
                 <option value="">Category</option>
               </select>
               <button class="btn btn-gold" onclick="addQuickNote()" style="border-radius:10px;padding:0.4rem 1rem;font-size:0.78rem;white-space:nowrap">+ Add</button>
+              <button class="btn btn-outline" onclick="smartOrganize()" id="vnSmartOrganizeBtn" style="border-radius:10px;padding:0.4rem 0.75rem;font-size:0.72rem;white-space:nowrap" title="AI: reorganize and prioritize all notes">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:3px"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                Organize
+              </button>
             </div>
             <!-- Compact Stats -->
             <div style="display:flex;gap:0.75rem;align-items:center;font-size:0.75rem;color:var(--text-muted);flex-shrink:0">
@@ -5845,6 +5849,70 @@ async function loadVoiceNotes() {
   updateVnOrahBadge();
   loadTransportHistory();
   populateVnCategorySelectors();
+}
+
+async function smartOrganize() {
+  const activeNotes = vnNotes.filter(n => n.status !== 'completed' && n.status !== 'archived');
+  if (activeNotes.length === 0) { toast('No active notes to organize'); return; }
+
+  const btn = document.getElementById('vnSmartOrganizeBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="vt-format-spinner"></span> Organizing...';
+
+  const token = currentSession?.access_token || SUPABASE_ANON;
+  const catNames = vnCategories.map(c => '- ' + c.name + ' (id: ' + c.id + ')').join('\n');
+  const notesSummary = activeNotes.map(n => {
+    const cat = vnCategories.find(c => c.id === n.category_id);
+    return '{ id: "' + n.id + '", title: "' + (n.title || '').replace(/"/g, '') + '", transcript: "' + (n.transcript || '').substring(0, 100).replace(/"/g, '') + '", category: "' + (cat ? cat.name : 'Uncategorized') + '", priority: "' + (n.priority || 'normal') + '", due: "' + (n.due_date || 'none') + '" }';
+  }).join('\n');
+
+  try {
+    const res = await fetch('/api/voicetype/format', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: notesSummary,
+        system_prompt: 'You are a task organizer for a boarding school admin. Given these to-do notes, reorganize them by assigning the best category and priority.\n\nAvailable categories:\n' + catNames + '\n\nRespond ONLY with a JSON array (no markdown):\n[{"id":"note-id","category_id":"cat-id","priority":"low|normal|high|urgent"},...]\n\nRules:\n- Match notes to the most appropriate category based on content\n- Medical/health → Medical, transport → Transport, admin tasks → Admin, etc.\n- Set priority: urgent for time-sensitive/safety items, high for important, normal for routine, low for nice-to-have\n- Only include notes that should change (skip ones already correctly categorized and prioritized)'
+      })
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const text = data.text || data.formatted || '';
+      const jsonMatch = text.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        const updates = JSON.parse(jsonMatch[0]);
+        let changed = 0;
+        const headers = { 'apikey': SUPABASE_ANON, 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+        for (const u of updates) {
+          const note = vnNotes.find(n => n.id === u.id);
+          if (!note) continue;
+          const patch = {};
+          if (u.category_id && u.category_id !== note.category_id) patch.category_id = u.category_id;
+          if (u.priority && u.priority !== note.priority) patch.priority = u.priority;
+          if (Object.keys(patch).length === 0) continue;
+          patch.updated_at = new Date().toISOString();
+          await fetch(SUPABASE_URL + '/rest/v1/voice_notes?id=eq.' + u.id, {
+            method: 'PATCH', headers, body: JSON.stringify(patch)
+          });
+          Object.assign(note, patch);
+          changed++;
+        }
+        renderVnTodos();
+        renderVnCategories();
+        toast(changed + ' note(s) reorganized by AI', true);
+      } else {
+        toast('AI returned unexpected format');
+      }
+    } else {
+      toast('Organize failed — check Anthropic API key in Settings');
+    }
+  } catch (e) {
+    toast('Organize error: ' + e.message);
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:3px"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg> Organize';
 }
 
 async function rolloverPastDueNotes() {
