@@ -12,6 +12,7 @@
     { "source": "/api/voicenotes/orah-proxy", "destination": "/api/voicenotes/orah-proxy" },
     { "source": "/api/voicenotes/send-transport", "destination": "/api/voicenotes/send-transport" },
     { "source": "/api/voicenotes/google-chat", "destination": "/api/voicenotes/google-chat" },
+    { "source": "/api/voicenotes/chat-bot", "destination": "/api/voicenotes/chat-bot" },
     { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
