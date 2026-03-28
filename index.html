@@ -1594,14 +1594,14 @@ body {
       </div>
     </div>
     <div class="tab-bar">
-      <button class="tab active" id="tabLinks" onclick="switchTab('links')">Links</button>
+      <button class="tab active" id="tabVoicenotes" onclick="switchTab('voicenotes')">To-Do</button>
+      <button class="tab" id="tabLinks" onclick="switchTab('links')">Links</button>
       <!-- Email tracker hidden — feature disabled -->
       <button class="tab" id="tabCampaigns" onclick="switchTab('campaigns')" style="display:none">Campaigns</button>
       <button class="tab" id="tabAnalytics" onclick="switchTab('analytics')">Analytics</button>
-      <button class="tab" id="tabVoicetype" onclick="switchTab('voicetype')">VoiceType</button>
-      <button class="tab" id="tabVoicenotes" onclick="switchTab('voicenotes')">Voice Notes</button>
+      <button class="tab" id="tabVoicetype" onclick="switchTab('voicetype')">Settings</button>
     </div>
-    <div class="main" id="linksSection">
+    <div class="main" id="linksSection" style="display:none">
       <div class="stats">
         <div class="stat"><div class="stat-label">QR Codes</div><div class="stat-val" id="sTotal">0</div></div>
         <div class="stat"><div class="stat-label">Total Scans</div><div class="stat-val" id="sScans">0</div></div>
@@ -2158,7 +2158,7 @@ body {
     </div>
 
     <!-- ═══ VOICE NOTES SECTION ═══ -->
-    <div id="voicenotesSection" style="display:none">
+    <div id="voicenotesSection">
       <div class="vn-layout">
         <div class="vn-main" id="vnMain">
 
@@ -2956,8 +2956,9 @@ async function enter(user) {
   document.getElementById('dash').style.display = 'block';
   const name = user.user_metadata?.full_name || user.email.split('@')[0];
   document.getElementById('userName').textContent = name;
-  await loadLinks();
-  render();
+  // Load links in background, show To-Do first
+  loadLinks().then(() => render());
+  loadVoiceNotes();
 }
 
 // ─── Data ───
