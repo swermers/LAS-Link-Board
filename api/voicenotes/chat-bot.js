@@ -19,11 +19,18 @@ const SUPABASE_URL = process.env.SUPABASE_URL || 'https://pmhoeqxuamvqlwsatozu.s
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 module.exports = async (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  // Wrap everything in try/catch — Google Chat shows "not responding" if we crash
+  try {
+    res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  if (!SERVICE_KEY) {
+    console.error('SUPABASE_SERVICE_ROLE_KEY not set in Vercel environment');
+    return res.status(200).json({ text: 'Bot configuration error: SUPABASE_SERVICE_ROLE_KEY not set. Add it in Vercel Settings → Environment Variables.' });
+  }
 
   const event = req.body || {};
   const eventType = event.type;
@@ -94,7 +101,13 @@ module.exports = async (req, res) => {
     return res.json({ text: 'Action received.' });
   }
 
-  return res.status(200).end();
+  return res.status(200).json({ text: 'Message received.' });
+
+  } catch (err) {
+    // Always return a valid response so Google Chat doesn't show "not responding"
+    console.error('Chat bot error:', err);
+    return res.status(200).json({ text: 'Something went wrong. Error: ' + (err.message || 'Unknown error') });
+  }
 };
 
 // ─── Transport Query Handler ───
