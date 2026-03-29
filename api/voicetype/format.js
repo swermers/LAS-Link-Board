@@ -227,6 +227,26 @@ module.exports = async (req, res) => {
       // Non-critical — don't fail the request
     }
 
+    // ── Save training pair for future fine-tuning ──
+    try {
+      await fetch(SUPABASE_URL + '/rest/v1/lb_training_pairs', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          user_id: user.id,
+          raw_transcript: text,
+          final_output: formatted,
+          output_type: skill.category || 'client_note',
+          metadata: {
+            skill_id: skill.id,
+            skill_name: skill.name
+          }
+        })
+      });
+    } catch (e) {
+      // Non-critical — don't fail the request
+    }
+
     return res.json({
       text: formatted || text,
       skill_name: skill.name,
